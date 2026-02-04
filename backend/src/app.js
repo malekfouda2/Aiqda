@@ -18,8 +18,21 @@ dotenv.config();
 const app = express();
 
 app.use(helmet());
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5000',
+  'https://a2f9d045-a532-4991-b5f1-5e7645823ac8-00-rx0jwqf0xpdj.worf.replit.dev'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')))) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
