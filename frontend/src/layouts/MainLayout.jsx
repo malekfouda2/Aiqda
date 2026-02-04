@@ -1,0 +1,17 @@
+import { Outlet } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import Notification from '../components/Notification';
+
+function MainLayout() {
+  return (
+    <div className="min-h-screen bg-dark-950">
+      <Navbar />
+      <Notification />
+      <main className="pt-16">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+export default MainLayout;
