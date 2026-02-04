@@ -34,29 +34,47 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+      <div className="absolute inset-0 mesh-gradient" />
+      
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="floating-orb w-[400px] h-[400px] bg-indigo-500/15 top-[-100px] left-[-100px] animate-float" />
+        <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-50px] right-[-50px] animate-float-slow" />
+        <div className="floating-orb w-[200px] h-[200px] bg-cyan-500/10 top-1/2 right-1/4 animate-glow-pulse" />
+      </div>
+
+      <div className="absolute inset-0" style={{
+        backgroundImage: `radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }} />
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-md"
       >
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-xl flex items-center justify-center">
+        <div className="text-center mb-10">
+          <Link to="/" className="inline-flex items-center gap-3 mb-8 group">
+            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-shadow duration-300">
               <span className="text-white font-bold text-xl">A</span>
             </div>
             <span className="text-2xl font-bold gradient-text">Aiqda</span>
           </Link>
-          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-dark-400">Join Aiqda and start learning today</p>
+          <h1 className="text-4xl font-bold text-white mb-3">Create Account</h1>
+          <p className="text-dark-400 text-lg">Join Aiqda and start learning today</p>
         </div>
 
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-5">
             {(error || localError) && (
-              <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg text-sm">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm backdrop-blur-sm"
+              >
                 {error || localError}
-              </div>
+              </motion.div>
             )}
 
             <div>
@@ -88,30 +106,32 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
+              <label className="block text-sm font-medium text-dark-300 mb-3">
                 I want to
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setRole('student')}
-                  className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                  className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
                     role === 'student'
-                      ? 'bg-primary-600/20 border-primary-500 text-primary-300'
-                      : 'bg-dark-800 border-dark-700 text-dark-300 hover:border-dark-500'
+                      ? 'bg-primary-500/20 border-2 border-primary-500/50 text-primary-400'
+                      : 'bg-dark-800/50 border-2 border-dark-700/50 text-dark-400 hover:border-dark-600'
                   }`}
                 >
+                  <span className="text-2xl block mb-1">📚</span>
                   Learn
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole('instructor')}
-                  className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                  className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
                     role === 'instructor'
-                      ? 'bg-primary-600/20 border-primary-500 text-primary-300'
-                      : 'bg-dark-800 border-dark-700 text-dark-300 hover:border-dark-500'
+                      ? 'bg-primary-500/20 border-2 border-primary-500/50 text-primary-400'
+                      : 'bg-dark-800/50 border-2 border-dark-700/50 text-dark-400 hover:border-dark-600'
                   }`}
                 >
+                  <span className="text-2xl block mb-1">🎓</span>
                   Teach
                 </button>
               </div>
@@ -148,16 +168,26 @@ function Register() {
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full py-3"
+              className="btn-primary w-full py-4 text-base"
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Creating account...
+                </span>
+              ) : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="divider my-8" />
+
+          <div className="text-center">
             <p className="text-dark-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary-400 hover:text-primary-300">
+              <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
                 Sign in
               </Link>
             </p>

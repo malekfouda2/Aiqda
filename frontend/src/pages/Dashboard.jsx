@@ -42,184 +42,253 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-12 relative overflow-hidden">
+      <div className="absolute inset-0 mesh-gradient opacity-50" />
+      
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="floating-orb w-[500px] h-[500px] bg-primary-500/10 top-[-200px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-indigo-500/10 bottom-[-100px] left-[-50px] animate-float" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Welcome back, {user?.name}!
+          <div className="mb-10">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
+            >
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-xs text-dark-400">Student Dashboard</span>
+            </motion.div>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Welcome back, <span className="gradient-text">{user?.name}</span>
             </h1>
-            <p className="text-dark-400">Continue your learning journey</p>
+            <p className="text-dark-400 text-lg">Continue your learning journey</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6 mb-10">
-            <div className="card">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="stat-card group"
+            >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary-900/50 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">📚</span>
+                <div className="icon-box icon-box-primary transition-transform duration-300 group-hover:scale-110">
+                  <span>📚</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{enrolledCourses.length}</p>
+                  <p className="text-3xl font-bold text-white">{enrolledCourses.length}</p>
                   <p className="text-dark-400 text-sm">Enrolled Courses</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="card">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="stat-card group"
+            >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-900/50 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">✅</span>
+                <div className="icon-box icon-box-success transition-transform duration-300 group-hover:scale-110">
+                  <span>✅</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{progress?.stats?.completedCourses || 0}</p>
+                  <p className="text-3xl font-bold text-white">{progress?.stats?.completedCourses || 0}</p>
                   <p className="text-dark-400 text-sm">Completed Courses</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="card">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="stat-card group"
+            >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-900/50 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🎯</span>
+                <div className="icon-box icon-box-accent transition-transform duration-300 group-hover:scale-110">
+                  <span>🎯</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{progress?.stats?.totalLessonsCompleted || 0}</p>
+                  <p className="text-3xl font-bold text-white">{progress?.stats?.totalLessonsCompleted || 0}</p>
                   <p className="text-dark-400 text-sm">Lessons Completed</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <div className="card">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="card"
+              >
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-white">My Courses</h2>
-                  <Link to="/courses" className="text-primary-400 hover:text-primary-300 text-sm">
-                    Browse More
+                  <Link to="/courses" className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors">
+                    Browse More →
                   </Link>
                 </div>
 
                 {enrolledCourses.length === 0 ? (
-                  <div className="text-center py-10">
-                    <div className="text-5xl mb-4">📖</div>
-                    <p className="text-dark-400 mb-4">You haven't enrolled in any courses yet</p>
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center">
+                      <span className="text-4xl">📖</span>
+                    </div>
+                    <p className="text-dark-400 mb-6">You haven't enrolled in any courses yet</p>
                     <Link to="/courses" className="btn-primary">
                       Explore Courses
                     </Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {enrolledCourses.slice(0, 4).map((course) => {
+                    {enrolledCourses.slice(0, 4).map((course, index) => {
                       const courseProgress = progress?.courseProgress?.find(
                         cp => cp.course?._id === course._id
                       );
                       return (
-                        <Link
+                        <motion.div
                           key={course._id}
-                          to={`/courses/${course._id}`}
-                          className="flex items-center gap-4 p-4 bg-dark-800/50 rounded-xl hover:bg-dark-800 transition-colors"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.5 + index * 0.1 }}
                         >
-                          <div className="w-16 h-16 bg-gradient-to-br from-primary-900/50 to-indigo-900/50 rounded-lg flex items-center justify-center">
-                            <span className="text-2xl">🎓</span>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium text-white">{course.title}</h3>
-                            <p className="text-sm text-dark-400">
-                              {course.instructor?.name}
-                            </p>
-                            <div className="mt-2 h-1.5 bg-dark-700 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-primary-500 to-indigo-500 rounded-full"
-                                style={{ width: `${courseProgress?.progressPercentage || 0}%` }}
-                              />
+                          <Link
+                            to={`/courses/${course._id}`}
+                            className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
+                          >
+                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center border border-primary-500/10 group-hover:scale-105 transition-transform duration-300">
+                              <span className="text-2xl">🎓</span>
                             </div>
-                          </div>
-                          <span className="text-dark-400 text-sm">
-                            {Math.round(courseProgress?.progressPercentage || 0)}%
-                          </span>
-                        </Link>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors truncate">
+                                {course.title}
+                              </h3>
+                              <p className="text-sm text-dark-500">
+                                {course.instructor?.name}
+                              </p>
+                              <div className="mt-2 progress-bar">
+                                <div
+                                  className="progress-bar-fill"
+                                  style={{ width: `${courseProgress?.progressPercentage || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-2xl font-bold text-white">
+                                {Math.round(courseProgress?.progressPercentage || 0)}%
+                              </span>
+                            </div>
+                          </Link>
+                        </motion.div>
                       );
                     })}
                   </div>
                 )}
-              </div>
+              </motion.div>
 
               {progress?.recentActivity?.length > 0 && (
-                <div className="card">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="card"
+                >
                   <h2 className="text-xl font-semibold text-white mb-6">Recent Activity</h2>
                   <div className="space-y-3">
-                    {progress.recentActivity.slice(0, 5).map((activity) => (
-                      <div key={activity._id} className="flex items-center gap-4 text-sm">
-                        <div className={`w-2 h-2 rounded-full ${activity.isQualified ? 'bg-green-500' : 'bg-primary-500'}`} />
-                        <span className="text-dark-300">{activity.lesson?.title}</span>
-                        <span className="text-dark-500 ml-auto">
+                    {progress.recentActivity.slice(0, 5).map((activity, index) => (
+                      <motion.div
+                        key={activity._id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + index * 0.05 }}
+                        className="flex items-center gap-4 text-sm p-3 rounded-lg bg-dark-800/20 hover:bg-dark-800/40 transition-colors"
+                      >
+                        <div className={`w-3 h-3 rounded-full ${activity.isQualified ? 'bg-emerald-400' : 'bg-primary-400'} shadow-lg ${activity.isQualified ? 'shadow-emerald-400/30' : 'shadow-primary-400/30'}`} />
+                        <span className="text-dark-300 flex-1">{activity.lesson?.title}</span>
+                        <span className="text-dark-500 font-medium">
                           {activity.watchPercentage}% watched
                         </span>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               )}
             </div>
 
             <div className="space-y-6">
-              <div className="card">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="card"
+              >
                 <h2 className="text-lg font-semibold text-white mb-4">Subscription</h2>
                 {subscription ? (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      <span className="text-green-400 font-medium">Active</span>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/30 animate-pulse" />
+                      <span className="text-emerald-400 font-medium">Active</span>
                     </div>
-                    <p className="text-dark-300 text-sm mb-2">
-                      {subscription.package?.name}
-                    </p>
-                    <p className="text-dark-500 text-xs">
-                      Expires: {new Date(subscription.endDate).toLocaleDateString()}
-                    </p>
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 mb-4">
+                      <p className="text-white font-medium mb-1">
+                        {subscription.package?.name}
+                      </p>
+                      <p className="text-dark-400 text-sm">
+                        Expires: {new Date(subscription.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div>
-                    <p className="text-dark-400 text-sm mb-4">
-                      No active subscription
-                    </p>
-                    <Link to="/dashboard/subscription" className="btn-primary w-full text-sm">
+                    <div className="p-4 rounded-xl bg-dark-800/50 border border-dark-700/30 mb-4">
+                      <p className="text-dark-400 text-sm mb-1">No active subscription</p>
+                      <p className="text-dark-500 text-xs">Get access to premium content</p>
+                    </div>
+                    <Link to="/dashboard/subscription" className="btn-primary w-full text-sm justify-center">
                       Get Subscription
                     </Link>
                   </div>
                 )}
-              </div>
+              </motion.div>
 
-              <div className="card">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="card"
+              >
                 <h2 className="text-lg font-semibold text-white mb-4">Quick Links</h2>
                 <div className="space-y-2">
-                  <Link
-                    to="/dashboard/subscription"
-                    className="flex items-center gap-3 p-3 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors"
-                  >
-                    <span>💳</span>
-                    <span className="text-dark-300">Subscription</span>
-                  </Link>
-                  <Link
-                    to="/dashboard/payments"
-                    className="flex items-center gap-3 p-3 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors"
-                  >
-                    <span>📝</span>
-                    <span className="text-dark-300">Payment History</span>
-                  </Link>
-                  <Link
-                    to="/courses"
-                    className="flex items-center gap-3 p-3 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors"
-                  >
-                    <span>🔍</span>
-                    <span className="text-dark-300">Browse Courses</span>
-                  </Link>
+                  {quickLinks.map((link, index) => (
+                    <motion.div
+                      key={link.to}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7 + index * 0.05 }}
+                    >
+                      <Link
+                        to={link.to}
+                        className="flex items-center gap-3 p-3.5 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
+                      >
+                        <span className="text-xl group-hover:scale-110 transition-transform">{link.icon}</span>
+                        <span className="text-dark-300 group-hover:text-white transition-colors">{link.label}</span>
+                        <span className="ml-auto text-dark-600 group-hover:text-primary-400 transition-colors">→</span>
+                      </Link>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
+              </motion.div>
             </div>
           </div>
         </motion.div>
@@ -227,5 +296,11 @@ function Dashboard() {
     </div>
   );
 }
+
+const quickLinks = [
+  { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
+  { to: '/dashboard/payments', icon: '📝', label: 'Payment History' },
+  { to: '/courses', icon: '🔍', label: 'Browse Courses' }
+];
 
 export default Dashboard;
