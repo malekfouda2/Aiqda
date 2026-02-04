@@ -1,0 +1,184 @@
+Build a full-stack MERN web application named "Aiqda".
+
+This is a long-term, scalable education platform (not a simple website).
+The goal is to create a clean, modular MVP architecture that can evolve without rewriting.
+
+TECH STACK:
+- Backend: Node.js, Express.js
+- Database: MongoDB with Mongoose
+- Frontend: React (Vite)
+- State management: Zustand
+- Styling: Tailwind CSS
+- Animations: Framer Motion
+- Auth: JWT-based authentication
+- Video hosting: Vimeo (API integration, admin-only uploads)
+- Payments: Manual bank payment flow (no payment gateway)
+- Deployment target: VPS (Ubuntu + Nginx later)
+
+--------------------------------------------------
+CORE REQUIREMENTS
+--------------------------------------------------
+
+1. USER ROLES
+- student
+- instructor
+- admin
+
+Role-based access control must be enforced at API level.
+
+--------------------------------------------------
+2. AUTHENTICATION
+--------------------------------------------------
+- Email/password authentication
+- Secure password hashing
+- JWT tokens
+- Role stored in token
+- Middleware for protected routes
+- Admin-only routes enforced
+
+--------------------------------------------------
+3. SUBSCRIPTION SYSTEM
+--------------------------------------------------
+- Subscription packages
+- Student requests subscription
+- Subscription starts as "pending"
+- Subscription is activated ONLY after admin approval
+- Subscription has start and end dates
+- Access to content is blocked if subscription is inactive or expired
+
+--------------------------------------------------
+4. PAYMENTS (MANUAL BANK FLOW)
+--------------------------------------------------
+- Students receive a bank payment link (Bank Albilad – KSA)
+- Student submits:
+  - payment reference
+  - amount
+  - optional proof file upload
+- Payment status: submitted → approved / rejected
+- Admin reviews and approves payments
+- Payment approval triggers subscription activation
+- Payment logic must be separated from subscription logic
+
+--------------------------------------------------
+5. COURSES & LEARNING
+--------------------------------------------------
+- Courses belong to instructors
+- Courses contain lessons
+- Lessons are video-based
+- Lessons include:
+  - Vimeo video ID
+  - minimum watch percentage
+  - downloadable supporting file
+- ONLY ADMINS can upload videos to Vimeo
+- Instructors CANNOT upload videos
+
+--------------------------------------------------
+6. VIDEO INTEGRATION (VIMEO)
+--------------------------------------------------
+- Integrate Vimeo API
+- Admin dashboard:
+  - upload video to Vimeo
+  - store Vimeo video ID
+- Students:
+  - never see raw Vimeo URLs
+  - receive secure playback tokens
+- No direct downloads
+- Adaptive streaming enabled
+
+--------------------------------------------------
+7. QUIZZES & VALIDATION
+--------------------------------------------------
+- Each lesson has exactly 3 quiz questions
+- Multiple choice
+- Lesson is considered "qualified" only if:
+  - watch percentage >= minimum threshold
+  - quiz is passed
+- Track lesson progress per student
+
+--------------------------------------------------
+8. ANALYTICS
+--------------------------------------------------
+- Track:
+  - video watch percentage
+  - quiz results
+  - lesson qualification
+  - course completion
+- Instructor analytics:
+  - qualified views per month
+  - revenue calculation placeholder
+- Analytics must be read-only and derived from learning data
+
+--------------------------------------------------
+9. DASHBOARDS
+--------------------------------------------------
+Student dashboard:
+- active subscription
+- enrolled courses
+- lesson progress
+- resume learning
+
+Admin dashboard:
+- approve payments
+- approve subscriptions
+- manage users
+- upload videos to Vimeo
+- create courses and lessons
+- view analytics
+
+--------------------------------------------------
+10. UI / UX REQUIREMENTS
+--------------------------------------------------
+- Artistic, calm, premium visual style
+- Dark, cinematic theme
+- Minimalist layouts
+- No cluttered dashboards
+- Smooth animations using Framer Motion
+- Mobile-first and fully responsive
+- Educational + digital arts aesthetic
+- Platform name everywhere: "Aiqda"
+
+--------------------------------------------------
+11. PROJECT STRUCTURE
+--------------------------------------------------
+Create a clean monorepo-style structure:
+
+/backend
+  /src
+    /modules (auth, users, subscriptions, payments, courses, lessons, quizzes, analytics, admin, video)
+    /middlewares
+    /utils
+    app.js
+    server.js
+
+/frontend
+  /src
+    /components
+    /pages
+    /layouts
+    /services (API calls)
+    /store (Zustand)
+    /styles
+    main.jsx
+
+--------------------------------------------------
+12. IMPORTANT ENGINEERING RULES
+--------------------------------------------------
+- Each domain owns its own logic
+- No circular dependencies
+- No business logic in controllers
+- No direct video streaming from backend
+- Admin-only Vimeo access
+- Secure environment variable usage
+- Ready for future microservice split
+
+--------------------------------------------------
+OUTPUT EXPECTATION
+--------------------------------------------------
+- Generate the full project scaffold
+- Include placeholder data models
+- Include example API routes
+- Include basic frontend pages wired to backend
+- Code should be clean, readable, and production-oriented
+- No mockups, real working structure
+
+This is a serious production MVP, not a demo.
