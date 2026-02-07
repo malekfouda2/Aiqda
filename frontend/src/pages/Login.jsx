@@ -10,12 +10,15 @@ function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/dashboard';
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const result = await login(email, password);
     if (result.success) {
+      const userData = useAuthStore.getState().user;
+      const defaultPath = userData?.role === 'admin' ? '/admin' 
+        : userData?.role === 'instructor' ? '/instructor' 
+        : '/dashboard';
+      const from = location.state?.from?.pathname || defaultPath;
       navigate(from, { replace: true });
     }
   };
