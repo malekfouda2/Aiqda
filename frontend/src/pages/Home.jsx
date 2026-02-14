@@ -1,9 +1,18 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import { subscriptionsAPI } from '../services/api';
 
 function Home() {
   const { user } = useAuthStore();
+  const [packages, setPackages] = useState([]);
+
+  useEffect(() => {
+    subscriptionsAPI.getPackages(true).then(res => {
+      setPackages(res.data || []);
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
@@ -152,6 +161,126 @@ function Home() {
           </div>
         </div>
       </section>
+
+      {packages.length > 0 && (
+        <section className="relative py-32 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <span className="text-primary-500 text-sm font-medium tracking-widest uppercase mb-4 block">
+                Subscription Plans
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
+                Choose Your
+                <span className="gradient-text"> Learning Path</span>
+              </h2>
+              <p className="text-gray-500 max-w-xl mx-auto text-lg">
+                Pick the package that fits your goals and start your creative journey today.
+              </p>
+            </motion.div>
+
+            <div className={`grid gap-8 ${packages.length === 1 ? 'max-w-md mx-auto' : packages.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
+              {packages.map((pkg, index) => (
+                <motion.div
+                  key={pkg._id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.15, duration: 0.6 }}
+                  className="relative bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
+                >
+                  {index === 1 && packages.length > 1 && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="bg-gradient-to-r from-primary-500 to-brand-teal text-white text-xs font-semibold px-4 py-1.5 rounded-full">
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
+                  <div className="mb-5">
+                    <span className="text-4xl font-bold text-gray-900">{pkg.price}</span>
+                    <span className="text-gray-500 ml-1">SAR</span>
+                  </div>
+
+                  <div className="space-y-3 mb-6 flex-1">
+                    {pkg.scheduleDuration && (
+                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                        <span className="w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
+                        {pkg.scheduleDuration}
+                      </div>
+                    )}
+                    {pkg.learningMode && (
+                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                        <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-xs">💻</span>
+                        {pkg.learningMode}
+                      </div>
+                    )}
+                    {pkg.focus && (
+                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                        <span className="w-5 h-5 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 text-xs">🎯</span>
+                        {pkg.focus}
+                      </div>
+                    )}
+
+                    {pkg.courses?.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Courses Included</p>
+                        <ul className="space-y-1.5">
+                          {pkg.courses.map((course, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              {typeof course === 'object' ? course.title : course}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {pkg.softwareExposure?.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Software Exposure</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {pkg.softwareExposure.map((sw, i) => (
+                            <span key={i} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                              {sw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {pkg.outcome && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Outcome</p>
+                        <p className="text-sm text-gray-600">{pkg.outcome}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <Link
+                    to={user ? '/dashboard/subscription' : '/register'}
+                    className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
+                      index === 1 && packages.length > 1
+                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25'
+                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                    }`}
+                  >
+                    Get Started
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="relative py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
