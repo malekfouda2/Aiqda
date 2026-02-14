@@ -34,3 +34,16 @@ export const uploadLessonFile = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }
 });
+
+export const uploadInstructorDocs = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPEG, and PNG are allowed.'), false);
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }
+});

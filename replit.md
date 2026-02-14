@@ -24,6 +24,7 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
       /quizzes      - Quiz system (3 questions per lesson)
       /analytics    - Progress tracking and reporting
       /video        - Vimeo integration
+      /instructor-applications - Instructor application & approval workflow
     /middlewares    - Auth, upload middleware
     /utils          - JWT, password hashing
     app.js
@@ -54,6 +55,7 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
 - Quiz system with 3 questions per lesson
 - Lesson qualification based on watch % + quiz pass
 - Student, instructor, and admin dashboards
+- Instructor application system with multi-step form and admin review
 - Clean light UI with Framer Motion animations
 
 ## Running the Application
@@ -76,3 +78,7 @@ Backend (.env):
 - **Light theme overhaul**: Switched from dark cinematic to clean light theme with white backgrounds, soft shadows, pastel accent orbs, and brand-matching color palette (magenta primary, teal/blue/orange/cyan accents)
 - Aiqda logo integrated across navbar, home, login, register pages
 - All pages updated: white cards, gray borders, proper text contrast for light backgrounds
+- **Instructor Application System**: Dedicated multi-step form (/apply-instructor) with 5 steps (Personal Info, Education, Professional, Teaching, Availability), file uploads (CV, materials), admin review page (/admin/instructor-applications) with approve/reject workflow
+- Register page simplified to student-only (removed Learn/Teach selector)
+- Home page: Added "For Instructors" CTA section with benefits and apply button
+- Backend: instructor-applications module with model, service, controller, routes; approval creates instructor user account

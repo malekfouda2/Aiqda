@@ -12,6 +12,7 @@ import lessonRoutes from './modules/lessons/lessons.routes.js';
 import quizRoutes from './modules/quizzes/quizzes.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import videoRoutes from './modules/video/video.routes.js';
+import instructorAppRoutes from './modules/instructor-applications/instructorApplications.routes.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/instructor-applications', instructorAppRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aiqda API is running' });

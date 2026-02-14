@@ -105,6 +105,16 @@ export const analyticsAPI = {
   getLessonAnalytics: (lessonId) => api.get(`/analytics/lesson/${lessonId}`)
 };
 
+export const instructorApplicationsAPI = {
+  submit: (formData) => api.post('/instructor-applications', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getAll: (status) => api.get('/instructor-applications', { params: { status } }),
+  getById: (id) => api.get(`/instructor-applications/${id}`),
+  approve: (id) => api.patch(`/instructor-applications/${id}/approve`),
+  reject: (id, reason) => api.patch(`/instructor-applications/${id}/reject`, { reason })
+};
+
 export const videoAPI = {
   upload: (data) => api.post('/video/upload', data),
   getList: () => api.get('/video/list'),

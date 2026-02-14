@@ -17,6 +17,8 @@ import AdminUsers from './pages/AdminUsers';
 import AdminCourses from './pages/AdminCourses';
 import AdminSubscriptions from './pages/AdminSubscriptions';
 import InstructorDashboard from './pages/InstructorDashboard';
+import InstructorApplication from './pages/InstructorApplication';
+import AdminInstructorApplications from './pages/AdminInstructorApplications';
 
 function App() {
   return (
@@ -25,6 +27,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/apply-instructor" element={<InstructorApplication />} />
         <Route path="/courses" element={<Courses />} />
         <Route path="/courses/:id" element={<CourseDetail />} />
 
@@ -78,6 +81,11 @@ function App() {
         <Route path="/admin/subscriptions" element={
           <ProtectedRoute roles={['admin']}>
             <AdminSubscriptions />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/instructor-applications" element={
+          <ProtectedRoute roles={['admin']}>
+            <AdminInstructorApplications />
           </ProtectedRoute>
         } />
       </Route>

@@ -2,7 +2,7 @@ import User from '../users/user.model.js';
 import { hashPassword, comparePassword } from '../../utils/password.js';
 import { generateToken } from '../../utils/jwt.js';
 
-export const register = async ({ email, password, name, role = 'student' }) => {
+export const register = async ({ email, password, name }) => {
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     throw new Error('Email already registered');
@@ -13,7 +13,7 @@ export const register = async ({ email, password, name, role = 'student' }) => {
     email,
     password: hashedPassword,
     name,
-    role: role === 'admin' ? 'student' : role
+    role: 'student'
   });
 
   await user.save();

@@ -194,6 +194,100 @@ function Home() {
         </div>
       </section>
 
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <span className="text-brand-teal text-sm font-medium tracking-widest uppercase mb-4 block">
+                For Instructors
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
+                Share Your
+                <span className="gradient-text"> Expertise</span>
+              </h2>
+              <p className="text-gray-500 text-lg mb-6 leading-relaxed">
+                Are you a skilled animator or creative professional? Join Aiqda as an instructor 
+                and inspire the next generation of artists. We're looking for passionate educators 
+                in 2D, 3D, Storyboarding, Stop Motion, and more.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Reach students worldwide',
+                  'Flexible teaching schedule',
+                  'Professional platform & support',
+                  'Share your unique creative vision'
+                ].map((item, i) => (
+                  <motion.li
+                    key={item}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 + i * 0.1 }}
+                    className="flex items-center gap-3 text-gray-600"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3.5 h-3.5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    {item}
+                  </motion.li>
+                ))}
+              </ul>
+              <Link 
+                to="/apply-instructor" 
+                className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
+              >
+                Apply as Instructor
+                <span>→</span>
+              </Link>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative"
+            >
+              <div className="relative bg-gradient-to-br from-brand-teal/5 to-primary-50 rounded-3xl p-8 border border-gray-100">
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-brand-teal/10 rounded-full blur-2xl" />
+                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary-100/40 rounded-full blur-2xl" />
+                <div className="relative space-y-6">
+                  {[
+                    { icon: '🎬', title: 'Animation Experts', desc: '2D, 3D, Stop Motion & more' },
+                    { icon: '🎨', title: 'Creative Professionals', desc: 'Storyboarding & visual arts' },
+                    { icon: '📐', title: 'Technical Artists', desc: 'Software & pipeline specialists' },
+                    { icon: '🌟', title: 'Industry Veterans', desc: 'Studio & production experience' }
+                  ].map((item, i) => (
+                    <motion.div
+                      key={item.title}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 + i * 0.1 }}
+                      className="flex items-start gap-4 p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm"
+                    >
+                      <span className="text-3xl">{item.icon}</span>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                        <p className="text-sm text-gray-500">{item.desc}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <footer className="py-12 border-t border-gray-200 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">

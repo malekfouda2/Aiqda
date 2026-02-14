@@ -8,7 +8,6 @@ function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('student');
   const [localError, setLocalError] = useState('');
   const { register, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
@@ -27,7 +26,7 @@ function Register() {
       return;
     }
 
-    const result = await register(name, email, password, role);
+    const result = await register(name, email, password, 'student');
     if (result.success) {
       navigate('/dashboard');
     }
@@ -98,38 +97,6 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                I want to
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole('student')}
-                  className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
-                    role === 'student'
-                      ? 'bg-primary-50 border-2 border-primary-300 text-primary-600'
-                      : 'bg-gray-50 border-2 border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">📚</span>
-                  Learn
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('instructor')}
-                  className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
-                    role === 'instructor'
-                      ? 'bg-primary-50 border-2 border-primary-300 text-primary-600'
-                      : 'bg-gray-50 border-2 border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">🎓</span>
-                  Teach
-                </button>
-              </div>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
@@ -176,11 +143,17 @@ function Register() {
 
           <div className="divider my-8" />
 
-          <div className="text-center">
+          <div className="text-center space-y-3">
             <p className="text-gray-500">
               Already have an account?{' '}
               <Link to="/login" className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
                 Sign in
+              </Link>
+            </p>
+            <p className="text-gray-400 text-sm">
+              Are you an instructor?{' '}
+              <Link to="/apply-instructor" className="text-brand-teal hover:text-teal-600 font-medium transition-colors">
+                Apply here
               </Link>
             </p>
           </div>
