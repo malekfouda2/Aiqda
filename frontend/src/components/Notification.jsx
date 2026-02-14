@@ -27,9 +27,9 @@ function NotificationItem({ notification, onClose }) {
   }, [onClose]);
 
   const colors = {
-    success: 'bg-green-900/80 border-green-700 text-green-100',
-    error: 'bg-red-900/80 border-red-700 text-red-100',
-    info: 'bg-primary-900/80 border-primary-700 text-primary-100'
+    success: 'bg-green-50 border-green-200 text-green-700 shadow-lg',
+    error: 'bg-red-50 border-red-200 text-red-700 shadow-lg',
+    info: 'bg-primary-50 border-primary-200 text-primary-700 shadow-lg'
   };
 
   return (

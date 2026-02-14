@@ -81,8 +81,8 @@ function AdminCourses() {
         >
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Course Management</h1>
-              <p className="text-dark-400">Create and manage courses</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Course Management</h1>
+              <p className="text-gray-500">Create and manage courses</p>
             </div>
             <button
               onClick={() => setShowCourseForm(!showCourseForm)}
@@ -94,11 +94,11 @@ function AdminCourses() {
 
           {showCourseForm && (
             <div className="card mb-8">
-              <h2 className="text-xl font-semibold text-white mb-4">New Course</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">New Course</h2>
               <form onSubmit={handleCreateCourse} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-dark-300 mb-2">Title</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Title</label>
                     <input
                       type="text"
                       value={courseForm.title}
@@ -108,7 +108,7 @@ function AdminCourses() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-300 mb-2">Category</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
                     <input
                       type="text"
                       value={courseForm.category}
@@ -118,7 +118,7 @@ function AdminCourses() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
                   <textarea
                     value={courseForm.description}
                     onChange={(e) => setCourseForm(f => ({ ...f, description: e.target.value }))}
@@ -128,7 +128,7 @@ function AdminCourses() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-300 mb-2">Level</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Level</label>
                   <select
                     value={courseForm.level}
                     onChange={(e) => setCourseForm(f => ({ ...f, level: e.target.value }))}
@@ -146,7 +146,7 @@ function AdminCourses() {
 
           {courses.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-dark-400">No courses yet. Create your first course!</p>
+              <p className="text-gray-500">No courses yet. Create your first course!</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -155,14 +155,14 @@ function AdminCourses() {
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-white">{course.title}</h3>
+                        <h3 className="text-xl font-semibold text-gray-900">{course.title}</h3>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          course.isPublished ? 'bg-green-900/50 text-green-300' : 'bg-dark-700 text-dark-400'
+                          course.isPublished ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'
                         }`}>
                           {course.isPublished ? 'Published' : 'Draft'}
                         </span>
                       </div>
-                      <p className="text-dark-400 text-sm">{course.description}</p>
+                      <p className="text-gray-500 text-sm">{course.description}</p>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -181,8 +181,8 @@ function AdminCourses() {
                   </div>
 
                   {showLessonForm === course._id && (
-                    <div className="bg-dark-800/50 rounded-lg p-4 mb-4">
-                      <h4 className="font-medium text-white mb-3">New Lesson</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                      <h4 className="font-medium text-gray-900 mb-3">New Lesson</h4>
                       <form onSubmit={(e) => handleCreateLesson(e, course._id)} className="space-y-3">
                         <input
                           type="text"
@@ -216,7 +216,7 @@ function AdminCourses() {
                     </div>
                   )}
 
-                  <div className="text-sm text-dark-500">
+                  <div className="text-sm text-gray-400">
                     {course.lessonsCount || 0} lessons • {course.enrolledStudents?.length || 0} students
                   </div>
                 </div>

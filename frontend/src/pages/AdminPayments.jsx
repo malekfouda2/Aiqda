@@ -58,9 +58,9 @@ function AdminPayments() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'approved': return 'bg-green-900/50 text-green-300';
-      case 'rejected': return 'bg-red-900/50 text-red-300';
-      default: return 'bg-yellow-900/50 text-yellow-300';
+      case 'approved': return 'bg-green-50 text-green-600';
+      case 'rejected': return 'bg-red-50 text-red-600';
+      default: return 'bg-yellow-50 text-yellow-600';
     }
   };
 
@@ -71,8 +71,8 @@ function AdminPayments() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-3xl font-bold text-white mb-2">Payment Management</h1>
-          <p className="text-dark-400 mb-8">Review and approve payment submissions</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+          <p className="text-gray-500 mb-8">Review and approve payment submissions</p>
 
           <div className="flex gap-3 mb-6">
             {['submitted', 'approved', 'rejected', 'all'].map((status) => (
@@ -82,7 +82,7 @@ function AdminPayments() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   filter === status
                     ? 'bg-primary-600 text-white'
-                    : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -96,7 +96,7 @@ function AdminPayments() {
             </div>
           ) : payments.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-dark-400">No payments found</p>
+              <p className="text-gray-500">No payments found</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -108,31 +108,31 @@ function AdminPayments() {
                         <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
                           {payment.status}
                         </span>
-                        <span className="text-dark-500 text-sm">
+                        <span className="text-gray-400 text-sm">
                           {new Date(payment.createdAt).toLocaleString()}
                         </span>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-4">
                         <div>
-                          <p className="text-dark-400 text-sm">User</p>
-                          <p className="text-white">{payment.user?.name}</p>
-                          <p className="text-dark-500 text-sm">{payment.user?.email}</p>
+                          <p className="text-gray-500 text-sm">User</p>
+                          <p className="text-gray-900">{payment.user?.name}</p>
+                          <p className="text-gray-400 text-sm">{payment.user?.email}</p>
                         </div>
                         <div>
-                          <p className="text-dark-400 text-sm">Payment Reference</p>
-                          <p className="text-white font-mono">{payment.paymentReference}</p>
+                          <p className="text-gray-500 text-sm">Payment Reference</p>
+                          <p className="text-gray-900 font-mono">{payment.paymentReference}</p>
                         </div>
                         <div>
-                          <p className="text-dark-400 text-sm">Amount</p>
-                          <p className="text-white font-semibold">{payment.amount} SAR</p>
+                          <p className="text-gray-500 text-sm">Amount</p>
+                          <p className="text-gray-900 font-semibold">{payment.amount} SAR</p>
                         </div>
                         <div>
-                          <p className="text-dark-400 text-sm">Bank</p>
-                          <p className="text-white">{payment.bankName}</p>
+                          <p className="text-gray-500 text-sm">Bank</p>
+                          <p className="text-gray-900">{payment.bankName}</p>
                         </div>
                       </div>
                       {payment.rejectionReason && (
-                        <p className="mt-2 text-red-400 text-sm">
+                        <p className="mt-2 text-red-600 text-sm">
                           Rejection reason: {payment.rejectionReason}
                         </p>
                       )}

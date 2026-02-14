@@ -8,7 +8,7 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
 - **Frontend**: React (Vite), Zustand, Tailwind CSS, Framer Motion
 - **Authentication**: JWT-based with role-based access control
 - **Video**: Vimeo API integration (admin-only uploads)
-- **Styling**: Dark cinematic theme with animations
+- **Styling**: Clean light theme with brand colors, Framer Motion animations
 
 ## Project Structure
 ```
@@ -54,7 +54,7 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
 - Quiz system with 3 questions per lesson
 - Lesson qualification based on watch % + quiz pass
 - Student, instructor, and admin dashboards
-- Dark cinematic UI with Framer Motion animations
+- Clean light UI with Framer Motion animations
 
 ## Running the Application
 - Backend runs on port 3001
@@ -73,5 +73,6 @@ Backend (.env):
 - Role-based access control implemented
 - Manual payment approval flow completed
 - Quiz system with progress tracking
-- Dark cinematic UI theme applied
-- **Artistic UI overhaul**: Enhanced with mesh gradients, floating orbs, glass morphism effects, refined typography, progress bars with shimmer animations, and sophisticated hover transitions across all pages
+- **Light theme overhaul**: Switched from dark cinematic to clean light theme with white backgrounds, soft shadows, pastel accent orbs, and brand-matching color palette (magenta primary, teal/blue/orange/cyan accents)
+- Aiqda logo integrated across navbar, home, login, register pages
+- All pages updated: white cards, gray borders, proper text contrast for light backgrounds

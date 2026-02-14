@@ -41,11 +41,11 @@ function AdminDashboard() {
 
   return (
     <div className="min-h-screen py-12 relative overflow-hidden">
-      <div className="absolute inset-0 mesh-gradient opacity-30" />
+      <div className="absolute inset-0 mesh-gradient" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[500px] h-[500px] bg-brand-orange/10 top-[-200px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-100px] left-[-50px] animate-float" />
+        <div className="floating-orb w-[500px] h-[500px] bg-orange-100/30 top-[-200px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -62,12 +62,12 @@ function AdminDashboard() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
-              <span className="text-xs text-dark-400">Admin Dashboard</span>
+              <span className="text-xs text-gray-500">Admin Dashboard</span>
             </motion.div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Platform <span className="gradient-text">Overview</span>
             </h1>
-            <p className="text-dark-400 text-lg">Manage your education platform</p>
+            <p className="text-gray-500 text-lg">Manage your education platform</p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -84,10 +84,10 @@ function AdminDashboard() {
                     <span>{stat.icon}</span>
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-white">
+                    <p className="text-3xl font-bold text-gray-900">
                       {stat.key === 'pendingPayments' ? pendingPayments.length : (analytics?.overview?.[stat.key] || 0)}
                     </p>
-                    <p className="text-dark-400 text-sm">{stat.label}</p>
+                    <p className="text-gray-500 text-sm">{stat.label}</p>
                   </div>
                 </div>
               </motion.div>
@@ -106,19 +106,19 @@ function AdminDashboard() {
                   <div className="icon-box icon-box-warning w-10 h-10 text-lg">
                     <span>💳</span>
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Pending Payments</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Pending Payments</h2>
                 </div>
-                <Link to="/admin/payments" className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors">
+                <Link to="/admin/payments" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
                   View All →
                 </Link>
               </div>
               
               {pendingPayments.length === 0 ? (
                 <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-dark-800/50 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
                     <span className="text-2xl">✅</span>
                   </div>
-                  <p className="text-dark-400">No pending payments</p>
+                  <p className="text-gray-500">No pending payments</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -128,18 +128,18 @@ function AdminDashboard() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.5 + index * 0.05 }}
-                      className="flex items-center justify-between p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 border border-dark-700/30 transition-all"
+                      className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/20">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center border border-amber-100">
                           <span className="text-sm">👤</span>
                         </div>
                         <div>
-                          <p className="font-medium text-white">{payment.user?.name}</p>
-                          <p className="text-sm text-dark-500">{payment.paymentReference}</p>
+                          <p className="font-medium text-gray-900">{payment.user?.name}</p>
+                          <p className="text-sm text-gray-400">{payment.paymentReference}</p>
                         </div>
                       </div>
-                      <span className="text-lg font-semibold text-amber-400">{payment.amount} SAR</span>
+                      <span className="text-lg font-semibold text-amber-600">{payment.amount} SAR</span>
                     </motion.div>
                   ))}
                 </div>
@@ -157,19 +157,19 @@ function AdminDashboard() {
                   <div className="icon-box icon-box-accent w-10 h-10 text-lg">
                     <span>📋</span>
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Pending Subscriptions</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Pending Subscriptions</h2>
                 </div>
-                <Link to="/admin/subscriptions" className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors">
+                <Link to="/admin/subscriptions" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
                   View All →
                 </Link>
               </div>
               
               {pendingSubscriptions.length === 0 ? (
                 <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-dark-800/50 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
                     <span className="text-2xl">✅</span>
                   </div>
-                  <p className="text-dark-400">No pending subscriptions</p>
+                  <p className="text-gray-500">No pending subscriptions</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -179,15 +179,15 @@ function AdminDashboard() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.6 + index * 0.05 }}
-                      className="flex items-center justify-between p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 border border-dark-700/30 transition-all"
+                      className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-teal/20 to-brand-blue/20 flex items-center justify-center border border-brand-teal/20">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center border border-cyan-100">
                           <span className="text-sm">👤</span>
                         </div>
                         <div>
-                          <p className="font-medium text-white">{sub.user?.name}</p>
-                          <p className="text-sm text-dark-500">{sub.package?.name}</p>
+                          <p className="font-medium text-gray-900">{sub.user?.name}</p>
+                          <p className="text-sm text-gray-400">{sub.package?.name}</p>
                         </div>
                       </div>
                       <span className="tag tag-intermediate">Pending</span>
@@ -204,7 +204,7 @@ function AdminDashboard() {
             transition={{ delay: 0.6 }}
             className="card"
           >
-            <h2 className="text-xl font-semibold text-white mb-6">Quick Actions</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {quickActions.map((action, index) => (
                 <motion.div
@@ -215,16 +215,16 @@ function AdminDashboard() {
                 >
                   <Link
                     to={action.to}
-                    className="flex items-center gap-4 p-5 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
+                    className="flex items-center gap-4 p-5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
                   >
                     <div className={`icon-box ${action.iconClass} w-12 h-12 text-xl transition-transform duration-300 group-hover:scale-110`}>
                       <span>{action.icon}</span>
                     </div>
                     <div>
-                      <span className="font-medium text-white group-hover:text-primary-400 transition-colors block">
+                      <span className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors block">
                         {action.label}
                       </span>
-                      <span className="text-xs text-dark-500">{action.description}</span>
+                      <span className="text-xs text-gray-400">{action.description}</span>
                     </div>
                   </Link>
                 </motion.div>

@@ -43,11 +43,11 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen py-12 relative overflow-hidden">
-      <div className="absolute inset-0 mesh-gradient opacity-50" />
+      <div className="absolute inset-0 mesh-gradient opacity-30" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[500px] h-[500px] bg-primary-500/10 top-[-200px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-brand-teal/10 bottom-[-100px] left-[-50px] animate-float" />
+        <div className="floating-orb w-[500px] h-[500px] bg-primary-100/40 top-[-200px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-cyan-100/40 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -64,12 +64,12 @@ function Dashboard() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs text-dark-400">Student Dashboard</span>
+              <span className="text-xs text-gray-500">Student Dashboard</span>
             </motion.div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Welcome back, <span className="gradient-text">{user?.name}</span>
             </h1>
-            <p className="text-dark-400 text-lg">Continue your learning journey</p>
+            <p className="text-gray-500 text-lg">Continue your learning journey</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6 mb-10">
@@ -84,8 +84,8 @@ function Dashboard() {
                   <span>📚</span>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-white">{enrolledCourses.length}</p>
-                  <p className="text-dark-400 text-sm">Enrolled Courses</p>
+                  <p className="text-3xl font-bold text-gray-900">{enrolledCourses.length}</p>
+                  <p className="text-gray-500 text-sm">Enrolled Courses</p>
                 </div>
               </div>
             </motion.div>
@@ -101,8 +101,8 @@ function Dashboard() {
                   <span>✅</span>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-white">{progress?.stats?.completedCourses || 0}</p>
-                  <p className="text-dark-400 text-sm">Completed Courses</p>
+                  <p className="text-3xl font-bold text-gray-900">{progress?.stats?.completedCourses || 0}</p>
+                  <p className="text-gray-500 text-sm">Completed Courses</p>
                 </div>
               </div>
             </motion.div>
@@ -118,8 +118,8 @@ function Dashboard() {
                   <span>🎯</span>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-white">{progress?.stats?.totalLessonsCompleted || 0}</p>
-                  <p className="text-dark-400 text-sm">Lessons Completed</p>
+                  <p className="text-3xl font-bold text-gray-900">{progress?.stats?.totalLessonsCompleted || 0}</p>
+                  <p className="text-gray-500 text-sm">Lessons Completed</p>
                 </div>
               </div>
             </motion.div>
@@ -134,18 +134,18 @@ function Dashboard() {
                 className="card"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-white">My Courses</h2>
-                  <Link to="/courses" className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors">
+                  <h2 className="text-xl font-semibold text-gray-900">My Courses</h2>
+                  <Link to="/courses" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
                     Browse More →
                   </Link>
                 </div>
 
                 {enrolledCourses.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-4xl">📖</span>
                     </div>
-                    <p className="text-dark-400 mb-6">You haven't enrolled in any courses yet</p>
+                    <p className="text-gray-500 mb-6">You haven't enrolled in any courses yet</p>
                     <Link to="/courses" className="btn-primary">
                       Explore Courses
                     </Link>
@@ -165,16 +165,16 @@ function Dashboard() {
                         >
                           <Link
                             to={`/courses/${course._id}`}
-                            className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
+                            className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
                           >
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/10 group-hover:scale-105 transition-transform duration-300">
+                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100 group-hover:scale-105 transition-transform duration-300">
                               <span className="text-2xl">🎓</span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors truncate">
+                              <h3 className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors truncate">
                                 {course.title}
                               </h3>
-                              <p className="text-sm text-dark-500">
+                              <p className="text-sm text-gray-400">
                                 {course.instructor?.name}
                               </p>
                               <div className="mt-2 progress-bar">
@@ -185,7 +185,7 @@ function Dashboard() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="text-2xl font-bold text-white">
+                              <span className="text-2xl font-bold text-gray-900">
                                 {Math.round(courseProgress?.progressPercentage || 0)}%
                               </span>
                             </div>
@@ -204,7 +204,7 @@ function Dashboard() {
                   transition={{ delay: 0.6 }}
                   className="card"
                 >
-                  <h2 className="text-xl font-semibold text-white mb-6">Recent Activity</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
                   <div className="space-y-3">
                     {progress.recentActivity.slice(0, 5).map((activity, index) => (
                       <motion.div
@@ -212,11 +212,11 @@ function Dashboard() {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.7 + index * 0.05 }}
-                        className="flex items-center gap-4 text-sm p-3 rounded-lg bg-dark-800/20 hover:bg-dark-800/40 transition-colors"
+                        className="flex items-center gap-4 text-sm p-3 rounded-lg bg-gray-50 hover:bg-gray-50 transition-colors"
                       >
-                        <div className={`w-3 h-3 rounded-full ${activity.isQualified ? 'bg-emerald-400' : 'bg-primary-400'} shadow-lg ${activity.isQualified ? 'shadow-emerald-400/30' : 'shadow-primary-400/30'}`} />
-                        <span className="text-dark-300 flex-1">{activity.lesson?.title}</span>
-                        <span className="text-dark-500 font-medium">
+                        <div className={`w-3 h-3 rounded-full ${activity.isQualified ? 'bg-emerald-400' : 'bg-primary-500'} shadow-lg ${activity.isQualified ? 'shadow-emerald-400/30' : 'shadow-primary-400/30'}`} />
+                        <span className="text-gray-600 flex-1">{activity.lesson?.title}</span>
+                        <span className="text-gray-400 font-medium">
                           {activity.watchPercentage}% watched
                         </span>
                       </motion.div>
@@ -233,27 +233,27 @@ function Dashboard() {
                 transition={{ delay: 0.5 }}
                 className="card"
               >
-                <h2 className="text-lg font-semibold text-white mb-4">Subscription</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
                 {subscription ? (
                   <div>
                     <div className="flex items-center gap-2 mb-4">
-                      <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/30 animate-pulse" />
-                      <span className="text-emerald-400 font-medium">Active</span>
+                      <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-md shadow-emerald-200 animate-pulse" />
+                      <span className="text-emerald-600 font-medium">Active</span>
                     </div>
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 mb-4">
-                      <p className="text-white font-medium mb-1">
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-200 mb-4">
+                      <p className="text-gray-900 font-medium mb-1">
                         {subscription.package?.name}
                       </p>
-                      <p className="text-dark-400 text-sm">
+                      <p className="text-gray-500 text-sm">
                         Expires: {new Date(subscription.endDate).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div className="p-4 rounded-xl bg-dark-800/50 border border-dark-700/30 mb-4">
-                      <p className="text-dark-400 text-sm mb-1">No active subscription</p>
-                      <p className="text-dark-500 text-xs">Get access to premium content</p>
+                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 mb-4">
+                      <p className="text-gray-500 text-sm mb-1">No active subscription</p>
+                      <p className="text-gray-400 text-xs">Get access to premium content</p>
                     </div>
                     <Link to="/dashboard/subscription" className="btn-primary w-full text-sm justify-center">
                       Get Subscription
@@ -268,7 +268,7 @@ function Dashboard() {
                 transition={{ delay: 0.6 }}
                 className="card"
               >
-                <h2 className="text-lg font-semibold text-white mb-4">Quick Links</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Links</h2>
                 <div className="space-y-2">
                   {quickLinks.map((link, index) => (
                     <motion.div
@@ -279,11 +279,11 @@ function Dashboard() {
                     >
                       <Link
                         to={link.to}
-                        className="flex items-center gap-3 p-3.5 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
+                        className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
                       >
                         <span className="text-xl group-hover:scale-110 transition-transform">{link.icon}</span>
-                        <span className="text-dark-300 group-hover:text-white transition-colors">{link.label}</span>
-                        <span className="ml-auto text-dark-600 group-hover:text-primary-400 transition-colors">→</span>
+                        <span className="text-gray-600 group-hover:text-gray-900 transition-colors">{link.label}</span>
+                        <span className="ml-auto text-gray-400 group-hover:text-primary-500 transition-colors">→</span>
                       </Link>
                     </motion.div>
                   ))}

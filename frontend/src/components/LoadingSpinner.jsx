@@ -12,9 +12,9 @@ function LoadingSpinner({ size = 'md', text = '' }) {
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        className={`${sizes[size]} border-2 border-dark-600 border-t-primary-500 rounded-full`}
+        className={`${sizes[size]} border-2 border-gray-200 border-t-primary-500 rounded-full`}
       />
-      {text && <p className="text-dark-400 text-sm">{text}</p>}
+      {text && <p className="text-gray-500 text-sm">{text}</p>}
     </div>
   );
 }

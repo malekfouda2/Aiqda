@@ -79,10 +79,10 @@ function AdminSubscriptions() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-900/50 text-green-300';
-      case 'expired': return 'bg-red-900/50 text-red-300';
-      case 'cancelled': return 'bg-dark-700 text-dark-400';
-      default: return 'bg-yellow-900/50 text-yellow-300';
+      case 'active': return 'bg-green-50 text-green-600';
+      case 'expired': return 'bg-red-50 text-red-600';
+      case 'cancelled': return 'bg-gray-100 text-gray-500';
+      default: return 'bg-yellow-50 text-yellow-600';
     }
   };
 
@@ -95,8 +95,8 @@ function AdminSubscriptions() {
         >
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Subscription Management</h1>
-              <p className="text-dark-400">Manage subscriptions and packages</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Management</h1>
+              <p className="text-gray-500">Manage subscriptions and packages</p>
             </div>
             <button
               onClick={() => setShowPackageForm(!showPackageForm)}
@@ -108,11 +108,11 @@ function AdminSubscriptions() {
 
           {showPackageForm && (
             <div className="card mb-8">
-              <h2 className="text-xl font-semibold text-white mb-4">New Package</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">New Package</h2>
               <form onSubmit={handleCreatePackage} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-dark-300 mb-2">Name</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Name</label>
                     <input
                       type="text"
                       value={packageForm.name}
@@ -122,7 +122,7 @@ function AdminSubscriptions() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-300 mb-2">Price (SAR)</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Price (SAR)</label>
                     <input
                       type="number"
                       value={packageForm.price}
@@ -133,7 +133,7 @@ function AdminSubscriptions() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
                   <input
                     type="text"
                     value={packageForm.description}
@@ -142,7 +142,7 @@ function AdminSubscriptions() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-300 mb-2">Duration (days)</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Duration (days)</label>
                   <input
                     type="number"
                     value={packageForm.durationDays}
@@ -152,7 +152,7 @@ function AdminSubscriptions() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-300 mb-2">Features (one per line)</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Features (one per line)</label>
                   <textarea
                     value={packageForm.features}
                     onChange={(e) => setPackageForm(f => ({ ...f, features: e.target.value }))}
@@ -167,16 +167,16 @@ function AdminSubscriptions() {
           )}
 
           <div className="card mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">Active Packages</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Active Packages</h2>
             {packages.length === 0 ? (
-              <p className="text-dark-400">No packages created yet</p>
+              <p className="text-gray-500">No packages created yet</p>
             ) : (
               <div className="grid md:grid-cols-3 gap-4">
                 {packages.map((pkg) => (
-                  <div key={pkg._id} className="bg-dark-800/50 rounded-lg p-4">
-                    <h3 className="font-medium text-white">{pkg.name}</h3>
-                    <p className="text-primary-400 font-semibold">{pkg.price} SAR</p>
-                    <p className="text-dark-500 text-sm">{pkg.durationDays} days</p>
+                  <div key={pkg._id} className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">{pkg.name}</h3>
+                    <p className="text-primary-500 font-semibold">{pkg.price} SAR</p>
+                    <p className="text-gray-400 text-sm">{pkg.durationDays} days</p>
                   </div>
                 ))}
               </div>
@@ -191,7 +191,7 @@ function AdminSubscriptions() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   filter === status
                     ? 'bg-primary-600 text-white'
-                    : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -205,7 +205,7 @@ function AdminSubscriptions() {
             </div>
           ) : subscriptions.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-dark-400">No subscriptions found</p>
+              <p className="text-gray-500">No subscriptions found</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -218,13 +218,13 @@ function AdminSubscriptions() {
                           {sub.status}
                         </span>
                       </div>
-                      <p className="text-white font-medium">{sub.user?.name}</p>
-                      <p className="text-dark-400 text-sm">{sub.user?.email}</p>
-                      <p className="text-dark-500 text-sm mt-1">
+                      <p className="text-gray-900 font-medium">{sub.user?.name}</p>
+                      <p className="text-gray-500 text-sm">{sub.user?.email}</p>
+                      <p className="text-gray-400 text-sm mt-1">
                         Package: {sub.package?.name} ({sub.package?.price} SAR)
                       </p>
                       {sub.startDate && (
-                        <p className="text-dark-500 text-sm">
+                        <p className="text-gray-400 text-sm">
                           {new Date(sub.startDate).toLocaleDateString()} - {new Date(sub.endDate).toLocaleDateString()}
                         </p>
                       )}

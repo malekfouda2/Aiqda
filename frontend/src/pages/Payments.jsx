@@ -25,11 +25,11 @@ function Payments() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-900/50 text-green-300';
+        return 'bg-green-50 text-green-600';
       case 'rejected':
-        return 'bg-red-900/50 text-red-300';
+        return 'bg-red-50 text-red-600';
       default:
-        return 'bg-yellow-900/50 text-yellow-300';
+        return 'bg-yellow-50 text-yellow-600';
     }
   };
 
@@ -48,14 +48,14 @@ function Payments() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-3xl font-bold text-white mb-2">Payment History</h1>
-          <p className="text-dark-400 mb-8">View all your payment submissions</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment History</h1>
+          <p className="text-gray-500 mb-8">View all your payment submissions</p>
 
           {payments.length === 0 ? (
             <div className="card text-center py-12">
               <div className="text-5xl mb-4">💳</div>
-              <h3 className="text-xl font-semibold text-white mb-2">No payments yet</h3>
-              <p className="text-dark-400">Your payment history will appear here</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No payments yet</h3>
+              <p className="text-gray-500">Your payment history will appear here</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -67,23 +67,23 @@ function Payments() {
                         <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
                           {payment.status}
                         </span>
-                        <span className="text-dark-500 text-sm">
+                        <span className="text-gray-400 text-sm">
                           {new Date(payment.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-white font-medium">
+                      <p className="text-gray-900 font-medium">
                         Reference: {payment.paymentReference}
                       </p>
-                      <p className="text-dark-400 text-sm">
+                      <p className="text-gray-500 text-sm">
                         Amount: {payment.amount} SAR
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-white">
+                      <p className="text-lg font-semibold text-gray-900">
                         {payment.amount} SAR
                       </p>
                       {payment.status === 'rejected' && payment.rejectionReason && (
-                        <p className="text-red-400 text-sm mt-1">
+                        <p className="text-red-600 text-sm mt-1">
                           Reason: {payment.rejectionReason}
                         </p>
                       )}

@@ -34,19 +34,14 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden bg-gray-50">
       <div className="absolute inset-0 mesh-gradient" />
       
       <div className="absolute inset-0 overflow-hidden">
-        <div className="floating-orb w-[400px] h-[400px] bg-brand-teal/15 top-[-100px] left-[-100px] animate-float" />
-        <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-50px] right-[-50px] animate-float-slow" />
-        <div className="floating-orb w-[200px] h-[200px] bg-brand-orange/10 top-1/2 right-1/4 animate-glow-pulse" />
+        <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/50 top-[-100px] left-[-100px] animate-float" />
+        <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-50px] right-[-50px] animate-float-slow" />
+        <div className="floating-orb w-[200px] h-[200px] bg-orange-100/30 top-1/2 right-1/4 animate-glow-pulse" />
       </div>
-
-      <div className="absolute inset-0" style={{
-        backgroundImage: `radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }} />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -58,8 +53,8 @@ function Register() {
           <Link to="/" className="inline-block mb-8">
             <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
           </Link>
-          <h1 className="text-4xl font-bold text-white mb-3">Create Account</h1>
-          <p className="text-dark-400 text-lg">Join Aiqda and start learning today</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h1>
+          <p className="text-gray-500 text-lg">Join Aiqda and start learning today</p>
         </div>
 
         <div className="card">
@@ -68,14 +63,14 @@ function Register() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm backdrop-blur-sm"
+                className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm"
               >
                 {error || localError}
               </motion.div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name
               </label>
               <input
@@ -89,7 +84,7 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
               <input
@@ -103,7 +98,7 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
                 I want to
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -112,8 +107,8 @@ function Register() {
                   onClick={() => setRole('student')}
                   className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
                     role === 'student'
-                      ? 'bg-primary-500/20 border-2 border-primary-500/50 text-primary-400'
-                      : 'bg-dark-800/50 border-2 border-dark-700/50 text-dark-400 hover:border-dark-600'
+                      ? 'bg-primary-50 border-2 border-primary-300 text-primary-600'
+                      : 'bg-gray-50 border-2 border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
                   <span className="text-2xl block mb-1">📚</span>
@@ -124,8 +119,8 @@ function Register() {
                   onClick={() => setRole('instructor')}
                   className={`relative py-4 rounded-xl text-center font-medium transition-all duration-300 ${
                     role === 'instructor'
-                      ? 'bg-primary-500/20 border-2 border-primary-500/50 text-primary-400'
-                      : 'bg-dark-800/50 border-2 border-dark-700/50 text-dark-400 hover:border-dark-600'
+                      ? 'bg-primary-50 border-2 border-primary-300 text-primary-600'
+                      : 'bg-gray-50 border-2 border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
                   <span className="text-2xl block mb-1">🎓</span>
@@ -135,7 +130,7 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <input
@@ -149,7 +144,7 @@ function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Confirm Password
               </label>
               <input
@@ -182,9 +177,9 @@ function Register() {
           <div className="divider my-8" />
 
           <div className="text-center">
-            <p className="text-dark-400">
+            <p className="text-gray-500">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
+              <Link to="/login" className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
                 Sign in
               </Link>
             </p>

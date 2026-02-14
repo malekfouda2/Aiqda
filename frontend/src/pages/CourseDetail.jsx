@@ -84,7 +84,7 @@ function CourseDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Course not found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Course not found</h2>
           <Link to="/courses" className="btn-primary">Browse Courses</Link>
         </div>
       </div>
@@ -96,8 +96,8 @@ function CourseDetail() {
       <div className="absolute inset-0 mesh-gradient opacity-30" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[400px] h-[400px] bg-brand-teal/10 top-[-100px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-100px] left-[-50px] animate-float" />
+        <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/40 top-[-100px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,7 +106,7 @@ function CourseDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Link to="/courses" className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-8 group transition-colors">
+          <Link to="/courses" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-8 group transition-colors">
             <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -124,24 +124,24 @@ function CourseDetail() {
                   }`}>
                     {course.level}
                   </span>
-                  <span className="text-dark-500">{course.category}</span>
+                  <span className="text-gray-400">{course.category}</span>
                 </div>
                 
-                <h1 className="text-4xl font-bold text-white mb-4">{course.title}</h1>
-                <p className="text-dark-300 text-lg leading-relaxed mb-6">{course.description}</p>
+                <h1 className="text-4xl font-bold text-gray-900 mb-4">{course.title}</h1>
+                <p className="text-gray-600 text-lg leading-relaxed mb-6">{course.description}</p>
                 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-dark-400">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500/30 to-brand-teal/30 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-xs">👤</span>
                     </div>
                     <span>{course.instructor?.name || 'Instructor'}</span>
                   </div>
-                  <span className="w-1 h-1 rounded-full bg-dark-600" />
+                  <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
                     <span>📹</span> {lessons.length} lessons
                   </span>
-                  <span className="w-1 h-1 rounded-full bg-dark-600" />
+                  <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
                     <span>👥</span> {course.enrolledStudents?.length || 0} students
                   </span>
@@ -149,13 +149,13 @@ function CourseDetail() {
               </div>
 
               <div className="lg:w-1/3">
-                <div className="bg-gradient-to-br from-dark-800/80 to-dark-900/80 backdrop-blur-xl rounded-2xl p-6 border border-dark-700/30">
+                <div className="bg-white backdrop-blur-xl rounded-2xl p-6 border border-gray-200">
                   {isEnrolled ? (
                     <div className="text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center border border-emerald-500/20">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center border border-emerald-200">
                         <span className="text-3xl">✅</span>
                       </div>
-                      <p className="text-emerald-400 text-lg font-semibold mb-4">
+                      <p className="text-emerald-600 text-lg font-semibold mb-4">
                         You're enrolled!
                       </p>
                       <Link
@@ -168,10 +168,10 @@ function CourseDetail() {
                   ) : (
                     <>
                       <div className="text-center mb-6">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/20">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-200">
                           <span className="text-3xl">🎓</span>
                         </div>
-                        <p className="text-dark-400 text-sm">Start your learning journey</p>
+                        <p className="text-gray-500 text-sm">Start your learning journey</p>
                       </div>
                       <button
                         onClick={handleEnroll}
@@ -197,15 +197,15 @@ function CourseDetail() {
               <div className="icon-box icon-box-primary w-10 h-10 text-lg">
                 <span>📖</span>
               </div>
-              <h2 className="text-xl font-semibold text-white">Course Content</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Course Content</h2>
             </div>
             
             {lessons.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-dark-800/50 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
                   <span className="text-2xl">📚</span>
                 </div>
-                <p className="text-dark-400">No lessons available yet.</p>
+                <p className="text-gray-500">No lessons available yet.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -215,17 +215,17 @@ function CourseDetail() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + index * 0.05 }}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 border border-dark-700/30 hover:border-primary-500/20 transition-all group"
+                    className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all group"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-dark-400 font-semibold group-hover:from-primary-500/20 group-hover:to-brand-teal/20 group-hover:text-primary-400 transition-all border border-dark-600/50">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center text-gray-500 font-semibold group-hover:from-primary-50 group-hover:to-cyan-50 group-hover:text-primary-500 transition-all border border-gray-200">
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors truncate">
+                      <h3 className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors truncate">
                         {lesson.title}
                       </h3>
                       {lesson.description && (
-                        <p className="text-sm text-dark-500 truncate">{lesson.description}</p>
+                        <p className="text-sm text-gray-400 truncate">{lesson.description}</p>
                       )}
                     </div>
                     {isEnrolled && (
