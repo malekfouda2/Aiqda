@@ -6,21 +6,40 @@ const subscriptionPackageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  description: {
-    type: String,
-    default: ''
-  },
   price: {
     type: Number,
     required: true
   },
+  scheduleDuration: {
+    type: String,
+    required: true,
+    trim: true
+  },
   durationDays: {
     type: Number,
-    required: true
+    default: 30
   },
-  features: [{
+  learningMode: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  focus: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  coursesActivities: [{
     type: String
   }],
+  softwareExposure: [{
+    type: String
+  }],
+  outcome: {
+    type: String,
+    required: true,
+    trim: true
+  },
   isActive: {
     type: Boolean,
     default: true

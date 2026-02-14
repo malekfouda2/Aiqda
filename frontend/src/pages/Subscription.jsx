@@ -14,6 +14,7 @@ function Subscription() {
   const [bankDetails, setBankDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
+  const [expandedPkg, setExpandedPkg] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
     paymentReference: '',
     amount: ''
@@ -86,13 +87,15 @@ function Subscription() {
 
   return (
     <div className="min-h-screen py-12">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Plans</h1>
-          <p className="text-gray-500 mb-10">Choose a plan that works for you</p>
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Plans</h1>
+            <p className="text-gray-500">Choose a plan that works for you</p>
+          </div>
 
           {activeSubscription && (
             <div className="card bg-green-50 border-green-200 mb-8">
@@ -199,32 +202,61 @@ function Subscription() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="card-hover"
+                  className="card-hover flex flex-col"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{pkg.name}</h3>
-                  <p className="text-gray-500 text-sm mb-4">{pkg.description}</p>
-                  
-                  <div className="mb-6">
-                    <span className="text-3xl font-bold text-gray-900">{pkg.price}</span>
-                    <span className="text-gray-500"> SAR</span>
-                    <span className="text-gray-400 text-sm"> / {pkg.durationDays} days</span>
-                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-1">{pkg.name}</h3>
 
-                  {pkg.features?.length > 0 && (
-                    <ul className="space-y-2 mb-6">
-                      {pkg.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                          <span className="text-green-600">✓</span>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                    <div className="mb-4">
+                      <span className="text-3xl font-bold text-gray-900">{pkg.price}</span>
+                      <span className="text-gray-500"> SAR</span>
+                    </div>
+
+                    <div className="space-y-3 mb-6">
+                      <DetailRow icon="📅" label="Schedule" value={pkg.scheduleDuration} />
+                      <DetailRow icon="💻" label="Mode" value={pkg.learningMode} />
+                      <DetailRow icon="🎯" label="Focus" value={pkg.focus} />
+
+                      {pkg.coursesActivities?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Courses / Activities</p>
+                          <ul className="space-y-1">
+                            {pkg.coursesActivities.map((item, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                                <span className="text-primary-500 mt-0.5">✓</span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {pkg.softwareExposure?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Software Exposure</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {pkg.softwareExposure.map((sw, i) => (
+                              <span key={i} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                                {sw}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {pkg.outcome && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Outcome</p>
+                          <p className="text-sm text-gray-600">{pkg.outcome}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   <button
                     onClick={() => handleRequestSubscription(pkg._id)}
                     disabled={requesting}
-                    className="btn-primary w-full"
+                    className="btn-primary w-full mt-auto"
                   >
                     {requesting ? 'Processing...' : 'Choose Plan'}
                   </button>
@@ -240,6 +272,17 @@ function Subscription() {
           )}
         </motion.div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span>{icon}</span>
+      <span className="text-gray-400">{label}:</span>
+      <span className="text-gray-700 font-medium">{value}</span>
     </div>
   );
 }
