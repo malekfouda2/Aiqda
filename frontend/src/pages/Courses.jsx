@@ -43,7 +43,7 @@ function Courses() {
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="floating-orb w-[400px] h-[400px] bg-primary-500/10 top-[-100px] left-[-100px] animate-float" />
-        <div className="floating-orb w-[300px] h-[300px] bg-indigo-500/10 bottom-[-100px] right-[-50px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-brand-teal/10 bottom-[-100px] right-[-50px] animate-float-slow" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -99,7 +99,7 @@ function Courses() {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center py-20"
           >
-            <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center border border-primary-500/10">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/10">
               <span className="text-5xl">📚</span>
             </div>
             <h3 className="text-2xl font-semibold text-white mb-3">No courses available</h3>
@@ -116,7 +116,7 @@ function Courses() {
               >
                 <Link to={`/courses/${course._id}`} className="block card-hover h-full group">
                   <div className="aspect-video rounded-xl mb-5 overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary-900/60 via-indigo-900/60 to-violet-900/60 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary-900/60 via-brand-teal-dark/40 to-brand-blue-dark/60 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
                       <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-300">
                         <span className="text-3xl">🎓</span>
                       </div>
@@ -149,7 +149,7 @@ function Courses() {
 
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500/30 to-indigo-500/30 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500/30 to-brand-teal/30 flex items-center justify-center">
                         <span className="text-xs">👤</span>
                       </div>
                       <span className="text-dark-400">

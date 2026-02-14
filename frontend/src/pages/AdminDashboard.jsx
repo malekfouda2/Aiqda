@@ -44,7 +44,7 @@ function AdminDashboard() {
       <div className="absolute inset-0 mesh-gradient opacity-30" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[500px] h-[500px] bg-violet-500/10 top-[-200px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[500px] h-[500px] bg-brand-orange/10 top-[-200px] right-[-100px] animate-float-slow" />
         <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
@@ -61,7 +61,7 @@ function AdminDashboard() {
               transition={{ delay: 0.1 }}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
               <span className="text-xs text-dark-400">Admin Dashboard</span>
             </motion.div>
             <h1 className="text-4xl font-bold text-white mb-2">
@@ -182,7 +182,7 @@ function AdminDashboard() {
                       className="flex items-center justify-between p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 border border-dark-700/30 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center border border-indigo-500/20">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-teal/20 to-brand-blue/20 flex items-center justify-center border border-brand-teal/20">
                           <span className="text-sm">👤</span>
                         </div>
                         <div>

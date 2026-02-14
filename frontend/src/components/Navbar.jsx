@@ -23,10 +23,7 @@ function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">A</span>
-              </div>
-              <span className="text-xl font-semibold gradient-text">Aiqda</span>
+              <img src="/logo.png" alt="Aiqda" className="h-10 w-auto" />
             </Link>
 
             {user && (

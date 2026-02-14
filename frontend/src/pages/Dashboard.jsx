@@ -47,7 +47,7 @@ function Dashboard() {
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="floating-orb w-[500px] h-[500px] bg-primary-500/10 top-[-200px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-indigo-500/10 bottom-[-100px] left-[-50px] animate-float" />
+        <div className="floating-orb w-[300px] h-[300px] bg-brand-teal/10 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -142,7 +142,7 @@ function Dashboard() {
 
                 {enrolledCourses.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center">
                       <span className="text-4xl">📖</span>
                     </div>
                     <p className="text-dark-400 mb-6">You haven't enrolled in any courses yet</p>
@@ -167,7 +167,7 @@ function Dashboard() {
                             to={`/courses/${course._id}`}
                             className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/60 border border-dark-700/30 hover:border-primary-500/20 transition-all duration-300 group"
                           >
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center border border-primary-500/10 group-hover:scale-105 transition-transform duration-300">
+                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/10 group-hover:scale-105 transition-transform duration-300">
                               <span className="text-2xl">🎓</span>
                             </div>
                             <div className="flex-1 min-w-0">

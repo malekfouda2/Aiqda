@@ -11,9 +11,10 @@ function Home() {
         <div className="absolute inset-0 mesh-gradient" />
         
         <div className="absolute inset-0 overflow-hidden">
-          <div className="floating-orb w-[600px] h-[600px] bg-primary-500/20 top-[-200px] left-[-100px] animate-float" />
-          <div className="floating-orb w-[500px] h-[500px] bg-indigo-500/15 bottom-[-150px] right-[-100px] animate-float-slow" />
-          <div className="floating-orb w-[300px] h-[300px] bg-cyan-500/10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-glow-pulse" />
+          <div className="floating-orb w-[600px] h-[600px] bg-primary-500/15 top-[-200px] left-[-100px] animate-float" />
+          <div className="floating-orb w-[500px] h-[500px] bg-brand-teal/15 bottom-[-150px] right-[-100px] animate-float-slow" />
+          <div className="floating-orb w-[300px] h-[300px] bg-brand-blue/10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-glow-pulse" />
+          <div className="floating-orb w-[200px] h-[200px] bg-brand-orange/10 top-[20%] right-[15%] animate-float" />
         </div>
 
         <div className="absolute inset-0" style={{
@@ -34,8 +35,17 @@ function Home() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8"
             >
-              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-brand-teal rounded-full animate-pulse" />
               <span className="text-sm text-dark-300">Premium Learning Platform</span>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="mb-8"
+            >
+              <img src="/logo.png" alt="Aiqda" className="h-24 sm:h-32 w-auto mx-auto" />
             </motion.div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-bold mb-8 tracking-tight">
@@ -151,7 +161,7 @@ function Home() {
             viewport={{ once: true }}
             className="relative overflow-hidden rounded-3xl"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary-900/40 via-indigo-900/40 to-violet-900/40" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary-900/40 via-brand-teal-dark/20 to-brand-blue-dark/30" />
             <div className="absolute inset-0 mesh-gradient opacity-50" />
             
             <div className="relative py-20 px-8 text-center">
@@ -188,10 +198,7 @@ function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/20">
-                <span className="text-white font-bold text-lg">A</span>
-              </div>
-              <span className="text-xl font-semibold text-white">Aiqda</span>
+              <img src="/logo.png" alt="Aiqda" className="h-10 w-auto" />
             </div>
             <div className="flex items-center gap-8">
               <Link to="/courses" className="nav-link text-sm">Courses</Link>

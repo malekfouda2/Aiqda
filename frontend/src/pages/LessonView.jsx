@@ -107,7 +107,7 @@ function LessonView() {
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="floating-orb w-[400px] h-[400px] bg-primary-500/10 top-[-150px] left-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-violet-500/10 bottom-[-100px] right-[-50px] animate-float" />
+        <div className="floating-orb w-[300px] h-[300px] bg-brand-orange/10 bottom-[-100px] right-[-50px] animate-float" />
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -157,7 +157,7 @@ function LessonView() {
             ) : (
               <div className="aspect-video bg-gradient-to-br from-dark-800/80 to-dark-900/80 rounded-xl flex items-center justify-center mb-6 border border-dark-700/30">
                 <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center border border-primary-500/10">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/10">
                     <span className="text-4xl">🎬</span>
                   </div>
                   <p className="text-dark-400">Video not available</p>

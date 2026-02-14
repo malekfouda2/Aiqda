@@ -96,7 +96,7 @@ function CourseDetail() {
       <div className="absolute inset-0 mesh-gradient opacity-30" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[400px] h-[400px] bg-indigo-500/10 top-[-100px] right-[-100px] animate-float-slow" />
+        <div className="floating-orb w-[400px] h-[400px] bg-brand-teal/10 top-[-100px] right-[-100px] animate-float-slow" />
         <div className="floating-orb w-[300px] h-[300px] bg-primary-500/10 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
@@ -132,7 +132,7 @@ function CourseDetail() {
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-dark-400">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500/30 to-indigo-500/30 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500/30 to-brand-teal/30 flex items-center justify-center">
                       <span className="text-xs">👤</span>
                     </div>
                     <span>{course.instructor?.name || 'Instructor'}</span>
@@ -168,7 +168,7 @@ function CourseDetail() {
                   ) : (
                     <>
                       <div className="text-center mb-6">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center border border-primary-500/20">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/20 to-brand-teal/20 flex items-center justify-center border border-primary-500/20">
                           <span className="text-3xl">🎓</span>
                         </div>
                         <p className="text-dark-400 text-sm">Start your learning journey</p>
@@ -217,7 +217,7 @@ function CourseDetail() {
                     transition={{ delay: 0.3 + index * 0.05 }}
                     className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 border border-dark-700/30 hover:border-primary-500/20 transition-all group"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-dark-400 font-semibold group-hover:from-primary-500/20 group-hover:to-indigo-500/20 group-hover:text-primary-400 transition-all border border-dark-600/50">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-dark-400 font-semibold group-hover:from-primary-500/20 group-hover:to-brand-teal/20 group-hover:text-primary-400 transition-all border border-dark-600/50">
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">

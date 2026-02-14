@@ -29,7 +29,7 @@ function Login() {
       
       <div className="absolute inset-0 overflow-hidden">
         <div className="floating-orb w-[400px] h-[400px] bg-primary-500/15 top-[-100px] right-[-100px] animate-float" />
-        <div className="floating-orb w-[300px] h-[300px] bg-indigo-500/10 bottom-[-50px] left-[-50px] animate-float-slow" />
+        <div className="floating-orb w-[300px] h-[300px] bg-brand-teal/10 bottom-[-50px] left-[-50px] animate-float-slow" />
       </div>
 
       <div className="absolute inset-0" style={{
@@ -44,11 +44,8 @@ function Login() {
         className="relative w-full max-w-md"
       >
         <div className="text-center mb-10">
-          <Link to="/" className="inline-flex items-center gap-3 mb-8 group">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-shadow duration-300">
-              <span className="text-white font-bold text-xl">A</span>
-            </div>
-            <span className="text-2xl font-bold gradient-text">Aiqda</span>
+          <Link to="/" className="inline-block mb-8">
+            <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
           </Link>
           <h1 className="text-4xl font-bold text-white mb-3">Welcome Back</h1>
           <p className="text-dark-400 text-lg">Sign in to continue your learning journey</p>
