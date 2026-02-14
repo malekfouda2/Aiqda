@@ -7,7 +7,7 @@ function MainLayout() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <Notification />
-      <main className="pt-16">
+      <main className="pt-20">
         <Outlet />
       </main>
     </div>

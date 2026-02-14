@@ -198,7 +198,7 @@ function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Aiqda" className="h-10 w-auto" />
+              <img src="/logo.png" alt="Aiqda" className="h-14 w-auto" />
             </div>
             <div className="flex items-center gap-8">
               <Link to="/courses" className="nav-link text-sm">Courses</Link>
