@@ -82,3 +82,4 @@ Backend (.env):
 - Register page simplified to student-only (removed Learn/Teach selector)
 - Home page: Added "For Instructors" CTA section with benefits and apply button
 - Backend: instructor-applications module with model, service, controller, routes; approval creates instructor user account
+- **Subscription packages updated**: Fields now include name, price, scheduleDuration, durationDays, learningMode, focus, courses (references to Course model), softwareExposure, outcome. Courses field links to actual courses from the platform via ObjectId references with populated data.

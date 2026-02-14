@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { subscriptionsAPI } from '../services/api';
+import { subscriptionsAPI, coursesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -11,7 +11,7 @@ const emptyForm = {
   durationDays: 30,
   learningMode: '',
   focus: '',
-  coursesActivities: '',
+  selectedCourses: [],
   softwareExposure: '',
   outcome: ''
 };
@@ -20,11 +20,13 @@ function AdminSubscriptions() {
   const { showSuccess, showError } = useUIStore();
   const [subscriptions, setSubscriptions] = useState([]);
   const [packages, setPackages] = useState([]);
+  const [allCourses, setAllCourses] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [showPackageForm, setShowPackageForm] = useState(false);
   const [editingPackage, setEditingPackage] = useState(null);
   const [packageForm, setPackageForm] = useState({ ...emptyForm });
+  const [courseSearch, setCourseSearch] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -33,12 +35,14 @@ function AdminSubscriptions() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subsRes, pkgsRes] = await Promise.all([
+      const [subsRes, pkgsRes, coursesRes] = await Promise.all([
         subscriptionsAPI.getAll(filter === 'all' ? undefined : filter),
-        subscriptionsAPI.getPackages(false)
+        subscriptionsAPI.getPackages(false),
+        coursesAPI.getAll()
       ]);
       setSubscriptions(subsRes.data);
       setPackages(pkgsRes.data);
+      setAllCourses(coursesRes.data?.courses || coursesRes.data || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -56,7 +60,7 @@ function AdminSubscriptions() {
         durationDays: parseInt(packageForm.durationDays) || 30,
         learningMode: packageForm.learningMode,
         focus: packageForm.focus,
-        coursesActivities: packageForm.coursesActivities.split('\n').filter(f => f.trim()),
+        courses: packageForm.selectedCourses,
         softwareExposure: packageForm.softwareExposure.split('\n').filter(f => f.trim()),
         outcome: packageForm.outcome
       };
@@ -85,12 +89,31 @@ function AdminSubscriptions() {
       durationDays: pkg.durationDays || 30,
       learningMode: pkg.learningMode || '',
       focus: pkg.focus || '',
-      coursesActivities: (pkg.coursesActivities || []).join('\n'),
+      selectedCourses: (pkg.courses || []).map(c => typeof c === 'object' ? c._id : c),
       softwareExposure: (pkg.softwareExposure || []).join('\n'),
       outcome: pkg.outcome || ''
     });
     setEditingPackage(pkg);
     setShowPackageForm(true);
+  };
+
+  const toggleCourse = (courseId) => {
+    setPackageForm(f => ({
+      ...f,
+      selectedCourses: f.selectedCourses.includes(courseId)
+        ? f.selectedCourses.filter(id => id !== courseId)
+        : [...f.selectedCourses, courseId]
+    }));
+  };
+
+  const filteredCourses = allCourses.filter(c =>
+    c.title?.toLowerCase().includes(courseSearch.toLowerCase()) ||
+    c.category?.toLowerCase().includes(courseSearch.toLowerCase())
+  );
+
+  const getCourseName = (courseId) => {
+    const course = allCourses.find(c => c._id === courseId);
+    return course?.title || courseId;
   };
 
   const handleApprove = async (subscriptionId) => {
@@ -140,6 +163,7 @@ function AdminSubscriptions() {
                   setShowPackageForm(false);
                   setEditingPackage(null);
                   setPackageForm({ ...emptyForm });
+                  setCourseSearch('');
                 } else {
                   setShowPackageForm(true);
                 }
@@ -231,15 +255,72 @@ function AdminSubscriptions() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Courses / Activities Included * (one per line)</label>
-                  <textarea
-                    value={packageForm.coursesActivities}
-                    onChange={(e) => setPackageForm(f => ({ ...f, coursesActivities: e.target.value }))}
-                    className="input-field"
-                    rows={3}
-                    placeholder={"Introduction to Animation\nCharacter Design Basics\nStoryboarding Workshop"}
-                    required
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Courses / Activities Included</label>
+                  
+                  {packageForm.selectedCourses.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {packageForm.selectedCourses.map(courseId => {
+                        const course = allCourses.find(c => c._id === courseId);
+                        return (
+                          <span
+                            key={courseId}
+                            className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 px-3 py-1.5 rounded-lg text-sm font-medium"
+                          >
+                            {course?.title || courseId}
+                            <button
+                              type="button"
+                              onClick={() => toggleCourse(courseId)}
+                              className="text-primary-400 hover:text-primary-600 ml-1"
+                            >
+                              x
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                    className="input-field mb-2"
+                    placeholder="Search courses to add..."
                   />
+
+                  <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                    {filteredCourses.length === 0 ? (
+                      <p className="text-gray-400 text-sm p-3 text-center">
+                        {allCourses.length === 0 ? 'No courses created yet' : 'No matching courses'}
+                      </p>
+                    ) : (
+                      filteredCourses.map(course => {
+                        const isSelected = packageForm.selectedCourses.includes(course._id);
+                        return (
+                          <button
+                            key={course._id}
+                            type="button"
+                            onClick={() => toggleCourse(course._id)}
+                            className={`w-full text-left px-4 py-2.5 flex items-center justify-between border-b border-gray-100 last:border-0 transition-colors ${
+                              isSelected
+                                ? 'bg-primary-50 text-primary-700'
+                                : 'hover:bg-gray-50 text-gray-700'
+                            }`}
+                          >
+                            <div>
+                              <span className="text-sm font-medium">{course.title}</span>
+                              <span className="text-xs text-gray-400 ml-2">
+                                {course.category} - {course.level}
+                              </span>
+                            </div>
+                            {isSelected && (
+                              <span className="text-primary-500 text-sm font-medium">Selected</span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -275,6 +356,7 @@ function AdminSubscriptions() {
                       onClick={() => {
                         setEditingPackage(null);
                         setPackageForm({ ...emptyForm });
+                        setCourseSearch('');
                       }}
                       className="btn-secondary"
                     >
@@ -324,10 +406,12 @@ function AdminSubscriptions() {
                         <span className="text-gray-700">{pkg.outcome || '—'}</span>
                       </div>
                     </div>
-                    {pkg.coursesActivities?.length > 0 && (
+                    {pkg.courses?.length > 0 && (
                       <div className="mt-2 text-sm">
                         <span className="text-gray-400">Courses:</span>{' '}
-                        <span className="text-gray-700">{pkg.coursesActivities.join(', ')}</span>
+                        <span className="text-gray-700">
+                          {pkg.courses.map(c => typeof c === 'object' ? c.title : c).join(', ')}
+                        </span>
                       </div>
                     )}
                     {pkg.softwareExposure?.length > 0 && (

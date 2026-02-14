@@ -8,11 +8,11 @@ export const createPackage = async (packageData) => {
 
 export const getAllPackages = async (activeOnly = false) => {
   const query = activeOnly ? { isActive: true } : {};
-  return SubscriptionPackage.find(query).sort({ price: 1 });
+  return SubscriptionPackage.find(query).populate('courses', 'title category level').sort({ price: 1 });
 };
 
 export const getPackageById = async (packageId) => {
-  const pkg = await SubscriptionPackage.findById(packageId);
+  const pkg = await SubscriptionPackage.findById(packageId).populate('courses', 'title category level');
   if (!pkg) {
     throw new Error('Package not found');
   }

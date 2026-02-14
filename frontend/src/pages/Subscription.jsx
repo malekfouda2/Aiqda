@@ -217,14 +217,14 @@ function Subscription() {
                       <DetailRow icon="💻" label="Mode" value={pkg.learningMode} />
                       <DetailRow icon="🎯" label="Focus" value={pkg.focus} />
 
-                      {pkg.coursesActivities?.length > 0 && (
+                      {pkg.courses?.length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Courses / Activities</p>
                           <ul className="space-y-1">
-                            {pkg.coursesActivities.map((item, i) => (
+                            {pkg.courses.map((course, i) => (
                               <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                                 <span className="text-primary-500 mt-0.5">✓</span>
-                                {item}
+                                {typeof course === 'object' ? course.title : course}
                               </li>
                             ))}
                           </ul>

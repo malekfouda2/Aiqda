@@ -29,8 +29,9 @@ const subscriptionPackageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  coursesActivities: [{
-    type: String
+  courses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course'
   }],
   softwareExposure: [{
     type: String
