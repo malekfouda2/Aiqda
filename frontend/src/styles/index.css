@@ -216,3 +216,7 @@
 ::selection {
   @apply bg-primary-100 text-primary-900;
 }
+
+.h-14 {
+  height: 6.5rem;
+}
