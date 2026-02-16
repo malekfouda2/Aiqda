@@ -61,4 +61,4 @@ externalPort = 3000
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "mkdir -p /tmp/mongodb && mongod --dbpath /tmp/mongodb --fork --logpath /tmp/mongodb/mongod.log && cd /home/runner/workspace/backend && PORT=5000 node src/server.js"]
-build = ["bash", "-c", "cd /home/runner/workspace/frontend && npm run build"]
+build = ["bash", "-c", "cd /home/runner/workspace/backend && npm install && cd /home/runner/workspace/frontend && npm install && npm run build"]
