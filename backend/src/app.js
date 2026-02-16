@@ -2,6 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import authRoutes from './modules/auth/auth.routes.js';
 import userRoutes from './modules/users/users.routes.js';
@@ -54,6 +59,13 @@ app.use('/api/instructor-applications', instructorAppRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aiqda API is running' });
+});
+
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 app.use((err, req, res, next) => {
