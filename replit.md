@@ -83,3 +83,5 @@ Backend (.env):
 - Home page: Added "For Instructors" CTA section with benefits and apply button
 - Backend: instructor-applications module with model, service, controller, routes; approval creates instructor user account
 - **Subscription packages updated**: Fields now include name, price, scheduleDuration, durationDays, learningMode, focus, courses (references to Course model), softwareExposure, outcome. Courses field links to actual courses from the platform via ObjectId references with populated data.
+- **Dashboard navigation**: Added persistent sidebar navigation (DashboardSidebar) and mobile horizontal nav (DashboardMobileNav) for all dashboard areas. DashboardLayout wraps student (/dashboard/*), admin (/admin/*), and instructor (/instructor/*) routes with role-based sidebar links. App.jsx uses nested routes with Outlet pattern. Admin sidebar includes link to student view.
+- **Admin seed script**: backend/src/seed.js creates default admin account (admin@aiqda.com / admin123)
