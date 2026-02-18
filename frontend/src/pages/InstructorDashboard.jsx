@@ -30,20 +30,18 @@ function InstructorDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <LoadingSpinner size="lg" text="Loading..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Dashboard</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Dashboard</h1>
           <p className="text-gray-500 mb-10">Track your courses and student progress</p>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -162,9 +160,7 @@ function InstructorDashboard() {
               )}
             </div>
           </div>
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

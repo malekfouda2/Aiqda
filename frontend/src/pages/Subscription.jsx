@@ -79,20 +79,18 @@ function Subscription() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <LoadingSpinner size="lg" text="Loading..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="text-center mb-10">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Plans</h1>
             <p className="text-gray-500">Choose a plan that works for you</p>
           </div>
@@ -270,9 +268,7 @@ function Subscription() {
               )}
             </div>
           )}
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -33,27 +33,18 @@ function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <LoadingSpinner size="lg" text="Loading admin dashboard..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12 relative overflow-hidden">
-      <div className="absolute inset-0 mesh-gradient" />
-      
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[500px] h-[500px] bg-orange-100/30 top-[-200px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-100px] left-[-50px] animate-float" />
-      </div>
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
           <div className="mb-10">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -231,9 +222,7 @@ function AdminDashboard() {
               ))}
             </div>
           </motion.div>
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -35,20 +35,18 @@ function Payments() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <LoadingSpinner size="lg" text="Loading payments..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment History</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment History</h1>
           <p className="text-gray-500 mb-8">View all your payment submissions</p>
 
           {payments.length === 0 ? (
@@ -93,9 +91,7 @@ function Payments() {
               ))}
             </div>
           )}
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

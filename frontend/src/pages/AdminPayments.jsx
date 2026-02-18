@@ -65,13 +65,11 @@ function AdminPayments() {
   };
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
           <p className="text-gray-500 mb-8">Review and approve payment submissions</p>
 
           <div className="flex gap-3 mb-6">
@@ -161,9 +159,7 @@ function AdminPayments() {
               ))}
             </div>
           )}
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
+import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Home from './pages/Home';
@@ -30,64 +31,42 @@ function App() {
         <Route path="/apply-instructor" element={<InstructorApplication />} />
         <Route path="/courses" element={<Courses />} />
         <Route path="/courses/:id" element={<CourseDetail />} />
-
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard/subscription" element={
-          <ProtectedRoute>
-            <Subscription />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard/payments" element={
-          <ProtectedRoute>
-            <Payments />
-          </ProtectedRoute>
-        } />
         <Route path="/learn/:id" element={
           <ProtectedRoute>
             <LessonView />
           </ProtectedRoute>
         } />
 
-        <Route path="/instructor" element={
-          <ProtectedRoute roles={['instructor', 'admin']}>
-            <InstructorDashboard />
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <DashboardLayout type="student" />
           </ProtectedRoute>
-        } />
+        }>
+          <Route index element={<Dashboard />} />
+          <Route path="subscription" element={<Subscription />} />
+          <Route path="payments" element={<Payments />} />
+        </Route>
 
         <Route path="/admin" element={
           <ProtectedRoute roles={['admin']}>
-            <AdminDashboard />
+            <DashboardLayout type="admin" />
           </ProtectedRoute>
-        } />
-        <Route path="/admin/payments" element={
-          <ProtectedRoute roles={['admin']}>
-            <AdminPayments />
+        }>
+          <Route index element={<AdminDashboard />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="courses" element={<AdminCourses />} />
+          <Route path="subscriptions" element={<AdminSubscriptions />} />
+          <Route path="instructor-applications" element={<AdminInstructorApplications />} />
+        </Route>
+
+        <Route path="/instructor" element={
+          <ProtectedRoute roles={['instructor', 'admin']}>
+            <DashboardLayout type="instructor" />
           </ProtectedRoute>
-        } />
-        <Route path="/admin/users" element={
-          <ProtectedRoute roles={['admin']}>
-            <AdminUsers />
-          </ProtectedRoute>
-        } />
-        <Route path="/admin/courses" element={
-          <ProtectedRoute roles={['admin']}>
-            <AdminCourses />
-          </ProtectedRoute>
-        } />
-        <Route path="/admin/subscriptions" element={
-          <ProtectedRoute roles={['admin']}>
-            <AdminSubscriptions />
-          </ProtectedRoute>
-        } />
-        <Route path="/admin/instructor-applications" element={
-          <ProtectedRoute roles={['admin']}>
-            <AdminInstructorApplications />
-          </ProtectedRoute>
-        } />
+        }>
+          <Route index element={<InstructorDashboard />} />
+        </Route>
       </Route>
     </Routes>
   );
