@@ -2,10 +2,14 @@ import Quiz from './quiz.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { LessonProgress, CourseProgress } from '../analytics/progress.model.js';
 
-export const createQuiz = async (quizData) => {
-  const lesson = await Lesson.findById(quizData.lesson);
+export const createQuiz = async (quizData, userId = null, userRole = null) => {
+  const lesson = await Lesson.findById(quizData.lesson).populate('course', 'instructor');
   if (!lesson) {
     throw new Error('Lesson not found');
+  }
+
+  if (userRole === 'instructor' && lesson.course.instructor.toString() !== userId) {
+    throw new Error('Not authorized to create quiz for this lesson');
   }
 
   const existingQuiz = await Quiz.findOne({ lesson: quizData.lesson });
@@ -13,8 +17,21 @@ export const createQuiz = async (quizData) => {
     throw new Error('Quiz already exists for this lesson');
   }
 
-  if (quizData.questions.length !== 3) {
-    throw new Error('Quiz must have exactly 3 questions');
+  if (quizData.questions.length < 1 || quizData.questions.length > 8) {
+    throw new Error('Quiz must have between 1 and 8 questions');
+  }
+
+  for (const q of quizData.questions) {
+    if (!q.options || q.options.length !== 3) {
+      throw new Error('Each question must have exactly 3 options');
+    }
+    if (q.correctAnswer < 0 || q.correctAnswer > 2) {
+      throw new Error('Correct answer must be 0, 1, or 2');
+    }
+  }
+
+  if (!quizData.passingScore) {
+    quizData.passingScore = Math.ceil(quizData.questions.length * 0.6);
   }
 
   const quiz = new Quiz(quizData);
@@ -50,23 +67,48 @@ export const getQuizForStudent = async (lessonId) => {
   return sanitizedQuiz;
 };
 
-export const updateQuiz = async (quizId, updates) => {
-  if (updates.questions && updates.questions.length !== 3) {
-    throw new Error('Quiz must have exactly 3 questions');
-  }
-
-  const quiz = await Quiz.findByIdAndUpdate(quizId, updates, { new: true });
+export const updateQuiz = async (quizId, updates, userId = null, userRole = null) => {
+  const quiz = await Quiz.findById(quizId).populate({ path: 'lesson', populate: { path: 'course', select: 'instructor' } });
   if (!quiz) {
     throw new Error('Quiz not found');
   }
-  return quiz;
+
+  if (userRole === 'instructor' && quiz.lesson.course.instructor.toString() !== userId) {
+    throw new Error('Not authorized to update this quiz');
+  }
+
+  if (updates.questions) {
+    if (updates.questions.length < 1 || updates.questions.length > 8) {
+      throw new Error('Quiz must have between 1 and 8 questions');
+    }
+    for (const q of updates.questions) {
+      if (!q.options || q.options.length !== 3) {
+        throw new Error('Each question must have exactly 3 options');
+      }
+      if (q.correctAnswer < 0 || q.correctAnswer > 2) {
+        throw new Error('Correct answer must be 0, 1, or 2');
+      }
+    }
+  }
+
+  const updated = await Quiz.findByIdAndUpdate(quizId, updates, { new: true });
+  return updated;
 };
 
-export const deleteQuiz = async (quizId) => {
-  const quiz = await Quiz.findByIdAndDelete(quizId);
+export const deleteQuiz = async (quizId, userId = null, userRole = null) => {
+  const quiz = await Quiz.findById(quizId).populate({
+    path: 'lesson',
+    populate: { path: 'course', select: 'instructor' }
+  });
   if (!quiz) {
     throw new Error('Quiz not found');
   }
+
+  if (userRole === 'instructor' && quiz.lesson.course.instructor.toString() !== userId) {
+    throw new Error('Not authorized to delete this quiz');
+  }
+
+  await Quiz.findByIdAndDelete(quizId);
   return { message: 'Quiz deleted successfully' };
 };
 
@@ -141,7 +183,7 @@ export const submitQuiz = async (lessonId, userId, answers) => {
 
   return {
     score,
-    totalQuestions: 3,
+    totalQuestions: quiz.questions.length,
     passed,
     passingScore: quiz.passingScore,
     results,

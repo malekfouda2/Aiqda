@@ -84,6 +84,13 @@ export const lessonsAPI = {
   create: (data) => api.post('/lessons', data),
   update: (id, data) => api.put(`/lessons/${id}`, data),
   delete: (id) => api.delete(`/lessons/${id}`),
+  uploadFile: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/lessons/${id}/upload-file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
   updateProgress: (id, watchPercentage) => api.post(`/lessons/${id}/progress`, { watchPercentage }),
   getVideoToken: (id) => api.get(`/lessons/${id}/video-token`)
 };

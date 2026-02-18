@@ -18,6 +18,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminCourses from './pages/AdminCourses';
 import AdminSubscriptions from './pages/AdminSubscriptions';
 import InstructorDashboard from './pages/InstructorDashboard';
+import InstructorCourses from './pages/InstructorCourses';
 import InstructorApplication from './pages/InstructorApplication';
 import AdminInstructorApplications from './pages/AdminInstructorApplications';
 
@@ -66,6 +67,7 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<InstructorDashboard />} />
+          <Route path="courses" element={<InstructorCourses />} />
         </Route>
       </Route>
     </Routes>

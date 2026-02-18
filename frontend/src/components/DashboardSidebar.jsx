@@ -20,6 +20,7 @@ const adminLinks = [
 
 const instructorLinks = [
   { to: '/instructor', icon: '📊', label: 'Overview', end: true },
+  { to: '/instructor/courses', icon: '📚', label: 'My Courses' },
 ];
 
 function DashboardSidebar({ type }) {

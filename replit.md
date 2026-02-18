@@ -21,7 +21,7 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
       /payments     - Manual bank payment flow
       /courses      - Course management
       /lessons      - Lesson management with video
-      /quizzes      - Quiz system (3 questions per lesson)
+      /quizzes      - Quiz system (1-8 questions per lesson)
       /analytics    - Progress tracking and reporting
       /video        - Vimeo integration
       /instructor-applications - Instructor application & approval workflow
@@ -44,15 +44,15 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
 
 ## User Roles
 1. **Student**: Can browse courses, enroll, watch lessons, take quizzes
-2. **Instructor**: Can view analytics for their courses
-3. **Admin**: Full access - manage users, courses, payments, subscriptions, Vimeo uploads
+2. **Instructor**: Can create/manage courses, lessons, upload files, create quizzes (1-8 questions, 3 options each); ownership-checked
+3. **Admin**: Full access - manage users, courses, payments, subscriptions, Vimeo video assignment to lessons
 
 ## Key Features
 - JWT authentication with role-based route protection
 - Subscription packages with admin approval workflow
 - Manual bank payment submission and approval
 - Video-based lessons with watch percentage tracking
-- Quiz system with 3 questions per lesson
+- Quiz system with 1-8 questions per lesson (3 options each)
 - Lesson qualification based on watch % + quiz pass
 - Student, instructor, and admin dashboards
 - Instructor application system with multi-step form and admin review
@@ -85,3 +85,9 @@ Backend (.env):
 - **Subscription packages updated**: Fields now include name, price, scheduleDuration, durationDays, learningMode, focus, courses (references to Course model), softwareExposure, outcome. Courses field links to actual courses from the platform via ObjectId references with populated data.
 - **Dashboard navigation**: Added persistent sidebar navigation (DashboardSidebar) and mobile horizontal nav (DashboardMobileNav) for all dashboard areas. DashboardLayout wraps student (/dashboard/*), admin (/admin/*), and instructor (/instructor/*) routes with role-based sidebar links. App.jsx uses nested routes with Outlet pattern. Admin sidebar includes link to student view.
 - **Admin seed script**: backend/src/seed.js creates default admin account (admin@aiqda.com / admin123)
+- **Instructor course management**: Full instructor course/lesson/quiz/file management page (/instructor/courses) with ownership-checked CRUD operations
+- **Quiz system updated**: 1-8 questions per quiz with exactly 3 options each, dynamic passing score, instructor ownership checks on create/update/delete
+- **Lesson file uploads**: Instructors can upload supporting files (PDF, DOC, PPT, etc.) to lessons via multer; files stored in /uploads/lessons/
+- **Admin Vimeo assignment**: AdminCourses page expanded to show lessons per course with Vimeo Video ID assignment input
+- **Route permissions updated**: Courses, lessons, quizzes routes now allow instructor role (isInstructor middleware) with service-level ownership checks
+- **Delete authorization**: Lesson and quiz delete operations enforce instructor ownership (only course owner or admin can delete)

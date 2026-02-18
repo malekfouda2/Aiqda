@@ -5,9 +5,27 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import fs from 'fs';
+
+const uploadsDir = path.join(__dirname, '../../uploads');
+const lessonsDir = path.join(uploadsDir, 'lessons');
+[uploadsDir, lessonsDir].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const lessonStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, lessonsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -31,7 +49,7 @@ export const uploadPaymentProof = multer({
 });
 
 export const uploadLessonFile = multer({
-  storage,
+  storage: lessonStorage,
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
