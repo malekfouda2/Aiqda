@@ -137,7 +137,7 @@ export const getSecureVideoToken = async (lessonId, userId) => {
   }
 
   const course = await Course.findById(lesson.course._id);
-  if (!course.enrolledStudents.includes(userId)) {
+  if (!course.enrolledStudents.some(id => id.toString() === userId.toString())) {
     throw new Error('Not enrolled in this course');
   }
 

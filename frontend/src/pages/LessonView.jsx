@@ -33,7 +33,7 @@ function LessonView() {
       setProgress(lessonRes.data.progress);
       if (quizRes?.data) {
         setQuiz(quizRes.data);
-        setAnswers(new Array(3).fill(-1));
+        setAnswers(new Array(quizRes.data.questions.length).fill(-1));
       }
 
       try {

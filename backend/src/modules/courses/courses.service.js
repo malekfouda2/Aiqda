@@ -77,7 +77,7 @@ export const enrollStudent = async (courseId, studentId) => {
     throw new Error('Course is not available for enrollment');
   }
 
-  if (course.enrolledStudents.includes(studentId)) {
+  if (course.enrolledStudents.some(id => id.toString() === studentId.toString())) {
     throw new Error('Already enrolled in this course');
   }
 

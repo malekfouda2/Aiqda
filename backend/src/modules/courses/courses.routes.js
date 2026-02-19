@@ -5,17 +5,18 @@ import { authenticate, isAdmin, isInstructor } from '../../middlewares/auth.midd
 const router = express.Router();
 
 router.get('/published', coursesController.getPublishedCourses);
-router.get('/:id', coursesController.getCourseById);
 
 router.use(authenticate);
 
 router.get('/', isInstructor, coursesController.getAllCourses);
 router.post('/', isInstructor, coursesController.createCourse);
-router.put('/:id', isInstructor, coursesController.updateCourse);
-router.delete('/:id', isInstructor, coursesController.deleteCourse);
 
-router.post('/:id/enroll', coursesController.enrollStudent);
 router.get('/my/enrolled', coursesController.getEnrolledCourses);
 router.get('/my/teaching', isInstructor, coursesController.getInstructorCourses);
+
+router.get('/:id([0-9a-fA-F]{24})', coursesController.getCourseById);
+router.put('/:id([0-9a-fA-F]{24})', isInstructor, coursesController.updateCourse);
+router.delete('/:id([0-9a-fA-F]{24})', isInstructor, coursesController.deleteCourse);
+router.post('/:id([0-9a-fA-F]{24})/enroll', coursesController.enrollStudent);
 
 export default router;
