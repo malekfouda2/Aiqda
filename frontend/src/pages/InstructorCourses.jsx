@@ -587,7 +587,6 @@ function InstructorCourses() {
                                       ) : (
                                         <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">📎 No file</span>
                                       )}
-                                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">👁 Min {lesson.minimumWatchPercentage}%</span>
                                     </div>
                                   </div>
                                 </div>
