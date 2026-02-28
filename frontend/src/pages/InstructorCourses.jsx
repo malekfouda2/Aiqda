@@ -4,6 +4,16 @@ import { coursesAPI, lessonsAPI, quizzesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+const INITIAL_LESSON_FORM = {
+  title: '',
+  description: '',
+  minimumWatchPercentage: 80,
+  file: null,
+  fileName: '',
+  questions: [{ question: '', options: ['', '', ''], correctAnswer: 0 }],
+  passingScore: 1,
+};
+
 function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
   const [courses, setCourses] = useState([]);
@@ -13,11 +23,13 @@ function InstructorCourses() {
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [courseLessons, setCourseLessons] = useState({});
   const [showLessonForm, setShowLessonForm] = useState(null);
-  const [lessonForm, setLessonForm] = useState({ title: '', description: '', minimumWatchPercentage: 80 });
+  const [lessonStep, setLessonStep] = useState(1);
+  const [lessonForm, setLessonForm] = useState({ ...INITIAL_LESSON_FORM });
+  const [submittingLesson, setSubmittingLesson] = useState(false);
   const [showQuizEditor, setShowQuizEditor] = useState(null);
   const [quizData, setQuizData] = useState(null);
-  const [uploadingFile, setUploadingFile] = useState(null);
   const fileInputRef = useRef(null);
+  const lessonFileRef = useRef(null);
 
   useEffect(() => {
     fetchCourses();
@@ -67,17 +79,83 @@ function InstructorCourses() {
     }
   };
 
-  const handleCreateLesson = async (e, courseId) => {
-    e.preventDefault();
+  const openLessonForm = (courseId) => {
+    setShowLessonForm(courseId);
+    setLessonStep(1);
+    setLessonForm({ ...INITIAL_LESSON_FORM });
+  };
+
+  const closeLessonForm = () => {
+    setShowLessonForm(null);
+    setLessonStep(1);
+    setLessonForm({ ...INITIAL_LESSON_FORM });
+  };
+
+  const validateStep1 = () => {
+    if (!lessonForm.title.trim()) {
+      showError('Lesson title is required');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    if (!lessonForm.file) {
+      showError('A supporting document is required');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep3 = () => {
+    for (const q of lessonForm.questions) {
+      if (!q.question.trim()) {
+        showError('All questions must have text');
+        return false;
+      }
+      if (q.options.some(o => !o.trim())) {
+        showError('All options must have text');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const goToStep = (step) => {
+    if (step === 2 && !validateStep1()) return;
+    if (step === 3 && !validateStep2()) return;
+    setLessonStep(step);
+  };
+
+  const handleSubmitLesson = async (courseId) => {
+    if (!validateStep1() || !validateStep2() || !validateStep3()) return;
+
+    setSubmittingLesson(true);
     try {
-      await lessonsAPI.create({ ...lessonForm, course: courseId });
-      showSuccess('Lesson created successfully');
-      setLessonForm({ title: '', description: '', minimumWatchPercentage: 80 });
-      setShowLessonForm(null);
+      const lessonRes = await lessonsAPI.create({
+        title: lessonForm.title,
+        description: lessonForm.description,
+        minimumWatchPercentage: lessonForm.minimumWatchPercentage,
+        course: courseId,
+      });
+      const lessonId = lessonRes.data._id;
+
+      await lessonsAPI.uploadFile(lessonId, lessonForm.file);
+
+      await quizzesAPI.create({
+        lesson: lessonId,
+        questions: lessonForm.questions,
+        passingScore: lessonForm.passingScore,
+      });
+
+      showSuccess('Lesson created with document and quiz');
+      closeLessonForm();
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to create lesson');
+    } finally {
+      setSubmittingLesson(false);
     }
   };
 
@@ -93,19 +171,6 @@ function InstructorCourses() {
     }
   };
 
-  const handleFileUpload = async (lessonId, courseId, file) => {
-    setUploadingFile(lessonId);
-    try {
-      await lessonsAPI.uploadFile(lessonId, file);
-      showSuccess('File uploaded successfully');
-      fetchLessons(courseId);
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to upload file');
-    } finally {
-      setUploadingFile(null);
-    }
-  };
-
   const handleTogglePublish = async (courseId, isPublished) => {
     try {
       await coursesAPI.update(courseId, { isPublished: !isPublished });
@@ -114,6 +179,47 @@ function InstructorCourses() {
     } catch (error) {
       showError('Failed to update course');
     }
+  };
+
+  const addQuestion = () => {
+    if (lessonForm.questions.length >= 8) {
+      showError('Maximum 8 questions allowed');
+      return;
+    }
+    setLessonForm(prev => ({
+      ...prev,
+      questions: [...prev.questions, { question: '', options: ['', '', ''], correctAnswer: 0 }],
+    }));
+  };
+
+  const removeQuestion = (index) => {
+    if (lessonForm.questions.length <= 1) {
+      showError('Minimum 1 question required');
+      return;
+    }
+    setLessonForm(prev => ({
+      ...prev,
+      questions: prev.questions.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateQuestion = (index, field, value) => {
+    setLessonForm(prev => ({
+      ...prev,
+      questions: prev.questions.map((q, i) => (i === index ? { ...q, [field]: value } : q)),
+    }));
+  };
+
+  const updateOption = (qIndex, oIndex, value) => {
+    setLessonForm(prev => ({
+      ...prev,
+      questions: prev.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        const newOptions = [...q.options];
+        newOptions[oIndex] = value;
+        return { ...q, options: newOptions };
+      }),
+    }));
   };
 
   const openQuizEditor = async (lesson) => {
@@ -126,7 +232,7 @@ function InstructorCourses() {
         lesson: lesson._id,
         questions: [{ question: '', options: ['', '', ''], correctAnswer: 0 }],
         passingScore: 1,
-        isNew: true
+        isNew: true,
       });
     }
   };
@@ -136,20 +242,12 @@ function InstructorCourses() {
       const payload = {
         lesson: quizData.lesson || showQuizEditor,
         questions: quizData.questions,
-        passingScore: quizData.passingScore
+        passingScore: quizData.passingScore,
       };
-
       for (const q of payload.questions) {
-        if (!q.question.trim()) {
-          showError('All questions must have text');
-          return;
-        }
-        if (q.options.some(o => !o.trim())) {
-          showError('All options must have text');
-          return;
-        }
+        if (!q.question.trim()) { showError('All questions must have text'); return; }
+        if (q.options.some(o => !o.trim())) { showError('All options must have text'); return; }
       }
-
       if (quizData.isNew) {
         await quizzesAPI.create(payload);
         showSuccess('Quiz created successfully');
@@ -164,36 +262,21 @@ function InstructorCourses() {
     }
   };
 
-  const addQuestion = () => {
-    if (quizData.questions.length >= 8) {
-      showError('Maximum 8 questions allowed');
-      return;
-    }
-    setQuizData(prev => ({
-      ...prev,
-      questions: [...prev.questions, { question: '', options: ['', '', ''], correctAnswer: 0 }]
-    }));
+  const editQuizAddQuestion = () => {
+    if (quizData.questions.length >= 8) { showError('Maximum 8 questions'); return; }
+    setQuizData(prev => ({ ...prev, questions: [...prev.questions, { question: '', options: ['', '', ''], correctAnswer: 0 }] }));
   };
 
-  const removeQuestion = (index) => {
-    if (quizData.questions.length <= 1) {
-      showError('Minimum 1 question required');
-      return;
-    }
-    setQuizData(prev => ({
-      ...prev,
-      questions: prev.questions.filter((_, i) => i !== index)
-    }));
+  const editQuizRemoveQuestion = (index) => {
+    if (quizData.questions.length <= 1) { showError('Minimum 1 question'); return; }
+    setQuizData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== index) }));
   };
 
-  const updateQuestion = (index, field, value) => {
-    setQuizData(prev => ({
-      ...prev,
-      questions: prev.questions.map((q, i) => i === index ? { ...q, [field]: value } : q)
-    }));
+  const editQuizUpdateQuestion = (index, field, value) => {
+    setQuizData(prev => ({ ...prev, questions: prev.questions.map((q, i) => (i === index ? { ...q, [field]: value } : q)) }));
   };
 
-  const updateOption = (qIndex, oIndex, value) => {
+  const editQuizUpdateOption = (qIndex, oIndex, value) => {
     setQuizData(prev => ({
       ...prev,
       questions: prev.questions.map((q, i) => {
@@ -201,7 +284,7 @@ function InstructorCourses() {
         const newOptions = [...q.options];
         newOptions[oIndex] = value;
         return { ...q, options: newOptions };
-      })
+      }),
     }));
   };
 
@@ -212,6 +295,59 @@ function InstructorCourses() {
       </div>
     );
   }
+
+  const stepIndicator = (
+    <div className="flex items-center gap-2 mb-6">
+      {[
+        { num: 1, label: 'Details' },
+        { num: 2, label: 'Document' },
+        { num: 3, label: 'Quiz' },
+      ].map((s, idx) => (
+        <div key={s.num} className="flex items-center gap-2">
+          {idx > 0 && <div className={`w-8 h-0.5 ${lessonStep >= s.num ? 'bg-primary-400' : 'bg-gray-200'}`} />}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            lessonStep === s.num ? 'bg-primary-50 text-primary-600 border border-primary-200' :
+            lessonStep > s.num ? 'bg-green-50 text-green-600 border border-green-200' :
+            'bg-gray-50 text-gray-400 border border-gray-200'
+          }`}>
+            {lessonStep > s.num ? '✓' : s.num} {s.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderQuestionEditor = (questions, addFn, removeFn, updateQFn, updateOFn, contextLabel) => (
+    <div className="space-y-4">
+      {questions.map((q, qIdx) => (
+        <div key={qIdx} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-gray-500">Question {qIdx + 1}</span>
+            {questions.length > 1 && (
+              <button type="button" onClick={() => removeFn(qIdx)} className="text-xs text-red-400 hover:text-red-600">Remove</button>
+            )}
+          </div>
+          <input type="text" placeholder="Enter your question" value={q.question} onChange={(e) => updateQFn(qIdx, 'question', e.target.value)} className="input-field mb-3" />
+          <div className="space-y-2">
+            {q.options.map((opt, oIdx) => (
+              <div key={oIdx} className="flex items-center gap-2">
+                <button type="button" onClick={() => updateQFn(qIdx, 'correctAnswer', oIdx)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${q.correctAnswer === oIdx ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-300'}`}>
+                  {q.correctAnswer === oIdx && '✓'}
+                </button>
+                <input type="text" placeholder={`Option ${oIdx + 1}`} value={opt} onChange={(e) => updateOFn(qIdx, oIdx, e.target.value)} className="input-field flex-1" />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Click the circle to mark the correct answer</p>
+        </div>
+      ))}
+      {questions.length < 8 && (
+        <button type="button" onClick={addFn} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 transition-colors text-sm font-medium">
+          + Add Question ({questions.length}/8)
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -301,24 +437,133 @@ function InstructorCourses() {
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-semibold text-gray-900">Lessons</h4>
-                        <button onClick={() => setShowLessonForm(showLessonForm === course._id ? null : course._id)} className="text-sm text-primary-500 hover:text-primary-600 font-medium">
-                          {showLessonForm === course._id ? 'Cancel' : '+ Add Lesson'}
-                        </button>
+                        {showLessonForm !== course._id && (
+                          <button onClick={() => openLessonForm(course._id)} className="text-sm text-primary-500 hover:text-primary-600 font-medium">
+                            + Add Lesson
+                          </button>
+                        )}
                       </div>
 
                       <AnimatePresence>
                         {showLessonForm === course._id && (
                           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                            <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
-                              <form onSubmit={(e) => handleCreateLesson(e, course._id)} className="space-y-3">
-                                <input type="text" placeholder="Lesson title" value={lessonForm.title} onChange={(e) => setLessonForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
-                                <textarea placeholder="Lesson description (optional)" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
-                                <div>
-                                  <label className="block text-sm text-gray-500 mb-1">Minimum watch % to qualify</label>
-                                  <input type="number" value={lessonForm.minimumWatchPercentage} onChange={(e) => setLessonForm(f => ({ ...f, minimumWatchPercentage: parseInt(e.target.value) || 80 }))} className="input-field w-32" min={0} max={100} />
+                            <div className="bg-white rounded-xl p-5 mb-4 border-2 border-primary-100 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-lg font-semibold text-gray-900">New Lesson</h4>
+                                <button onClick={closeLessonForm} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                              </div>
+
+                              {stepIndicator}
+
+                              {lessonStep === 1 && (
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Lesson Title <span className="text-red-400">*</span></label>
+                                    <input type="text" placeholder="e.g. Introduction to Variables" value={lessonForm.title} onChange={(e) => setLessonForm(f => ({ ...f, title: e.target.value }))} className="input-field" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
+                                    <textarea placeholder="What will students learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Minimum watch % to qualify</label>
+                                    <input type="number" value={lessonForm.minimumWatchPercentage} onChange={(e) => setLessonForm(f => ({ ...f, minimumWatchPercentage: parseInt(e.target.value) || 80 }))} className="input-field w-32" min={0} max={100} />
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <button type="button" onClick={() => goToStep(2)} className="btn-primary text-sm">Next: Upload Document</button>
+                                  </div>
                                 </div>
-                                <button type="submit" className="btn-primary text-sm">Create Lesson</button>
-                              </form>
+                              )}
+
+                              {lessonStep === 2 && (
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Supporting Document <span className="text-red-400">*</span></label>
+                                    <p className="text-xs text-gray-400 mb-3">Upload a file for students (PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, images, or TXT). Max 50MB.</p>
+                                    {lessonForm.file ? (
+                                      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                                        <span className="text-2xl">📄</span>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium text-gray-900 truncate">{lessonForm.fileName}</p>
+                                          <p className="text-xs text-gray-400">{(lessonForm.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        </div>
+                                        <button type="button" onClick={() => setLessonForm(f => ({ ...f, file: null, fileName: '' }))} className="text-sm text-red-400 hover:text-red-600 font-medium">Remove</button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => lessonFileRef.current?.click()}
+                                        className="w-full py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-colors flex flex-col items-center gap-2"
+                                      >
+                                        <span className="text-3xl">📎</span>
+                                        <span className="text-sm font-medium">Click to select a file</span>
+                                      </button>
+                                    )}
+                                    <input
+                                      ref={lessonFileRef}
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.gif,.txt"
+                                      onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                          setLessonForm(f => ({ ...f, file, fileName: file.name }));
+                                        }
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <button type="button" onClick={() => setLessonStep(1)} className="btn-secondary text-sm">Back</button>
+                                    <button type="button" onClick={() => goToStep(3)} className="btn-primary text-sm">Next: Create Quiz</button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {lessonStep === 3 && (
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Quiz Questions <span className="text-red-400">*</span></label>
+                                    <p className="text-xs text-gray-400 mb-3">Add 1-8 questions with 3 options each. Mark the correct answer for each question.</p>
+                                  </div>
+
+                                  {renderQuestionEditor(
+                                    lessonForm.questions,
+                                    addQuestion,
+                                    removeQuestion,
+                                    updateQuestion,
+                                    updateOption,
+                                    'create'
+                                  )}
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Passing Score (out of {lessonForm.questions.length})</label>
+                                    <input type="number" value={lessonForm.passingScore} onChange={(e) => setLessonForm(prev => ({ ...prev, passingScore: Math.max(1, Math.min(prev.questions.length, parseInt(e.target.value) || 1)) }))} className="input-field w-32" min={1} max={lessonForm.questions.length} />
+                                  </div>
+
+                                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Summary</h5>
+                                    <ul className="text-sm text-gray-500 space-y-1">
+                                      <li>Title: <span className="text-gray-900 font-medium">{lessonForm.title}</span></li>
+                                      <li>Document: <span className="text-gray-900 font-medium">{lessonForm.fileName}</span></li>
+                                      <li>Quiz: <span className="text-gray-900 font-medium">{lessonForm.questions.length} question{lessonForm.questions.length > 1 ? 's' : ''}, pass {lessonForm.passingScore}/{lessonForm.questions.length}</span></li>
+                                      <li>Min watch: <span className="text-gray-900 font-medium">{lessonForm.minimumWatchPercentage}%</span></li>
+                                    </ul>
+                                  </div>
+
+                                  <div className="flex justify-between">
+                                    <button type="button" onClick={() => setLessonStep(2)} className="btn-secondary text-sm">Back</button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSubmitLesson(course._id)}
+                                      disabled={submittingLesson}
+                                      className="btn-primary text-sm"
+                                    >
+                                      {submittingLesson ? 'Creating Lesson...' : 'Create Lesson'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </motion.div>
                         )}
@@ -330,7 +575,7 @@ function InstructorCourses() {
                         <p className="text-gray-400 text-sm text-center py-6">No lessons yet. Add your first lesson above.</p>
                       ) : (
                         <div className="space-y-3">
-                          {courseLessons[course._id].map((lesson, idx) => (
+                          {courseLessons[course._id].map((lesson) => (
                             <div key={lesson._id} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex items-start gap-3 flex-1">
@@ -354,10 +599,7 @@ function InstructorCourses() {
                                   </div>
                                 </div>
                                 <div className="flex gap-1 shrink-0">
-                                  <button onClick={() => { fileInputRef.current?.setAttribute('data-lesson-id', lesson._id); fileInputRef.current?.setAttribute('data-course-id', course._id); fileInputRef.current?.click(); }} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Upload file" disabled={uploadingFile === lesson._id}>
-                                    {uploadingFile === lesson._id ? '⏳' : '📎'}
-                                  </button>
-                                  <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Manage quiz">
+                                  <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>
                                   <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete lesson">
@@ -378,22 +620,6 @@ function InstructorCourses() {
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.gif,.txt"
-        onChange={(e) => {
-          const file = e.target.files[0];
-          const lessonId = fileInputRef.current?.getAttribute('data-lesson-id');
-          const courseId = fileInputRef.current?.getAttribute('data-course-id');
-          if (file && lessonId && courseId) {
-            handleFileUpload(lessonId, courseId, file);
-          }
-          e.target.value = '';
-        }}
-      />
-
       <AnimatePresence>
         {showQuizEditor && quizData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { setShowQuizEditor(null); setQuizData(null); }}>
@@ -407,33 +633,13 @@ function InstructorCourses() {
               </div>
 
               <div className="p-6 space-y-6">
-                {quizData.questions.map((q, qIdx) => (
-                  <div key={qIdx} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-gray-500">Question {qIdx + 1}</span>
-                      {quizData.questions.length > 1 && (
-                        <button onClick={() => removeQuestion(qIdx)} className="text-xs text-red-400 hover:text-red-600">Remove</button>
-                      )}
-                    </div>
-                    <input type="text" placeholder="Enter your question" value={q.question} onChange={(e) => updateQuestion(qIdx, 'question', e.target.value)} className="input-field mb-3" />
-                    <div className="space-y-2">
-                      {q.options.map((opt, oIdx) => (
-                        <div key={oIdx} className="flex items-center gap-2">
-                          <button type="button" onClick={() => updateQuestion(qIdx, 'correctAnswer', oIdx)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${q.correctAnswer === oIdx ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-300'}`}>
-                            {q.correctAnswer === oIdx && '✓'}
-                          </button>
-                          <input type="text" placeholder={`Option ${oIdx + 1}`} value={opt} onChange={(e) => updateOption(qIdx, oIdx, e.target.value)} className="input-field flex-1" />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">Click the circle to mark the correct answer</p>
-                  </div>
-                ))}
-
-                {quizData.questions.length < 8 && (
-                  <button onClick={addQuestion} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 transition-colors text-sm font-medium">
-                    + Add Question ({quizData.questions.length}/8)
-                  </button>
+                {renderQuestionEditor(
+                  quizData.questions,
+                  editQuizAddQuestion,
+                  editQuizRemoveQuestion,
+                  editQuizUpdateQuestion,
+                  editQuizUpdateOption,
+                  'edit'
                 )}
 
                 <div>
