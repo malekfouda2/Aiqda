@@ -1,24 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import useAuthStore from '../store/authStore';
-import { subscriptionsAPI } from '../services/api';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import useAuthStore from "../store/authStore";
+import { subscriptionsAPI } from "../services/api";
 
 function Home() {
   const { user } = useAuthStore();
   const [packages, setPackages] = useState([]);
 
   useEffect(() => {
-    subscriptionsAPI.getPackages(true).then(res => {
-      setPackages(res.data || []);
-    }).catch(() => {});
+    subscriptionsAPI
+      .getPackages(true)
+      .then((res) => {
+        setPackages(res.data || []);
+      })
+      .catch(() => {});
   }, []);
 
   return (
     <div className="min-h-screen bg-white">
       <section className="relative overflow-hidden min-h-[90vh] flex items-center">
         <div className="absolute inset-0 mesh-gradient" />
-        
+
         <div className="absolute inset-0 overflow-hidden">
           <div className="floating-orb w-[600px] h-[600px] bg-primary-100/40 top-[-200px] left-[-100px] animate-float" />
           <div className="floating-orb w-[500px] h-[500px] bg-cyan-100/40 bottom-[-150px] right-[-100px] animate-float-slow" />
@@ -26,10 +29,13 @@ function Home() {
           <div className="floating-orb w-[200px] h-[200px] bg-orange-100/30 top-[20%] right-[15%] animate-float" />
         </div>
 
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px'
-        }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px)`,
+            backgroundSize: "50px 50px",
+          }}
+        />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <motion.div
@@ -45,7 +51,9 @@ function Home() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8"
             >
               <span className="w-2 h-2 bg-brand-teal rounded-full animate-pulse" />
-              <span className="text-sm text-gray-600">Premium Learning Platform</span>
+              <span className="text-sm text-gray-600">
+                Premium Skills Improvement Platform
+              </span>
             </motion.div>
 
             <motion.div
@@ -54,20 +62,25 @@ function Home() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-8"
             >
-              <img src="/logo.png" alt="Aiqda" className="h-24 sm:h-32 w-auto mx-auto" />
+              <img
+                src="/logo.png"
+                alt="Aiqda"
+                className="h-24 sm:h-32 w-auto mx-auto"
+              />
             </motion.div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-bold mb-8 tracking-tight">
               <span className="gradient-text text-glow">Elevate</span>
               <br />
-              <span className="text-gray-900">Your Learning</span>
+              <span className="text-gray-900">Your Skills</span>
               <br />
-              <span className="text-gray-400">Experience</span>
+              <span className="text-gray-400">With Aiqda</span>
             </h1>
 
             <p className="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto mb-12 leading-relaxed">
-              Aiqda is a premium education platform designed for those who seek
-              excellence in learning. Discover courses that inspire and transform.
+              Aiqda is a premium skills improvement platform designed for those
+              who seek excellence in creativity. Discover videos that inspire
+              and transform.
             </p>
 
             <motion.div
@@ -77,16 +90,25 @@ function Home() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
               {user ? (
-                <Link to="/dashboard" className="btn-primary text-lg px-10 py-4">
+                <Link
+                  to="/dashboard"
+                  className="btn-primary text-lg px-10 py-4"
+                >
                   Go to Dashboard
                 </Link>
               ) : (
                 <>
-                  <Link to="/register" className="btn-primary text-lg px-10 py-4">
+                  <Link
+                    to="/register"
+                    className="btn-primary text-lg px-10 py-4"
+                  >
                     Start Learning
                     <span className="ml-2">→</span>
                   </Link>
-                  <Link to="/courses" className="btn-secondary text-lg px-10 py-4">
+                  <Link
+                    to="/courses"
+                    className="btn-secondary text-lg px-10 py-4"
+                  >
                     Browse Courses
                   </Link>
                 </>
@@ -106,7 +128,9 @@ function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.9 + index * 0.1 }}
                 >
-                  <p className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">
+                    {stat.value}
+                  </p>
                   <p className="text-sm text-gray-500">{stat.label}</p>
                 </motion.div>
               ))}
@@ -119,7 +143,7 @@ function Home() {
 
       <section className="relative py-32 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -135,7 +159,8 @@ function Home() {
               <span className="gradient-text"> Excellence</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-lg">
-              Experience learning like never before with our curated courses and expert instructors.
+              Experience learning like never before with our curated courses and
+              expert instructors.
             </p>
           </motion.div>
 
@@ -149,13 +174,17 @@ function Home() {
                 transition={{ delay: index * 0.15, duration: 0.6 }}
                 className="card-hover text-center group"
               >
-                <div className={`icon-box ${feature.iconClass} mx-auto mb-6 transition-transform duration-500 group-hover:scale-110`}>
+                <div
+                  className={`icon-box ${feature.iconClass} mx-auto mb-6 transition-transform duration-500 group-hover:scale-110`}
+                >
                   <span className="relative z-10">{feature.icon}</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-primary-500 transition-colors">
                   {feature.title}
                 </h3>
-                <p className="text-gray-500 leading-relaxed">{feature.description}</p>
+                <p className="text-gray-500 leading-relaxed">
+                  {feature.description}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -180,11 +209,14 @@ function Home() {
                 <span className="gradient-text"> Learning Path</span>
               </h2>
               <p className="text-gray-500 max-w-xl mx-auto text-lg">
-                Pick the package that fits your goals and start your creative journey today.
+                Pick the package that fits your goals and start your creative
+                journey today.
               </p>
             </motion.div>
 
-            <div className={`grid gap-8 ${packages.length === 1 ? 'max-w-md mx-auto' : packages.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
+            <div
+              className={`grid gap-8 ${packages.length === 1 ? "max-w-md mx-auto" : packages.length === 2 ? "md:grid-cols-2 max-w-3xl mx-auto" : "md:grid-cols-2 lg:grid-cols-3"}`}
+            >
               {packages.map((pkg, index) => (
                 <motion.div
                   key={pkg._id}
@@ -202,42 +234,69 @@ function Home() {
                     </div>
                   )}
 
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {pkg.name}
+                  </h3>
                   <div className="mb-5">
-                    <span className="text-4xl font-bold text-gray-900">{pkg.price}</span>
+                    <span className="text-4xl font-bold text-gray-900">
+                      {pkg.price}
+                    </span>
                     <span className="text-gray-500 ml-1">SAR</span>
                   </div>
 
                   <div className="space-y-3 mb-6 flex-1">
                     {pkg.scheduleDuration && (
                       <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
+                        <span className="w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0 text-xs">
+                          📅
+                        </span>
                         {pkg.scheduleDuration}
                       </div>
                     )}
                     {pkg.learningMode && (
                       <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-xs">💻</span>
+                        <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-xs">
+                          💻
+                        </span>
                         {pkg.learningMode}
                       </div>
                     )}
                     {pkg.focus && (
                       <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 text-xs">🎯</span>
+                        <span className="w-5 h-5 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 text-xs">
+                          🎯
+                        </span>
                         {pkg.focus}
                       </div>
                     )}
 
                     {pkg.courses?.length > 0 && (
                       <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Courses Included</p>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                          Courses Included
+                        </p>
                         <ul className="space-y-1.5">
                           {pkg.courses.map((course, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                              <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            <li
+                              key={i}
+                              className="flex items-start gap-2 text-sm text-gray-600"
+                            >
+                              <svg
+                                className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 13l4 4L19 7"
+                                />
                               </svg>
-                              {typeof course === 'object' ? course.title : course}
+                              {typeof course === "object"
+                                ? course.title
+                                : course}
                             </li>
                           ))}
                         </ul>
@@ -246,10 +305,15 @@ function Home() {
 
                     {pkg.softwareExposure?.length > 0 && (
                       <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Software Exposure</p>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                          Software Exposure
+                        </p>
                         <div className="flex flex-wrap gap-1.5">
                           {pkg.softwareExposure.map((sw, i) => (
-                            <span key={i} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                            <span
+                              key={i}
+                              className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
+                            >
                               {sw}
                             </span>
                           ))}
@@ -259,18 +323,20 @@ function Home() {
 
                     {pkg.outcome && (
                       <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Outcome</p>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                          Outcome
+                        </p>
                         <p className="text-sm text-gray-600">{pkg.outcome}</p>
                       </div>
                     )}
                   </div>
 
                   <Link
-                    to={user ? '/dashboard/subscription' : '/register'}
+                    to={user ? "/dashboard/subscription" : "/register"}
                     className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
                       index === 1 && packages.length > 1
-                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25'
-                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                        ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25"
+                        : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                     }`}
                   >
                     Get Started
@@ -292,7 +358,7 @@ function Home() {
           >
             <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-primary-600 to-brand-teal" />
             <div className="absolute inset-0 mesh-gradient opacity-30" />
-            
+
             <div className="relative py-20 px-8 text-center">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -301,7 +367,9 @@ function Home() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 mb-8"
               >
                 <span className="text-2xl">✨</span>
-                <span className="text-sm text-white/90">Join Our Community</span>
+                <span className="text-sm text-white/90">
+                  Join Our Community
+                </span>
               </motion.div>
 
               <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
@@ -309,10 +377,11 @@ function Home() {
                 <span className="block text-white/90">Transformation?</span>
               </h2>
               <p className="text-white/70 max-w-xl mx-auto mb-10 text-lg">
-                Join thousands of learners who have transformed their careers with Aiqda.
+                Join thousands of learners who have transformed their careers
+                with Aiqda.
               </p>
-              <Link 
-                to="/register" 
+              <Link
+                to="/register"
                 className="inline-flex items-center gap-2 bg-white text-primary-600 font-semibold text-lg px-10 py-4 rounded-xl hover:bg-gray-50 transition-all duration-300 hover:scale-[1.02] shadow-2xl shadow-black/10"
               >
                 Get Started Today
@@ -341,16 +410,17 @@ function Home() {
                 <span className="gradient-text"> Expertise</span>
               </h2>
               <p className="text-gray-500 text-lg mb-6 leading-relaxed">
-                Are you a skilled animator or creative professional? Join Aiqda as an instructor 
-                and inspire the next generation of artists. We're looking for passionate educators 
-                in 2D, 3D, Storyboarding, Stop Motion, and more.
+                Are you a skilled animator or creative professional? Join Aiqda
+                as an instructor and inspire the next generation of artists.
+                We're looking for passionate educators in 2D, 3D, Storyboarding,
+                Stop Motion, and more.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  'Reach students worldwide',
-                  'Flexible teaching schedule',
-                  'Professional platform & support',
-                  'Share your unique creative vision'
+                  "Reach students worldwide",
+                  "Flexible teaching schedule",
+                  "Professional platform & support",
+                  "Share your unique creative vision",
                 ].map((item, i) => (
                   <motion.li
                     key={item}
@@ -361,16 +431,26 @@ function Home() {
                     className="flex items-center gap-3 text-gray-600"
                   >
                     <span className="w-6 h-6 rounded-full bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      <svg
+                        className="w-3.5 h-3.5 text-brand-teal"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     </span>
                     {item}
                   </motion.li>
                 ))}
               </ul>
-              <Link 
-                to="/apply-instructor" 
+              <Link
+                to="/apply-instructor"
                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
               >
                 Apply as Instructor
@@ -390,10 +470,26 @@ function Home() {
                 <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary-100/40 rounded-full blur-2xl" />
                 <div className="relative space-y-6">
                   {[
-                    { icon: '🎬', title: 'Animation Experts', desc: '2D, 3D, Stop Motion & more' },
-                    { icon: '🎨', title: 'Creative Professionals', desc: 'Storyboarding & visual arts' },
-                    { icon: '📐', title: 'Technical Artists', desc: 'Software & pipeline specialists' },
-                    { icon: '🌟', title: 'Industry Veterans', desc: 'Studio & production experience' }
+                    {
+                      icon: "🎬",
+                      title: "Animation Experts",
+                      desc: "2D, 3D, Stop Motion & more",
+                    },
+                    {
+                      icon: "🎨",
+                      title: "Creative Professionals",
+                      desc: "Storyboarding & visual arts",
+                    },
+                    {
+                      icon: "📐",
+                      title: "Technical Artists",
+                      desc: "Software & pipeline specialists",
+                    },
+                    {
+                      icon: "🌟",
+                      title: "Industry Veterans",
+                      desc: "Studio & production experience",
+                    },
                   ].map((item, i) => (
                     <motion.div
                       key={item.title}
@@ -405,7 +501,9 @@ function Home() {
                     >
                       <span className="text-3xl">{item.icon}</span>
                       <div>
-                        <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                        <h4 className="font-semibold text-gray-900">
+                          {item.title}
+                        </h4>
                         <p className="text-sm text-gray-500">{item.desc}</p>
                       </div>
                     </motion.div>
@@ -424,9 +522,15 @@ function Home() {
               <img src="/logo.png" alt="Aiqda" className="h-14 w-auto" />
             </div>
             <div className="flex items-center gap-8">
-              <Link to="/courses" className="nav-link text-sm">Courses</Link>
-              <Link to="/login" className="nav-link text-sm">Login</Link>
-              <Link to="/register" className="nav-link text-sm">Register</Link>
+              <Link to="/courses" className="nav-link text-sm">
+                Courses
+              </Link>
+              <Link to="/login" className="nav-link text-sm">
+                Login
+              </Link>
+              <Link to="/register" className="nav-link text-sm">
+                Register
+              </Link>
             </div>
             <p className="text-gray-400 text-sm">
               &copy; {new Date().getFullYear()} Aiqda. All rights reserved.
@@ -439,30 +543,33 @@ function Home() {
 }
 
 const stats = [
-  { value: '10K+', label: 'Students' },
-  { value: '200+', label: 'Courses' },
-  { value: '50+', label: 'Instructors' }
+  { value: "10K+", label: "Students" },
+  { value: "200+", label: "Courses" },
+  { value: "50+", label: "Instructors" },
 ];
 
 const features = [
   {
-    icon: '🎯',
-    iconClass: 'icon-box-primary',
-    title: 'Expert Instructors',
-    description: 'Learn from industry professionals with years of experience in their fields.'
+    icon: "🎯",
+    iconClass: "icon-box-primary",
+    title: "Expert Instructors",
+    description:
+      "Learn from industry professionals with years of experience in their fields.",
   },
   {
-    icon: '📚',
-    iconClass: 'icon-box-success',
-    title: 'Quality Content',
-    description: 'Carefully curated courses with video lessons, quizzes, and resources.'
+    icon: "📚",
+    iconClass: "icon-box-success",
+    title: "Quality Content",
+    description:
+      "Carefully curated courses with video lessons, quizzes, and resources.",
   },
   {
-    icon: '📊',
-    iconClass: 'icon-box-accent',
-    title: 'Track Progress',
-    description: 'Monitor your learning journey with detailed analytics and insights.'
-  }
+    icon: "📊",
+    iconClass: "icon-box-accent",
+    title: "Track Progress",
+    description:
+      "Monitor your learning journey with detailed analytics and insights.",
+  },
 ];
 
 export default Home;
