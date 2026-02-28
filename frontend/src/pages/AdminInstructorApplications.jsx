@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 
 function AdminInstructorApplications() {
   const { showSuccess, showError } = useUIStore();
@@ -129,11 +130,12 @@ function AdminInstructorApplications() {
   };
 
   return (
-    <div>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={fadeInUp}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Applications</h1>
           <p className="text-gray-500 mb-8">Review and manage instructor applications</p>
 
@@ -429,7 +431,7 @@ function AdminInstructorApplications() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 

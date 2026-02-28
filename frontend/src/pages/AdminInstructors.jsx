@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analyticsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 
 function StatCard({ label, value, sub, color = 'gray' }) {
   const colors = {
@@ -86,21 +87,21 @@ function AdminInstructors() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div className="mb-8">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div variants={fadeInUp} className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Management</h1>
         <p className="text-gray-500">Detailed analytics and performance tracking for all instructors</p>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Instructors" value={totals.instructors} sub={`${totals.active} active`} color="primary" />
-        <StatCard label="Total Courses" value={totals.courses} color="blue" />
-        <StatCard label="Total Students" value={totals.students} color="green" />
-        <StatCard label="Total Revenue" value={`SAR ${totals.revenue.toLocaleString()}`} color="cyan" />
-        <StatCard label="Avg Revenue/Instructor" value={`SAR ${totals.instructors > 0 ? Math.round(totals.revenue / totals.instructors).toLocaleString() : 0}`} color="amber" />
-      </div>
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <motion.div variants={cardVariants}><StatCard label="Total Instructors" value={totals.instructors} sub={`${totals.active} active`} color="primary" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Courses" value={totals.courses} color="blue" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Students" value={totals.students} color="green" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Revenue" value={`SAR ${totals.revenue.toLocaleString()}`} color="cyan" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Avg Revenue/Instructor" value={`SAR ${totals.instructors > 0 ? Math.round(totals.revenue / totals.instructors).toLocaleString() : 0}`} color="amber" /></motion.div>
+      </motion.div>
 
-      <div className="mb-6">
+      <motion.div variants={fadeInUp} className="mb-6">
         <input
           type="text"
           placeholder="Search instructors by name or email..."
@@ -108,16 +109,16 @@ function AdminInstructors() {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="input-field"
         />
-      </div>
+      </motion.div>
 
       {filtered.length === 0 ? (
-        <div className="card text-center py-12">
+        <motion.div variants={fadeInUp} className="card text-center py-12">
           <p className="text-gray-500">{searchTerm ? 'No instructors match your search.' : 'No instructors registered yet.'}</p>
-        </div>
+        </motion.div>
       ) : (
-        <div className="space-y-4">
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
           {filtered.map((instructor) => (
-            <div key={instructor._id} className="card">
+            <motion.div key={instructor._id} variants={cardVariants} className="card">
               <div
                 className="flex items-center justify-between cursor-pointer"
                 onClick={() => openDetail(instructor._id)}
@@ -155,33 +156,43 @@ function AdminInstructors() {
                       <p className="text-xs text-gray-400">Revenue</p>
                     </div>
                   </div>
-                  <span className={`text-gray-400 transition-transform duration-200 ${selectedInstructor === instructor._id ? 'rotate-180' : ''}`}>▼</span>
+                  <motion.span
+                    animate={{ rotate: selectedInstructor === instructor._id ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-gray-400"
+                  >▼</motion.span>
                 </div>
               </div>
 
               <AnimatePresence>
                 {selectedInstructor === instructor._id && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <motion.div
+                    variants={expandVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="overflow-hidden"
+                  >
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       {detailLoading ? (
                         <div className="py-8 text-center"><LoadingSpinner size="sm" text="Loading analytics..." /></div>
                       ) : detail ? (
-                        <div className="space-y-6">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+                          <motion.div variants={cardVariants} className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <StatCard label="Total Courses" value={detail.summary.totalCourses} sub={`${detail.summary.publishedCourses} published`} color="blue" />
                             <StatCard label="Total Students" value={detail.summary.totalStudents} color="green" />
                             <StatCard label="Total Revenue" value={`SAR ${detail.summary.totalRevenue.toLocaleString()}`} color="cyan" />
                             <StatCard label="Avg Watch %" value={`${detail.summary.avgWatchPercentage}%`} color="primary" />
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          </motion.div>
+                          <motion.div variants={cardVariants} className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <StatCard label="Qualified Views" value={detail.summary.qualifiedViews} color="green" />
                             <StatCard label="Quiz Pass Rate" value={`${detail.summary.quizPassRate}%`} color="amber" />
                             <StatCard label="Completed Courses" value={detail.summary.completedCourses} sub="by students" color="blue" />
                             <StatCard label="Joined" value={new Date(detail.instructor.joinedAt).toLocaleDateString()} color="gray" />
-                          </div>
+                          </motion.div>
 
                           {detail.monthlyEnrollments.length > 0 && (
-                            <div>
+                            <motion.div variants={cardVariants}>
                               <h4 className="font-semibold text-gray-900 mb-3">Monthly Enrollments</h4>
                               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                                 <div className="flex items-end gap-1 h-24">
@@ -190,23 +201,30 @@ function AdminInstructors() {
                                     const height = max > 0 ? (m.count / max) * 100 : 0;
                                     const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                     return (
-                                      <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                                      <motion.div
+                                        key={idx}
+                                        initial={{ scaleY: 0 }}
+                                        animate={{ scaleY: 1 }}
+                                        transition={{ duration: 0.5, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                        style={{ transformOrigin: 'bottom' }}
+                                        className="flex-1 flex flex-col items-center gap-1"
+                                      >
                                         <span className="text-xs text-gray-500 font-medium">{m.count}</span>
                                         <div className="w-full bg-primary-200 rounded-t" style={{ height: `${Math.max(height, 4)}%` }} />
                                         <span className="text-xs text-gray-400">{monthNames[m._id.month]}</span>
-                                      </div>
+                                      </motion.div>
                                     );
                                   })}
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           )}
 
-                          <div>
+                          <motion.div variants={cardVariants}>
                             <h4 className="font-semibold text-gray-900 mb-3">Courses Breakdown</h4>
-                            <div className="space-y-3">
+                            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
                               {detail.courses.map((course) => (
-                                <div key={course._id} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                <motion.div key={course._id} variants={cardVariants} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                                   <div className="flex items-start justify-between gap-4 mb-3">
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
@@ -266,11 +284,11 @@ function AdminInstructors() {
                                       </div>
                                     </div>
                                   )}
-                                </div>
+                                </motion.div>
                               ))}
-                            </div>
-                          </div>
-                        </div>
+                            </motion.div>
+                          </motion.div>
+                        </motion.div>
                       ) : (
                         <p className="text-gray-400 text-center py-4">Failed to load details.</p>
                       )}
@@ -278,9 +296,9 @@ function AdminInstructors() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </motion.div>
   );

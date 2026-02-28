@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { subscriptionsAPI, paymentsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 
 function Subscription() {
   const navigate = useNavigate();
@@ -87,13 +88,14 @@ function Subscription() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
     >
-      <div className="text-center mb-10">
+      <motion.div variants={fadeInUp} className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Plans</h1>
             <p className="text-gray-500">Choose a plan that works for you</p>
-          </div>
+          </motion.div>
 
           {activeSubscription && (
             <div className="card bg-green-50 border-green-200 mb-8">

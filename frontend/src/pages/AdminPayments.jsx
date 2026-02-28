@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { paymentsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn } from '../utils/animations';
 
 function AdminPayments() {
   const { showSuccess, showError } = useUIStore();
@@ -66,99 +67,109 @@ function AdminPayments() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
     >
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
-          <p className="text-gray-500 mb-8">Review and approve payment submissions</p>
+      <motion.div variants={fadeInUp}>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+        <p className="text-gray-500 mb-8">Review and approve payment submissions</p>
+      </motion.div>
 
-          <div className="flex gap-3 mb-6">
-            {['submitted', 'approved', 'rejected', 'all'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filter === status
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
-                }`}
+      <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
+        {['submitted', 'approved', 'rejected', 'all'].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              filter === status
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
+      </motion.div>
+
+      {loading ? (
+        <motion.div variants={fadeIn} className="flex justify-center py-12">
+          <LoadingSpinner />
+        </motion.div>
+      ) : payments.length === 0 ? (
+        <motion.div variants={fadeInUp} className="card text-center py-12">
+          <p className="text-gray-500">No payments found</p>
+        </motion.div>
+      ) : (
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
+          <AnimatePresence mode="popLayout">
+            {payments.map((payment) => (
+              <motion.div
+                key={payment._id}
+                variants={cardVariants}
+                layout
+                className="card"
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner />
-            </div>
-          ) : payments.length === 0 ? (
-            <div className="card text-center py-12">
-              <p className="text-gray-500">No payments found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {payments.map((payment) => (
-                <div key={payment._id} className="card">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
-                          {payment.status}
-                        </span>
-                        <span className="text-gray-400 text-sm">
-                          {new Date(payment.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-gray-500 text-sm">User</p>
-                          <p className="text-gray-900">{payment.user?.name}</p>
-                          <p className="text-gray-400 text-sm">{payment.user?.email}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 text-sm">Payment Reference</p>
-                          <p className="text-gray-900 font-mono">{payment.paymentReference}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 text-sm">Amount</p>
-                          <p className="text-gray-900 font-semibold">{payment.amount} SAR</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 text-sm">Bank</p>
-                          <p className="text-gray-900">{payment.bankName}</p>
-                        </div>
-                      </div>
-                      {payment.rejectionReason && (
-                        <p className="mt-2 text-red-600 text-sm">
-                          Rejection reason: {payment.rejectionReason}
-                        </p>
-                      )}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
+                        {payment.status}
+                      </span>
+                      <span className="text-gray-400 text-sm">
+                        {new Date(payment.createdAt).toLocaleString()}
+                      </span>
                     </div>
-
-                    {payment.status === 'submitted' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApprove(payment._id)}
-                          disabled={processing === payment._id}
-                          className="btn-primary"
-                        >
-                          {processing === payment._id ? 'Processing...' : 'Approve'}
-                        </button>
-                        <button
-                          onClick={() => handleReject(payment._id)}
-                          disabled={processing === payment._id}
-                          className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-lg transition-all"
-                        >
-                          Reject
-                        </button>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-500 text-sm">User</p>
+                        <p className="text-gray-900">{payment.user?.name}</p>
+                        <p className="text-gray-400 text-sm">{payment.user?.email}</p>
                       </div>
+                      <div>
+                        <p className="text-gray-500 text-sm">Payment Reference</p>
+                        <p className="text-gray-900 font-mono">{payment.paymentReference}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-sm">Amount</p>
+                        <p className="text-gray-900 font-semibold">{payment.amount} SAR</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-sm">Bank</p>
+                        <p className="text-gray-900">{payment.bankName}</p>
+                      </div>
+                    </div>
+                    {payment.rejectionReason && (
+                      <p className="mt-2 text-red-600 text-sm">
+                        Rejection reason: {payment.rejectionReason}
+                      </p>
                     )}
                   </div>
+
+                  {payment.status === 'submitted' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApprove(payment._id)}
+                        disabled={processing === payment._id}
+                        className="btn-primary"
+                      >
+                        {processing === payment._id ? 'Processing...' : 'Approve'}
+                      </button>
+                      <button
+                        onClick={() => handleReject(payment._id)}
+                        disabled={processing === payment._id}
+                        className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-lg transition-all"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

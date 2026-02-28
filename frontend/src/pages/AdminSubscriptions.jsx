@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { subscriptionsAPI, coursesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn, fadeInScale, expandVariants } from '../utils/animations';
 
 const emptyForm = {
   name: '',
@@ -111,11 +112,6 @@ function AdminSubscriptions() {
     c.category?.toLowerCase().includes(courseSearch.toLowerCase())
   );
 
-  const getCourseName = (courseId) => {
-    const course = allCourses.find(c => c._id === courseId);
-    return course?.title || courseId;
-  };
-
   const handleApprove = async (subscriptionId) => {
     try {
       await subscriptionsAPI.approve(subscriptionId);
@@ -147,10 +143,11 @@ function AdminSubscriptions() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
     >
-      <div className="flex items-center justify-between mb-8">
+      <motion.div variants={fadeInUp} className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription Management</h1>
               <p className="text-gray-500">Manage subscriptions and packages</p>
@@ -170,10 +167,18 @@ function AdminSubscriptions() {
             >
               {showPackageForm ? 'Cancel' : 'Create Package'}
             </button>
-          </div>
+          </motion.div>
 
-          {showPackageForm && (
-            <div className="card mb-8">
+          <AnimatePresence>
+            {showPackageForm && (
+              <motion.div
+                variants={expandVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="overflow-hidden"
+              >
+                <div className="card mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 {editingPackage ? 'Edit Package' : 'New Package'}
               </h2>
@@ -364,16 +369,18 @@ function AdminSubscriptions() {
                 </div>
               </form>
             </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="card mb-8">
+          <motion.div variants={fadeInUp} className="card mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Packages</h2>
             {packages.length === 0 ? (
               <p className="text-gray-500">No packages created yet</p>
             ) : (
-              <div className="space-y-4">
+              <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
                 {packages.map((pkg) => (
-                  <div key={pkg._id} className="bg-gray-50 rounded-lg p-5 border border-gray-100">
+                  <motion.div key={pkg._id} variants={cardVariants} className="bg-gray-50 rounded-lg p-5 border border-gray-100">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900 text-lg">{pkg.name}</h3>
@@ -418,13 +425,13 @@ function AdminSubscriptions() {
                         <span className="text-gray-700">{pkg.softwareExposure.join(', ')}</span>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
 
-          <div className="flex gap-3 mb-6">
+          <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
             {['pending', 'active', 'expired', 'cancelled', 'all'].map((status) => (
               <button
                 key={status}
@@ -438,20 +445,20 @@ function AdminSubscriptions() {
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
-          </div>
+          </motion.div>
 
           {loading ? (
-            <div className="flex justify-center py-12">
+            <motion.div variants={fadeIn} className="flex justify-center py-12">
               <LoadingSpinner />
-            </div>
+            </motion.div>
           ) : subscriptions.length === 0 ? (
-            <div className="card text-center py-12">
+            <motion.div variants={fadeInUp} className="card text-center py-12">
               <p className="text-gray-500">No subscriptions found</p>
-            </div>
+            </motion.div>
           ) : (
-            <div className="space-y-4">
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
               {subscriptions.map((sub) => (
-                <div key={sub._id} className="card">
+                <motion.div key={sub._id} variants={cardVariants} className="card">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -488,9 +495,9 @@ function AdminSubscriptions() {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
     </motion.div>
   );

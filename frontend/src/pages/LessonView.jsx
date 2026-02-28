@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { lessonsAPI, quizzesAPI, videoAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp } from '../utils/animations';
 
 function LessonView() {
   const { id } = useParams();
@@ -102,7 +103,12 @@ function LessonView() {
   }
 
   return (
-    <div className="min-h-screen py-8 relative overflow-hidden">
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="min-h-screen py-8 relative overflow-hidden"
+    >
       <div className="absolute inset-0 mesh-gradient opacity-20" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -111,11 +117,7 @@ function LessonView() {
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
+        <motion.div variants={fadeInUp}>
           <Link
             to={`/courses/${lesson.course?._id}`}
             className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors"
@@ -308,7 +310,7 @@ function LessonView() {
           )}
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

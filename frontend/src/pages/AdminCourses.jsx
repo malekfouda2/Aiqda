@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { analyticsAPI, videoAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 
 function StatCard({ label, value, sub, color = 'gray' }) {
   const colors = {
@@ -86,20 +87,20 @@ function AdminCourses() {
   const totalRevenue = data.reduce((acc, d) => acc + d.totalRevenue, 0);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div className="mb-8">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div variants={fadeInUp} className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Course Management</h1>
         <p className="text-gray-500">Courses organized by instructor with analytics and video assignment</p>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Instructors" value={data.length} color="primary" />
-        <StatCard label="Total Courses" value={totalCourses} color="blue" />
-        <StatCard label="Total Students" value={totalStudents} color="green" />
-        <StatCard label="Est. Revenue" value={`SAR ${totalRevenue.toLocaleString()}`} color="cyan" />
-      </div>
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <motion.div variants={cardVariants}><StatCard label="Total Instructors" value={data.length} color="primary" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Courses" value={totalCourses} color="blue" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Students" value={totalStudents} color="green" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Est. Revenue" value={`SAR ${totalRevenue.toLocaleString()}`} color="cyan" /></motion.div>
+      </motion.div>
 
-      <div className="mb-6">
+      <motion.div variants={fadeInUp} className="mb-6">
         <input
           type="text"
           placeholder="Search by instructor name, email, or course title..."
@@ -107,16 +108,16 @@ function AdminCourses() {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="input-field"
         />
-      </div>
+      </motion.div>
 
       {filtered.length === 0 ? (
-        <div className="card text-center py-12">
+        <motion.div variants={fadeInUp} className="card text-center py-12">
           <p className="text-gray-500">{searchTerm ? 'No results match your search.' : 'No instructors with courses yet.'}</p>
-        </div>
+        </motion.div>
       ) : (
-        <div className="space-y-4">
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
           {filtered.map((item) => (
-            <div key={item.instructor._id} className="card">
+            <motion.div key={item.instructor._id} variants={cardVariants} className="card">
               <div
                 className="flex items-center justify-between cursor-pointer"
                 onClick={() => setExpandedInstructor(expandedInstructor === item.instructor._id ? null : item.instructor._id)}
@@ -138,13 +139,23 @@ function AdminCourses() {
                     <span className="text-gray-300">|</span>
                     <span>SAR {item.totalRevenue.toLocaleString()}</span>
                   </div>
-                  <span className={`text-gray-400 transition-transform duration-200 ${expandedInstructor === item.instructor._id ? 'rotate-180' : ''}`}>▼</span>
+                  <motion.span
+                    animate={{ rotate: expandedInstructor === item.instructor._id ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-gray-400"
+                  >▼</motion.span>
                 </div>
               </div>
 
               <AnimatePresence>
                 {expandedInstructor === item.instructor._id && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <motion.div
+                    variants={expandVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="overflow-hidden"
+                  >
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                         <StatCard label="Courses" value={item.totalCourses} color="blue" />
@@ -153,9 +164,9 @@ function AdminCourses() {
                         <StatCard label="Joined" value={new Date(item.instructor.joinedAt).toLocaleDateString()} color="gray" />
                       </div>
 
-                      <div className="space-y-3">
+                      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
                         {item.courses.map((course) => (
-                          <div key={course._id} className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
+                          <motion.div key={course._id} variants={cardVariants} className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
                             <div
                               className="p-4 cursor-pointer"
                               onClick={() => setExpandedCourse(expandedCourse === course._id ? null : course._id)}
@@ -194,22 +205,32 @@ function AdminCourses() {
                                       🎬 {course.videosAssigned}/{course.lessonsCount}
                                     </span>
                                   </div>
-                                  <span className={`text-gray-400 text-sm transition-transform duration-200 ${expandedCourse === course._id ? 'rotate-180' : ''}`}>▼</span>
+                                  <motion.span
+                                    animate={{ rotate: expandedCourse === course._id ? 180 : 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="text-gray-400 text-sm"
+                                  >▼</motion.span>
                                 </div>
                               </div>
                             </div>
 
                             <AnimatePresence>
                               {expandedCourse === course._id && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <motion.div
+                                  variants={expandVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                  exit="exit"
+                                  className="overflow-hidden"
+                                >
                                   <div className="px-4 pb-4 border-t border-gray-100 pt-3">
                                     <h5 className="text-sm font-semibold text-gray-700 mb-3">Lessons & Video Assignment</h5>
                                     {course.lessons.length === 0 ? (
                                       <p className="text-sm text-gray-400 text-center py-4">No lessons in this course yet.</p>
                                     ) : (
-                                      <div className="space-y-2">
+                                      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-2">
                                         {course.lessons.map((lesson) => (
-                                          <div key={lesson._id} className="bg-white rounded-lg p-3 border border-gray-100">
+                                          <motion.div key={lesson._id} variants={cardVariants} className="bg-white rounded-lg p-3 border border-gray-100">
                                             <div className="flex items-center justify-between gap-3 mb-2">
                                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                                 <span className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 shrink-0">{lesson.order}</span>
@@ -238,24 +259,24 @@ function AdminCourses() {
                                                 {assigningVideo === lesson._id ? '...' : lesson.hasVideo ? 'Update' : 'Assign'}
                                               </button>
                                             </div>
-                                          </div>
+                                          </motion.div>
                                         ))}
-                                      </div>
+                                      </motion.div>
                                     )}
                                   </div>
                                 </motion.div>
                               )}
                             </AnimatePresence>
-                          </div>
+                          </motion.div>
                         ))}
-                      </div>
+                      </motion.div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </motion.div>
   );

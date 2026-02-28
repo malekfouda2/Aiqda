@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { coursesAPI, lessonsAPI, quizzesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 
 const INITIAL_LESSON_FORM = {
   title: '',
@@ -348,8 +349,8 @@ function InstructorCourses() {
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div className="flex items-center justify-between mb-8">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div variants={fadeInUp} className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Courses</h1>
           <p className="text-gray-500">Create and manage your courses, lessons, and quizzes</p>
@@ -357,7 +358,7 @@ function InstructorCourses() {
         <button onClick={() => setShowCourseForm(!showCourseForm)} className="btn-primary">
           {showCourseForm ? 'Cancel' : 'New Course'}
         </button>
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {showCourseForm && (

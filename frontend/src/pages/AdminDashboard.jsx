@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { analyticsAPI, paymentsAPI, subscriptionsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, tableRowVariants } from '../utils/animations';
 
 function AdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
@@ -41,15 +42,13 @@ function AdminDashboard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
     >
-          <div className="mb-10">
+          <motion.div variants={fadeInUp} className="mb-10">
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
+              variants={slideInLeft}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
@@ -59,15 +58,13 @@ function AdminDashboard() {
               Platform <span className="gradient-text">Overview</span>
             </h1>
             <p className="text-gray-500 text-lg">Manage your education platform</p>
-          </div>
+          </motion.div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            {statsCards.map((stat, index) => (
+          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            {statsCards.map((stat) => (
               <motion.div
                 key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + index * 0.1 }}
+                variants={cardVariants}
                 className="stat-card group"
               >
                 <div className="flex items-center gap-4">
@@ -83,13 +80,11 @@ function AdminDashboard() {
                 </div>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-8 mb-8">
+          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8 mb-8">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
+              variants={cardVariants}
               className="card"
             >
               <div className="flex items-center justify-between mb-6">
@@ -112,13 +107,11 @@ function AdminDashboard() {
                   <p className="text-gray-500">No pending payments</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {pendingPayments.slice(0, 5).map((payment, index) => (
+                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
+                  {pendingPayments.slice(0, 5).map((payment) => (
                     <motion.div
                       key={payment._id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.5 + index * 0.05 }}
+                      variants={tableRowVariants}
                       className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
                     >
                       <div className="flex items-center gap-3">
@@ -133,14 +126,12 @@ function AdminDashboard() {
                       <span className="text-lg font-semibold text-amber-600">{payment.amount} SAR</span>
                     </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
+              variants={cardVariants}
               className="card"
             >
               <div className="flex items-center justify-between mb-6">
@@ -163,13 +154,11 @@ function AdminDashboard() {
                   <p className="text-gray-500">No pending subscriptions</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {pendingSubscriptions.slice(0, 5).map((sub, index) => (
+                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
+                  {pendingSubscriptions.slice(0, 5).map((sub) => (
                     <motion.div
                       key={sub._id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + index * 0.05 }}
+                      variants={tableRowVariants}
                       className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
                     >
                       <div className="flex items-center gap-3">
@@ -184,25 +173,22 @@ function AdminDashboard() {
                       <span className="tag tag-intermediate">Pending</span>
                     </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </motion.div>
-          </div>
+          </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            variants={fadeInUp}
             className="card"
           >
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {quickActions.map((action, index) => (
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {quickActions.map((action) => (
                 <motion.div
                   key={action.to}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 + index * 0.05 }}
+                  variants={cardVariants}
+                  whileHover={{ y: -2 }}
                 >
                   <Link
                     to={action.to}
@@ -220,7 +206,7 @@ function AdminDashboard() {
                   </Link>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </motion.div>
     </motion.div>
   );
