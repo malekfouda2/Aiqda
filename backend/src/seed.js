@@ -23,9 +23,12 @@ function randomDate(monthsAgo) {
   return new Date(past.getTime() + Math.random() * (now.getTime() - past.getTime()));
 }
 
-async function seed() {
-  await mongoose.connect(MONGODB_URI);
-  console.log('Connected to MongoDB');
+export async function seedDatabase(options = {}) {
+  const isStandalone = options.standalone !== false;
+  if (isStandalone) {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Connected to MongoDB');
+  }
 
   await User.deleteMany({});
   await Course.deleteMany({});
@@ -428,11 +431,28 @@ async function seed() {
   console.log(`Subscription Packages: ${createdPackages.length}`);
   console.log('========================\n');
 
-  await mongoose.disconnect();
+  if (isStandalone) {
+    await mongoose.disconnect();
+  }
   console.log('Done!');
 }
 
-seed().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+export async function autoSeedIfEmpty() {
+  try {
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
+      console.log('Database is empty — auto-seeding demo data...');
+      await seedDatabase({ standalone: false });
+    }
+  } catch (error) {
+    console.error('Auto-seed check failed:', error.message);
+  }
+}
+
+const isDirectRun = process.argv[1]?.includes('seed.js');
+if (isDirectRun) {
+  seedDatabase({ standalone: true }).catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
