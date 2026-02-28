@@ -109,6 +109,9 @@ export const analyticsAPI = {
   getCourseProgress: (courseId) => api.get(`/analytics/student/course/${courseId}`),
   getInstructorAnalytics: () => api.get('/analytics/instructor'),
   getAdminAnalytics: () => api.get('/analytics/admin'),
+  getAdminCoursesByInstructor: () => api.get('/analytics/admin/courses-by-instructor'),
+  getAdminInstructors: () => api.get('/analytics/admin/instructors'),
+  getAdminInstructorDetail: (id) => api.get(`/analytics/admin/instructors/${id}`),
   getLessonAnalytics: (lessonId) => api.get(`/analytics/lesson/${lessonId}`)
 };
 

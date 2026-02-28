@@ -15,6 +15,7 @@ const adminLinks = [
   { to: '/admin/subscriptions', icon: '📋', label: 'Subscriptions' },
   { to: '/admin/users', icon: '👥', label: 'Users' },
   { to: '/admin/courses', icon: '📚', label: 'Courses' },
+  { to: '/admin/instructors', icon: '👨‍🏫', label: 'Instructors' },
   { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
 ];
 

@@ -36,6 +36,33 @@ export const getAdminAnalytics = async (req, res) => {
   }
 };
 
+export const getAdminCoursesByInstructor = async (req, res) => {
+  try {
+    const data = await analyticsService.getAdminCoursesByInstructor();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAdminAllInstructors = async (req, res) => {
+  try {
+    const data = await analyticsService.getAdminAllInstructors();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAdminInstructorDetail = async (req, res) => {
+  try {
+    const data = await analyticsService.getAdminInstructorDetail(req.params.instructorId);
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getLessonAnalytics = async (req, res) => {
   try {
     const analytics = await analyticsService.getLessonAnalytics(req.params.lessonId);

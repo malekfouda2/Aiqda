@@ -12,6 +12,9 @@ router.get('/student/course/:courseId', analyticsController.getCourseProgress);
 router.get('/instructor', isInstructor, analyticsController.getInstructorAnalytics);
 
 router.get('/admin', isAdmin, analyticsController.getAdminAnalytics);
+router.get('/admin/courses-by-instructor', isAdmin, analyticsController.getAdminCoursesByInstructor);
+router.get('/admin/instructors', isAdmin, analyticsController.getAdminAllInstructors);
+router.get('/admin/instructors/:instructorId', isAdmin, analyticsController.getAdminInstructorDetail);
 router.get('/lesson/:lessonId', isAdmin, analyticsController.getLessonAnalytics);
 
 export default router;

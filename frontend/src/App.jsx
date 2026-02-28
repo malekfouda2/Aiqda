@@ -20,6 +20,7 @@ import AdminSubscriptions from './pages/AdminSubscriptions';
 import InstructorDashboard from './pages/InstructorDashboard';
 import InstructorCourses from './pages/InstructorCourses';
 import InstructorApplication from './pages/InstructorApplication';
+import AdminInstructors from './pages/AdminInstructors';
 import AdminInstructorApplications from './pages/AdminInstructorApplications';
 
 function App() {
@@ -58,6 +59,7 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="courses" element={<AdminCourses />} />
           <Route path="subscriptions" element={<AdminSubscriptions />} />
+          <Route path="instructors" element={<AdminInstructors />} />
           <Route path="instructor-applications" element={<AdminInstructorApplications />} />
         </Route>
 

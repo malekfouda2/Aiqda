@@ -91,3 +91,6 @@ Backend (.env):
 - **Admin Vimeo assignment**: AdminCourses page expanded to show lessons per course with Vimeo Video ID assignment input
 - **Route permissions updated**: Courses, lessons, quizzes routes now allow instructor role (isInstructor middleware) with service-level ownership checks
 - **Delete authorization**: Lesson and quiz delete operations enforce instructor ownership (only course owner or admin can delete)
+- **Admin course analytics**: AdminCourses page redesigned to show courses grouped by instructor, each with detailed analytics (enrolled students, avg watch %, qualified views, quiz pass count, estimated revenue, video assignment status). Video assignment still available per lesson. New backend endpoints: GET /api/analytics/admin/courses-by-instructor
+- **Admin instructor management**: New AdminInstructors page (/admin/instructors) with per-instructor detailed analytics including summary stats, monthly enrollment chart, course breakdowns, revenue, watch %, quiz pass rates. New backend endpoints: GET /api/analytics/admin/instructors, GET /api/analytics/admin/instructors/:id
+- **Lesson creation flow**: Multi-step form (Details -> Document -> Quiz) where file upload and quiz are mandatory before lesson creation. Minimum watch % field removed from instructor-facing UI
