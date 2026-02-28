@@ -7,7 +7,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const INITIAL_LESSON_FORM = {
   title: '',
   description: '',
-  minimumWatchPercentage: 80,
   file: null,
   fileName: '',
   questions: [{ question: '', options: ['', '', ''], correctAnswer: 0 }],
@@ -135,7 +134,6 @@ function InstructorCourses() {
       const lessonRes = await lessonsAPI.create({
         title: lessonForm.title,
         description: lessonForm.description,
-        minimumWatchPercentage: lessonForm.minimumWatchPercentage,
         course: courseId,
       });
       const lessonId = lessonRes.data._id;
@@ -465,10 +463,6 @@ function InstructorCourses() {
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
                                     <textarea placeholder="What will students learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Minimum watch % to qualify</label>
-                                    <input type="number" value={lessonForm.minimumWatchPercentage} onChange={(e) => setLessonForm(f => ({ ...f, minimumWatchPercentage: parseInt(e.target.value) || 80 }))} className="input-field w-32" min={0} max={100} />
-                                  </div>
                                   <div className="flex justify-end">
                                     <button type="button" onClick={() => goToStep(2)} className="btn-primary text-sm">Next: Upload Document</button>
                                   </div>
@@ -547,7 +541,6 @@ function InstructorCourses() {
                                       <li>Title: <span className="text-gray-900 font-medium">{lessonForm.title}</span></li>
                                       <li>Document: <span className="text-gray-900 font-medium">{lessonForm.fileName}</span></li>
                                       <li>Quiz: <span className="text-gray-900 font-medium">{lessonForm.questions.length} question{lessonForm.questions.length > 1 ? 's' : ''}, pass {lessonForm.passingScore}/{lessonForm.questions.length}</span></li>
-                                      <li>Min watch: <span className="text-gray-900 font-medium">{lessonForm.minimumWatchPercentage}%</span></li>
                                     </ul>
                                   </div>
 
