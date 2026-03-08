@@ -6,10 +6,10 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.post('/upload', isAdmin, videoController.uploadToVimeo);
 router.get('/list', isAdmin, videoController.getVimeoVideos);
+router.get('/details/:videoId', isAdmin, videoController.getVideoDetails);
 router.post('/assign', isAdmin, videoController.assignVideoToLesson);
-router.delete('/:videoId', isAdmin, videoController.deleteVimeoVideo);
+router.get('/validate-token', isAdmin, videoController.validateToken);
 
 router.get('/embed/:lessonId', videoController.getVideoEmbedData);
 

@@ -1,20 +1,23 @@
 import * as videoService from './video.service.js';
 
-export const uploadToVimeo = async (req, res) => {
+export const getVimeoVideos = async (req, res) => {
   try {
-    const result = await videoService.uploadToVimeo(req.body);
+    const { page = 1, per_page = 25, query = '' } = req.query;
+    const result = await videoService.getVimeoVideos(
+      parseInt(page), parseInt(per_page), query
+    );
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-export const getVimeoVideos = async (req, res) => {
+export const getVideoDetails = async (req, res) => {
   try {
-    const result = await videoService.getVimeoVideos();
+    const result = await videoService.getVimeoVideoDetails(req.params.videoId);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message });
   }
 };
 
@@ -37,9 +40,9 @@ export const getVideoEmbedData = async (req, res) => {
   }
 };
 
-export const deleteVimeoVideo = async (req, res) => {
+export const validateToken = async (req, res) => {
   try {
-    const result = await videoService.deleteVimeoVideo(req.params.videoId);
+    const result = await videoService.validateVimeoToken();
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });

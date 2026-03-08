@@ -129,11 +129,11 @@ export const instructorApplicationsAPI = {
 };
 
 export const videoAPI = {
-  upload: (data) => api.post('/video/upload', data),
-  getList: () => api.get('/video/list'),
+  getList: (params) => api.get('/video/list', { params }),
+  getDetails: (videoId) => api.get(`/video/details/${videoId}`),
   assign: (lessonId, vimeoVideoId) => api.post('/video/assign', { lessonId, vimeoVideoId }),
   getEmbed: (lessonId) => api.get(`/video/embed/${lessonId}`),
-  delete: (videoId) => api.delete(`/video/${videoId}`)
+  validateToken: () => api.get('/video/validate-token'),
 };
 
 export default api;

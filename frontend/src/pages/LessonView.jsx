@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { lessonsAPI, quizzesAPI, videoAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import VimeoPlayer from '../components/VimeoPlayer';
 import { pageVariants, fadeInUp } from '../utils/animations';
 
 function LessonView() {
@@ -51,14 +52,14 @@ function LessonView() {
     }
   };
 
-  const handleUpdateProgress = async (percentage) => {
+  const handleProgressUpdate = useCallback(async (percentage) => {
     try {
       const response = await lessonsAPI.updateProgress(id, percentage);
       setProgress(response.data);
     } catch (error) {
       console.error('Failed to update progress:', error);
     }
-  };
+  }, [id]);
 
   const handleSubmitQuiz = async () => {
     if (answers.some(a => a === -1)) {
@@ -101,6 +102,9 @@ function LessonView() {
       </div>
     );
   }
+
+  const watchPct = progress?.watchPercentage || 0;
+  const minPct = lesson.minimumWatchPercentage || 80;
 
   return (
     <motion.div
@@ -145,15 +149,12 @@ function LessonView() {
           </div>
 
           <div className="card mb-6">
-            {videoData ? (
-              <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden mb-6 border border-gray-200">
-                <iframe
-                  src={videoData.embedUrl}
-                  className="w-full h-full"
-                  frameBorder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  title={lesson.title}
+            {videoData?.vimeoVideoId ? (
+              <div className="mb-6">
+                <VimeoPlayer
+                  vimeoVideoId={videoData.vimeoVideoId}
+                  onProgressUpdate={handleProgressUpdate}
+                  initialProgress={watchPct}
                 />
               </div>
             ) : (
@@ -162,52 +163,87 @@ function LessonView() {
                   <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
                     <span className="text-4xl">🎬</span>
                   </div>
-                  <p className="text-gray-500">Video not available</p>
+                  <p className="text-gray-500">Video not yet assigned to this lesson</p>
+                  <p className="text-gray-400 text-sm mt-1">Contact your instructor or admin</p>
                 </div>
               </div>
             )}
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="glass-dark px-4 py-3 rounded-xl">
-                <p className="text-gray-500 text-sm">
-                  Minimum watch: <span className="text-primary-500 font-medium">{lesson.minimumWatchPercentage}%</span>
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Your progress: <span className="text-gray-900 font-medium">{progress?.watchPercentage || 0}%</span>
-                </p>
+              <div className="flex items-center gap-6">
+                <div className="glass-dark px-4 py-3 rounded-xl">
+                  <p className="text-gray-500 text-sm">
+                    Watch progress: <span className={`font-semibold ${watchPct >= minPct ? 'text-emerald-500' : 'text-primary-500'}`}>{watchPct}%</span>
+                  </p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    Minimum required: {minPct}%
+                  </p>
+                </div>
+                {watchPct >= minPct && (
+                  <div className="flex items-center gap-2 text-emerald-500">
+                    <span className="text-lg">✅</span>
+                    <span className="text-sm font-medium">Watch requirement met</span>
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-2">
-                {[25, 50, 75, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    onClick={() => handleUpdateProgress(pct)}
-                    className={`px-4 py-2 text-sm rounded-xl font-medium transition-all ${
-                      progress?.watchPercentage >= pct
-                        ? 'bg-gradient-to-r from-primary-500 to-cyan-500 text-white shadow-lg shadow-primary-500/20'
-                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200'
+              <div className="flex items-center gap-2">
+                <div className="w-40 h-2.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      watchPct >= minPct
+                        ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                        : 'bg-gradient-to-r from-primary-500 to-cyan-500'
                     }`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
+                    style={{ width: `${Math.min(watchPct, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400 w-10 text-right">{watchPct}%</span>
               </div>
             </div>
           </div>
+
+          {lesson.supportingFile && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="card mb-6"
+            >
+              <div className="flex items-center gap-3">
+                <div className="icon-box icon-box-primary w-10 h-10 text-lg">
+                  <span>📎</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-900">Supporting Document</h3>
+                  <p className="text-gray-400 text-sm">Download the lesson material</p>
+                </div>
+                <a
+                  href={`/uploads/${lesson.supportingFile}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="btn-secondary text-sm"
+                >
+                  Download
+                </a>
+              </div>
+            </motion.div>
+          )}
 
           {progress?.isQualified && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="card bg-gradient-to-r from-emerald-900/20 to-cyan-900/20 border-emerald-200 mb-6"
+              className="card bg-gradient-to-r from-emerald-50 to-cyan-50 border-emerald-200 mb-6"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center border border-emerald-200">
                   <span className="text-2xl">✅</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-emerald-600 text-lg">Lesson Completed!</h3>
-                  <p className="text-emerald-400/60 text-sm">
+                  <h3 className="font-semibold text-emerald-700 text-lg">Lesson Completed!</h3>
+                  <p className="text-emerald-600/60 text-sm">
                     You have successfully qualified this lesson.
                   </p>
                 </div>
@@ -233,11 +269,11 @@ function LessonView() {
                   <button
                     onClick={() => setShowQuiz(true)}
                     className="btn-primary"
-                    disabled={progress?.watchPercentage < lesson.minimumWatchPercentage}
+                    disabled={watchPct < minPct}
                   >
-                    {progress?.watchPercentage >= lesson.minimumWatchPercentage
+                    {watchPct >= minPct
                       ? 'Take Quiz →'
-                      : `Watch ${lesson.minimumWatchPercentage}% first`}
+                      : `Watch ${minPct}% first`}
                   </button>
                 )}
               </div>
@@ -292,11 +328,11 @@ function LessonView() {
                       animate={{ opacity: 1, y: 0 }}
                       className={`p-5 rounded-xl border ${
                         quizResult.passed 
-                          ? 'bg-emerald-900/20 border-emerald-200' 
-                          : 'bg-rose-900/20 border-rose-500/20'
+                          ? 'bg-emerald-50 border-emerald-200' 
+                          : 'bg-rose-50 border-rose-200'
                       }`}
                     >
-                      <p className={`font-semibold text-lg ${quizResult.passed ? 'text-emerald-600' : 'text-rose-400'}`}>
+                      <p className={`font-semibold text-lg ${quizResult.passed ? 'text-emerald-600' : 'text-rose-500'}`}>
                         Score: {quizResult.score}/{quizResult.totalQuestions}
                       </p>
                       <p className="text-sm mt-1 text-gray-500">
