@@ -219,7 +219,7 @@ function Subscription() {
 
                       {pkg.courses?.length > 0 && (
                         <div>
-                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Courses / Activities</p>
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Chapters / Activities</p>
                           <ul className="space-y-1">
                             {pkg.courses.map((course, i) => (
                               <li key={i} className="flex items-start gap-2 text-sm text-gray-600">

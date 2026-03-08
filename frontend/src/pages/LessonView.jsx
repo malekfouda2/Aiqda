@@ -46,7 +46,7 @@ function LessonView() {
       }
     } catch (error) {
       console.error('Failed to fetch lesson:', error);
-      showError('Failed to load lesson');
+      showError('Failed to load content');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ function LessonView() {
       setQuizResult(response.data);
       setProgress(response.data.progress);
       if (response.data.passed) {
-        showSuccess('Quiz passed! Lesson completed.');
+        showSuccess('Quiz passed! Content completed.');
       } else {
         showError('Quiz not passed. Try again!');
       }
@@ -87,7 +87,7 @@ function LessonView() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading lesson..." />
+        <LoadingSpinner size="lg" text="Loading content..." />
       </div>
     );
   }
@@ -96,7 +96,7 @@ function LessonView() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Lesson not found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Content not found</h2>
           <Link to="/dashboard" className="btn-primary">Go to Dashboard</Link>
         </div>
       </div>
@@ -129,7 +129,7 @@ function LessonView() {
             <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Course
+            Back to Chapter
           </Link>
 
           <div className="mb-6">
@@ -140,7 +140,7 @@ function LessonView() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="text-lg">📹</span>
-              <span className="text-xs text-gray-500">Video Lesson</span>
+              <span className="text-xs text-gray-500">Video Content</span>
             </motion.div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{lesson.title}</h1>
             {lesson.description && (
@@ -163,8 +163,8 @@ function LessonView() {
                   <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
                     <span className="text-4xl">🎬</span>
                   </div>
-                  <p className="text-gray-500">Video not yet assigned to this lesson</p>
-                  <p className="text-gray-400 text-sm mt-1">Contact your instructor or admin</p>
+                  <p className="text-gray-500">Video not yet assigned to this content</p>
+                  <p className="text-gray-400 text-sm mt-1">Contact your creator or admin</p>
                 </div>
               </div>
             )}
@@ -216,7 +216,7 @@ function LessonView() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-medium text-gray-900">Supporting Document</h3>
-                  <p className="text-gray-400 text-sm">Download the lesson material</p>
+                  <p className="text-gray-400 text-sm">Download the content material</p>
                 </div>
                 <a
                   href={`/uploads/${lesson.supportingFile}`}
@@ -242,9 +242,9 @@ function LessonView() {
                   <span className="text-2xl">✅</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-emerald-700 text-lg">Lesson Completed!</h3>
+                  <h3 className="font-semibold text-emerald-700 text-lg">Content Completed!</h3>
                   <p className="text-emerald-600/60 text-sm">
-                    You have successfully qualified this lesson.
+                    You have successfully qualified this content.
                   </p>
                 </div>
               </div>

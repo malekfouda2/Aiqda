@@ -73,7 +73,7 @@ function AdminInstructors() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading instructors..." />
+        <LoadingSpinner size="lg" text="Loading creators..." />
       </div>
     );
   }
@@ -89,22 +89,22 @@ function AdminInstructors() {
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
       <motion.div variants={fadeInUp} className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Management</h1>
-        <p className="text-gray-500">Detailed analytics and performance tracking for all instructors</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Creator Management</h1>
+        <p className="text-gray-500">Detailed analytics and performance tracking for all creators</p>
       </motion.div>
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <motion.div variants={cardVariants}><StatCard label="Total Instructors" value={totals.instructors} sub={`${totals.active} active`} color="primary" /></motion.div>
-        <motion.div variants={cardVariants}><StatCard label="Total Courses" value={totals.courses} color="blue" /></motion.div>
-        <motion.div variants={cardVariants}><StatCard label="Total Students" value={totals.students} color="green" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Creators" value={totals.instructors} sub={`${totals.active} active`} color="primary" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Chapters" value={totals.courses} color="blue" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Members" value={totals.students} color="green" /></motion.div>
         <motion.div variants={cardVariants}><StatCard label="Total Revenue" value={`SAR ${totals.revenue.toLocaleString()}`} color="cyan" /></motion.div>
-        <motion.div variants={cardVariants}><StatCard label="Avg Revenue/Instructor" value={`SAR ${totals.instructors > 0 ? Math.round(totals.revenue / totals.instructors).toLocaleString() : 0}`} color="amber" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Avg Revenue/Creator" value={`SAR ${totals.instructors > 0 ? Math.round(totals.revenue / totals.instructors).toLocaleString() : 0}`} color="amber" /></motion.div>
       </motion.div>
 
       <motion.div variants={fadeInUp} className="mb-6">
         <input
           type="text"
-          placeholder="Search instructors by name or email..."
+          placeholder="Search creators by name or email..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="input-field"
@@ -113,7 +113,7 @@ function AdminInstructors() {
 
       {filtered.length === 0 ? (
         <motion.div variants={fadeInUp} className="card text-center py-12">
-          <p className="text-gray-500">{searchTerm ? 'No instructors match your search.' : 'No instructors registered yet.'}</p>
+          <p className="text-gray-500">{searchTerm ? 'No creators match your search.' : 'No creators registered yet.'}</p>
         </motion.div>
       ) : (
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
@@ -141,11 +141,11 @@ function AdminInstructors() {
                   <div className="hidden md:grid grid-cols-4 gap-4 text-center">
                     <div>
                       <p className="text-sm font-bold text-gray-900">{instructor.totalCourses}</p>
-                      <p className="text-xs text-gray-400">Courses</p>
+                      <p className="text-xs text-gray-400">Chapters</p>
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-900">{instructor.totalStudents}</p>
-                      <p className="text-xs text-gray-400">Students</p>
+                      <p className="text-xs text-gray-400">Members</p>
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-900">{instructor.avgWatchPercentage}%</p>
@@ -179,15 +179,15 @@ function AdminInstructors() {
                       ) : detail ? (
                         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
                           <motion.div variants={cardVariants} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <StatCard label="Total Courses" value={detail.summary.totalCourses} sub={`${detail.summary.publishedCourses} published`} color="blue" />
-                            <StatCard label="Total Students" value={detail.summary.totalStudents} color="green" />
+                            <StatCard label="Total Chapters" value={detail.summary.totalCourses} sub={`${detail.summary.publishedCourses} published`} color="blue" />
+                            <StatCard label="Total Members" value={detail.summary.totalStudents} color="green" />
                             <StatCard label="Total Revenue" value={`SAR ${detail.summary.totalRevenue.toLocaleString()}`} color="cyan" />
                             <StatCard label="Avg Watch %" value={`${detail.summary.avgWatchPercentage}%`} color="primary" />
                           </motion.div>
                           <motion.div variants={cardVariants} className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <StatCard label="Qualified Views" value={detail.summary.qualifiedViews} color="green" />
                             <StatCard label="Quiz Pass Rate" value={`${detail.summary.quizPassRate}%`} color="amber" />
-                            <StatCard label="Completed Courses" value={detail.summary.completedCourses} sub="by students" color="blue" />
+                            <StatCard label="Completed Chapters" value={detail.summary.completedCourses} sub="by members" color="blue" />
                             <StatCard label="Joined" value={new Date(detail.instructor.joinedAt).toLocaleDateString()} color="gray" />
                           </motion.div>
 
@@ -221,7 +221,7 @@ function AdminInstructors() {
                           )}
 
                           <motion.div variants={cardVariants}>
-                            <h4 className="font-semibold text-gray-900 mb-3">Courses Breakdown</h4>
+                            <h4 className="font-semibold text-gray-900 mb-3">Chapters Breakdown</h4>
                             <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
                               {detail.courses.map((course) => (
                                 <motion.div key={course._id} variants={cardVariants} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
@@ -239,7 +239,7 @@ function AdminInstructors() {
                                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                                     <div className="text-center bg-white rounded-lg p-2 border border-gray-100">
                                       <p className="text-sm font-bold text-gray-900">{course.enrolledStudents}</p>
-                                      <p className="text-xs text-gray-400">Students</p>
+                                      <p className="text-xs text-gray-400">Members</p>
                                     </div>
                                     <div className="text-center bg-white rounded-lg p-2 border border-gray-100">
                                       <p className="text-sm font-bold text-gray-900">{course.avgWatchPercentage}%</p>
@@ -261,7 +261,7 @@ function AdminInstructors() {
 
                                   {course.lessons && course.lessons.length > 0 && (
                                     <div className="mt-3 pt-3 border-t border-gray-100">
-                                      <p className="text-xs font-semibold text-gray-500 mb-2">Lessons ({course.lessons.length})</p>
+                                      <p className="text-xs font-semibold text-gray-500 mb-2">Contents ({course.lessons.length})</p>
                                       <div className="space-y-1">
                                         {course.lessons.map((lesson) => (
                                           <div key={lesson._id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2 border border-gray-100">

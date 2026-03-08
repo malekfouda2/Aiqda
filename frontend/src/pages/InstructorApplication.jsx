@@ -474,29 +474,29 @@ function InstructorApplication() {
           value={formState.teachingStyle}
           onChange={(e) => updateField('teachingStyle', e.target.value)}
           className="input-field min-h-[120px] resize-y"
-          placeholder="Tell us about how you approach teaching and engaging students..."
+          placeholder="Tell us about how you approach teaching and engaging members..."
           rows={4}
         />
         {renderError('teachingStyle')}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">How Do You Guide Students Toward Completing a Final Project? *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">How Do You Guide Members Toward Completing a Final Project? *</label>
         <textarea
           value={formState.studentGuidance}
           onChange={(e) => updateField('studentGuidance', e.target.value)}
           className="input-field min-h-[120px] resize-y"
-          placeholder="Describe your approach to mentoring students through project completion..."
+          placeholder="Describe your approach to mentoring members through project completion..."
           rows={4}
         />
         {renderError('studentGuidance')}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Do You Have Existing Course Structure or Materials?</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Do You Have Existing Chapter Structure or Materials?</label>
         <textarea
           value={formState.existingCourseMaterials}
           onChange={(e) => updateField('existingCourseMaterials', e.target.value)}
           className="input-field min-h-[100px] resize-y"
-          placeholder="Describe any existing course structures, syllabi, or materials you have..."
+          placeholder="Describe any existing chapter structures, syllabi, or materials you have..."
           rows={3}
         />
         <div className="mt-3">
@@ -606,7 +606,7 @@ function InstructorApplication() {
             </motion.div>
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Application Submitted!</h2>
             <p className="text-gray-500 text-lg mb-8">
-              Thank you for applying to be an instructor at Aiqda. We'll review your application and get back to you soon.
+              Thank you for applying to be a creator at Aiqda. We'll review your application and get back to you soon.
             </p>
             <Link to="/" className="btn-primary inline-block py-3 px-8 text-base">
               Back to Home
@@ -631,8 +631,8 @@ function InstructorApplication() {
           <Link to="/" className="inline-block mb-6">
             <img src="/logo.png" alt="Aiqda" className="h-14 w-auto mx-auto" />
           </Link>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Instructor Application</h1>
-          <p className="text-gray-500 text-lg">Join our team of expert animation instructors</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Creator Application</h1>
+          <p className="text-gray-500 text-lg">Join our team of expert animation creators</p>
         </div>
 
         <div className="card mb-8 p-4 md:p-6">

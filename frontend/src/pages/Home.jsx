@@ -109,7 +109,7 @@ function Home() {
                     to="/courses"
                     className="btn-secondary text-lg px-10 py-4"
                   >
-                    Browse Courses
+                    Browse Chapters
                   </Link>
                 </>
               )}
@@ -159,8 +159,8 @@ function Home() {
               <span className="gradient-text"> Excellence</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-lg">
-              Experience learning like never before with our curated courses and
-              expert instructors.
+              Experience learning like never before with our curated chapters and
+              expert creators.
             </p>
           </motion.div>
 
@@ -273,7 +273,7 @@ function Home() {
                     {pkg.courses?.length > 0 && (
                       <div className="pt-2 border-t border-gray-100">
                         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-                          Courses Included
+                          Chapters Included
                         </p>
                         <ul className="space-y-1.5">
                           {pkg.courses.map((course, i) => (
@@ -403,7 +403,7 @@ function Home() {
               transition={{ duration: 0.6 }}
             >
               <span className="text-brand-teal text-sm font-medium tracking-widest uppercase mb-4 block">
-                For Instructors
+                For Creators
               </span>
               <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
                 Share Your
@@ -411,13 +411,13 @@ function Home() {
               </h2>
               <p className="text-gray-500 text-lg mb-6 leading-relaxed">
                 Are you a skilled animator or creative professional? Join Aiqda
-                as an instructor and inspire the next generation of artists.
+                as a creator and inspire the next generation of artists.
                 We're looking for passionate educators in 2D, 3D, Storyboarding,
                 Stop Motion, and more.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  "Reach students worldwide",
+                  "Reach members worldwide",
                   "Flexible teaching schedule",
                   "Professional platform & support",
                   "Share your unique creative vision",
@@ -453,7 +453,7 @@ function Home() {
                 to="/apply-instructor"
                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
               >
-                Apply as Instructor
+                Apply as Creator
                 <span>→</span>
               </Link>
             </motion.div>
@@ -523,7 +523,7 @@ function Home() {
             </div>
             <div className="flex items-center gap-8">
               <Link to="/courses" className="nav-link text-sm">
-                Courses
+                Chapters
               </Link>
               <Link to="/login" className="nav-link text-sm">
                 Login
@@ -543,16 +543,16 @@ function Home() {
 }
 
 const stats = [
-  { value: "10K+", label: "Students" },
-  { value: "200+", label: "Courses" },
-  { value: "50+", label: "Instructors" },
+  { value: "10K+", label: "Members" },
+  { value: "200+", label: "Chapters" },
+  { value: "50+", label: "Creators" },
 ];
 
 const features = [
   {
     icon: "🎯",
     iconClass: "icon-box-primary",
-    title: "Expert Instructors",
+    title: "Expert Creators",
     description:
       "Learn from industry professionals with years of experience in their fields.",
   },
@@ -561,7 +561,7 @@ const features = [
     iconClass: "icon-box-success",
     title: "Quality Content",
     description:
-      "Carefully curated courses with video lessons, quizzes, and resources.",
+      "Carefully curated chapters with video contents, quizzes, and resources.",
   },
   {
     icon: "📊",

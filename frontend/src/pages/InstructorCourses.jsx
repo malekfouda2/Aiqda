@@ -70,12 +70,12 @@ function InstructorCourses() {
     e.preventDefault();
     try {
       await coursesAPI.create(courseForm);
-      showSuccess('Course created successfully');
+      showSuccess('Chapter created successfully');
       setCourseForm({ title: '', description: '', category: 'General', level: 'beginner' });
       setShowCourseForm(false);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to create course');
+      showError(error.response?.data?.error || 'Failed to create chapter');
     }
   };
 
@@ -93,7 +93,7 @@ function InstructorCourses() {
 
   const validateStep1 = () => {
     if (!lessonForm.title.trim()) {
-      showError('Lesson title is required');
+      showError('Content title is required');
       return false;
     }
     return true;
@@ -147,36 +147,36 @@ function InstructorCourses() {
         passingScore: lessonForm.passingScore,
       });
 
-      showSuccess('Lesson created with document and quiz');
+      showSuccess('Content created with document and quiz');
       closeLessonForm();
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to create lesson');
+      showError(error.response?.data?.error || 'Failed to create content');
     } finally {
       setSubmittingLesson(false);
     }
   };
 
   const handleDeleteLesson = async (lessonId, courseId) => {
-    if (!confirm('Are you sure you want to delete this lesson?')) return;
+    if (!confirm('Are you sure you want to delete this content?')) return;
     try {
       await lessonsAPI.delete(lessonId);
-      showSuccess('Lesson deleted');
+      showSuccess('Content deleted');
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to delete lesson');
+      showError(error.response?.data?.error || 'Failed to delete content');
     }
   };
 
   const handleTogglePublish = async (courseId, isPublished) => {
     try {
       await coursesAPI.update(courseId, { isPublished: !isPublished });
-      showSuccess(`Course ${isPublished ? 'unpublished' : 'published'}`);
+      showSuccess(`Chapter ${isPublished ? 'unpublished' : 'published'}`);
       fetchCourses();
     } catch (error) {
-      showError('Failed to update course');
+      showError('Failed to update chapter');
     }
   };
 
@@ -290,7 +290,7 @@ function InstructorCourses() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading courses..." />
+        <LoadingSpinner size="lg" text="Loading chapters..." />
       </div>
     );
   }
@@ -352,11 +352,11 @@ function InstructorCourses() {
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
       <motion.div variants={fadeInUp} className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Courses</h1>
-          <p className="text-gray-500">Create and manage your courses, lessons, and quizzes</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Chapters</h1>
+          <p className="text-gray-500">Create and manage your chapters, contents, and quizzes</p>
         </div>
         <button onClick={() => setShowCourseForm(!showCourseForm)} className="btn-primary">
-          {showCourseForm ? 'Cancel' : 'New Course'}
+          {showCourseForm ? 'Cancel' : 'New Chapter'}
         </button>
       </motion.div>
 
@@ -364,7 +364,7 @@ function InstructorCourses() {
         {showCourseForm && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="card mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Course</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Chapter</h2>
               <form onSubmit={handleCreateCourse} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
@@ -388,7 +388,7 @@ function InstructorCourses() {
                     <option value="advanced">Advanced</option>
                   </select>
                 </div>
-                <button type="submit" className="btn-primary">Create Course</button>
+                <button type="submit" className="btn-primary">Create Chapter</button>
               </form>
             </div>
           </motion.div>
@@ -400,8 +400,8 @@ function InstructorCourses() {
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
             <span className="text-4xl">📚</span>
           </div>
-          <p className="text-gray-500 mb-4">You haven't created any courses yet</p>
-          <button onClick={() => setShowCourseForm(true)} className="btn-primary">Create Your First Course</button>
+          <p className="text-gray-500 mb-4">You haven't created any chapters yet</p>
+          <button onClick={() => setShowCourseForm(true)} className="btn-primary">Create Your First Chapter</button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -419,7 +419,7 @@ function InstructorCourses() {
                         {course.isPublished ? 'Published' : 'Draft'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} lessons · {course.enrolledStudents?.length || 0} students · {course.category} · {course.level}</p>
+                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category} · {course.level}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -435,10 +435,10 @@ function InstructorCourses() {
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-semibold text-gray-900">Lessons</h4>
+                        <h4 className="font-semibold text-gray-900">Contents</h4>
                         {showLessonForm !== course._id && (
                           <button onClick={() => openLessonForm(course._id)} className="text-sm text-primary-500 hover:text-primary-600 font-medium">
-                            + Add Lesson
+                            + Add Content
                           </button>
                         )}
                       </div>
@@ -448,7 +448,7 @@ function InstructorCourses() {
                           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                             <div className="bg-white rounded-xl p-5 mb-4 border-2 border-primary-100 shadow-sm">
                               <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-lg font-semibold text-gray-900">New Lesson</h4>
+                                <h4 className="text-lg font-semibold text-gray-900">New Content</h4>
                                 <button onClick={closeLessonForm} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
                               </div>
 
@@ -457,12 +457,12 @@ function InstructorCourses() {
                               {lessonStep === 1 && (
                                 <div className="space-y-4">
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Lesson Title <span className="text-red-400">*</span></label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Content Title <span className="text-red-400">*</span></label>
                                     <input type="text" placeholder="e.g. Introduction to Variables" value={lessonForm.title} onChange={(e) => setLessonForm(f => ({ ...f, title: e.target.value }))} className="input-field" />
                                   </div>
                                   <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
-                                    <textarea placeholder="What will students learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
+                                    <textarea placeholder="What will members learn in this content?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
                                   <div className="flex justify-end">
                                     <button type="button" onClick={() => goToStep(2)} className="btn-primary text-sm">Next: Upload Document</button>
@@ -474,7 +474,7 @@ function InstructorCourses() {
                                 <div className="space-y-4">
                                   <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Supporting Document <span className="text-red-400">*</span></label>
-                                    <p className="text-xs text-gray-400 mb-3">Upload a file for students (PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, images, or TXT). Max 50MB.</p>
+                                    <p className="text-xs text-gray-400 mb-3">Upload a file for members (PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, images, or TXT). Max 50MB.</p>
                                     {lessonForm.file ? (
                                       <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
                                         <span className="text-2xl">📄</span>
@@ -553,7 +553,7 @@ function InstructorCourses() {
                                       disabled={submittingLesson}
                                       className="btn-primary text-sm"
                                     >
-                                      {submittingLesson ? 'Creating Lesson...' : 'Create Lesson'}
+                                      {submittingLesson ? 'Creating Content...' : 'Create Content'}
                                     </button>
                                   </div>
                                 </div>
@@ -566,7 +566,7 @@ function InstructorCourses() {
                       {!courseLessons[course._id] ? (
                         <div className="py-4 text-center"><LoadingSpinner size="sm" /></div>
                       ) : courseLessons[course._id].length === 0 ? (
-                        <p className="text-gray-400 text-sm text-center py-6">No lessons yet. Add your first lesson above.</p>
+                        <p className="text-gray-400 text-sm text-center py-6">No contents yet. Add your first content above.</p>
                       ) : (
                         <div className="space-y-3">
                           {courseLessons[course._id].map((lesson) => (
@@ -595,7 +595,7 @@ function InstructorCourses() {
                                   <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>
-                                  <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete lesson">
+                                  <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete content">
                                     🗑
                                   </button>
                                 </div>

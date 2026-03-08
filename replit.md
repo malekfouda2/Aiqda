@@ -1,7 +1,15 @@
-# Aiqda Education Platform
+# Aiqda Skill-Based Platform
 
 ## Overview
-Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platform designed for scalability. It features role-based access control, subscription management with manual bank payment approval, video-based lessons with Vimeo integration, quizzes, and comprehensive analytics.
+Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) skill-based platform designed for scalability. It features role-based access control, subscription management with manual bank payment approval, video-based contents with Vimeo integration, quizzes, and comprehensive analytics.
+
+## Terminology
+The platform uses the following display terminology (backend routes/DB fields use original names):
+- **Chapter** (DB: course) - A collection of related contents
+- **Content** (DB: lesson) - An individual learning unit with video, documents, and quiz
+- **Creator** (DB: instructor) - A user who creates and manages chapters
+- **Member** (DB: student) - A user who enrolls in chapters and learns
+- **Achievement** (DB: certificate) - Accomplishments earned by members
 
 ## Tech Stack
 - **Backend**: Node.js, Express.js, MongoDB with Mongoose
@@ -19,12 +27,12 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
       /users        - User management
       /subscriptions - Subscription packages and requests
       /payments     - Manual bank payment flow
-      /courses      - Course management
-      /lessons      - Lesson management with video
-      /quizzes      - Quiz system (1-8 questions per lesson)
+      /courses      - Chapter management (DB name: courses)
+      /lessons      - Content management with video (DB name: lessons)
+      /quizzes      - Quiz system (1-8 questions per content)
       /analytics    - Progress tracking and reporting
       /video        - Vimeo integration
-      /instructor-applications - Instructor application & approval workflow
+      /instructor-applications - Creator application & approval workflow
     /middlewares    - Auth, upload middleware
     /utils          - JWT, password hashing
     app.js
@@ -43,19 +51,19 @@ Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) education platf
 ```
 
 ## User Roles
-1. **Student**: Can browse courses, enroll, watch lessons, take quizzes
-2. **Instructor**: Can create/manage courses, lessons, upload files, create quizzes (1-8 questions, 3 options each); ownership-checked
-3. **Admin**: Full access - manage users, courses, payments, subscriptions, Vimeo video assignment to lessons
+1. **Member** (role: student): Can browse chapters, enroll, watch contents, take quizzes
+2. **Creator** (role: instructor): Can create/manage chapters, contents, upload files, create quizzes (1-8 questions, 3 options each); ownership-checked
+3. **Admin**: Full access - manage users, chapters, payments, subscriptions, Vimeo video assignment to contents
 
 ## Key Features
 - JWT authentication with role-based route protection
 - Subscription packages with admin approval workflow
 - Manual bank payment submission and approval
-- Video-based lessons with watch percentage tracking
-- Quiz system with 1-8 questions per lesson (3 options each)
-- Lesson qualification based on watch % + quiz pass
-- Student, instructor, and admin dashboards
-- Instructor application system with multi-step form and admin review
+- Video-based contents with watch percentage tracking
+- Quiz system with 1-8 questions per content (3 options each)
+- Content qualification based on watch % + quiz pass
+- Member, creator, and admin dashboards
+- Creator application system with multi-step form and admin review
 - Clean light UI with Framer Motion animations
 
 ## Running the Application
@@ -75,30 +83,16 @@ Backend (.env):
 - Role-based access control implemented
 - Manual payment approval flow completed
 - Quiz system with progress tracking
-- **Light theme overhaul**: Switched from dark cinematic to clean light theme with white backgrounds, soft shadows, pastel accent orbs, and brand-matching color palette (magenta primary, teal/blue/orange/cyan accents)
-- Aiqda logo integrated across navbar, home, login, register pages
-- All pages updated: white cards, gray borders, proper text contrast for light backgrounds
-- **Instructor Application System**: Dedicated multi-step form (/apply-instructor) with 5 steps (Personal Info, Education, Professional, Teaching, Availability), file uploads (CV, materials), admin review page (/admin/instructor-applications) with approve/reject workflow
-- Register page simplified to student-only (removed Learn/Teach selector)
-- Home page: Added "For Instructors" CTA section with benefits and apply button
-- Backend: instructor-applications module with model, service, controller, routes; approval creates instructor user account
-- **Subscription packages updated**: Fields now include name, price, scheduleDuration, durationDays, learningMode, focus, courses (references to Course model), softwareExposure, outcome. Courses field links to actual courses from the platform via ObjectId references with populated data.
-- **Dashboard navigation**: Added persistent sidebar navigation (DashboardSidebar) and mobile horizontal nav (DashboardMobileNav) for all dashboard areas. DashboardLayout wraps student (/dashboard/*), admin (/admin/*), and instructor (/instructor/*) routes with role-based sidebar links. App.jsx uses nested routes with Outlet pattern. Admin sidebar includes link to student view.
-- **Admin seed script**: backend/src/seed.js creates default admin account (admin@aiqda.com / admin123)
-- **Instructor course management**: Full instructor course/lesson/quiz/file management page (/instructor/courses) with ownership-checked CRUD operations
-- **Quiz system updated**: 1-8 questions per quiz with exactly 3 options each, dynamic passing score, instructor ownership checks on create/update/delete
-- **Lesson file uploads**: Instructors can upload supporting files (PDF, DOC, PPT, etc.) to lessons via multer; files stored in /uploads/lessons/
-- **Admin Vimeo assignment**: AdminCourses page expanded to show lessons per course with Vimeo Video ID assignment input
-- **Route permissions updated**: Courses, lessons, quizzes routes now allow instructor role (isInstructor middleware) with service-level ownership checks
-- **Delete authorization**: Lesson and quiz delete operations enforce instructor ownership (only course owner or admin can delete)
-- **Admin course analytics**: AdminCourses page redesigned to show courses grouped by instructor, each with detailed analytics (enrolled students, avg watch %, qualified views, quiz pass count, estimated revenue, video assignment status). Video assignment still available per lesson. New backend endpoints: GET /api/analytics/admin/courses-by-instructor
-- **Admin instructor management**: New AdminInstructors page (/admin/instructors) with per-instructor detailed analytics including summary stats, monthly enrollment chart, course breakdowns, revenue, watch %, quiz pass rates. New backend endpoints: GET /api/analytics/admin/instructors, GET /api/analytics/admin/instructors/:id
-- **Lesson creation flow**: Multi-step form (Details -> Document -> Quiz) where file upload and quiz are mandatory before lesson creation. Minimum watch % field removed from instructor-facing UI
-- **Shared animation system**: Reusable Framer Motion variants in `frontend/src/utils/animations.js` (pageVariants, fadeInUp, fadeIn, fadeInScale, staggerContainer, cardVariants, slideInLeft, tableRowVariants, expandVariants, heroVariants, sectionVariants). All pages use consistent staggered entrance animations, animated expand/collapse chevrons, and AnimatePresence for smooth transitions.
-- **Animation upgrade applied to all pages**: AdminDashboard, AdminPayments, AdminUsers, AdminSubscriptions, AdminCourses, AdminInstructors, InstructorDashboard, InstructorCourses, Payments, Subscription, LessonView, AdminInstructorApplications — all use shared animation variants for consistent page entrances, card stagger effects, and smooth expand/collapse
-- **Auto-seed on empty database**: server.js calls `autoSeedIfEmpty()` on startup — if no users exist in the database, it automatically seeds all demo data (admin, instructors, students, courses, lessons, quizzes, subscriptions, payments). This prevents data loss when MongoDB's /tmp storage is cleared.
-- **Vimeo Integration (Full)**: Real Vimeo API integration replacing mock implementations:
-  - Backend: `video.service.js` uses native `fetch` to call Vimeo REST API (`/videos/{id}`, `/me/videos`) with Bearer token auth. Validates video IDs on assignment, fetches metadata (title, duration, thumbnail). Endpoints: GET `/api/video/list` (admin, paginated with search), GET `/api/video/details/:videoId` (admin), POST `/api/video/assign` (admin), GET `/api/video/embed/:lessonId` (authenticated), GET `/api/video/validate-token` (admin)
-  - Frontend: `@vimeo/player` SDK in `VimeoPlayer.jsx` component with real-time `timeupdate` event tracking. Tracks unique watched segments (0-100 granularity), sends progress to backend every 15 seconds and on unmount. Replaces manual progress buttons with automatic tracking
-  - Env vars needed: `VIMEO_ACCESS_TOKEN` (personal access token from developer.vimeo.com). Works in graceful degradation mode without token (embed URLs still work, API validation skipped)
-  - Admin assigns Vimeo Video IDs in AdminCourses page; IDs are validated against Vimeo API if token is configured
+- **Light theme overhaul**: Clean light theme with white backgrounds, soft shadows, pastel accent orbs, brand-matching color palette
+- **Creator Application System**: Multi-step form (/apply-instructor) with 5 steps, file uploads, admin review page with approve/reject workflow
+- **Subscription packages**: Fields include name, price, scheduleDuration, durationDays, learningMode, focus, courses (references), softwareExposure, outcome
+- **Dashboard navigation**: Persistent sidebar (DashboardSidebar) and mobile nav for all dashboard areas with role-based links
+- **Admin seed script**: backend/src/seed.js creates default admin (admin@aiqda.com / admin123)
+- **Creator chapter management**: Full CRUD for chapters/contents/quizzes with ownership checks
+- **Quiz system**: 1-8 questions per quiz, 3 options each, dynamic passing score
+- **Content file uploads**: Creators upload supporting files via multer
+- **Admin Vimeo assignment**: AdminCourses page with Vimeo Video ID assignment per content
+- **Shared animation system**: Reusable Framer Motion variants in animations.js
+- **Auto-seed on empty database**: server.js seeds demo data if no users exist
+- **Vimeo Integration (Full)**: Real Vimeo API with Bearer token auth, video validation, `@vimeo/player` SDK with real-time tracking
+- **Terminology rebrand**: All frontend display text updated — Course→Chapter, Lesson→Content, Instructor→Creator, Student→Member. Backend routes/DB fields unchanged.

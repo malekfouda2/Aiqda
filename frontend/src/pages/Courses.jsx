@@ -32,7 +32,7 @@ function Courses() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading courses..." />
+        <LoadingSpinner size="lg" text="Loading chapters..." />
       </div>
     );
   }
@@ -60,15 +60,15 @@ function Courses() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"
           >
             <span className="text-lg">✨</span>
-            <span className="text-sm text-gray-600">Premium Courses</span>
+            <span className="text-sm text-gray-600">Premium Chapters</span>
           </motion.div>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
             Explore Our
-            <span className="gradient-text"> Courses</span>
+            <span className="gradient-text"> Chapters</span>
           </h1>
           <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-            Discover courses designed to help you master new skills and advance your career.
+            Discover chapters designed to help you master new skills and advance your career.
           </p>
         </motion.div>
 
@@ -102,8 +102,8 @@ function Courses() {
             <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
               <span className="text-5xl">📚</span>
             </div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-3">No courses available</h3>
-            <p className="text-gray-500 text-lg">Check back soon for new courses!</p>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-3">No chapters available</h3>
+            <p className="text-gray-500 text-lg">Check back soon for new chapters!</p>
           </motion.div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -153,12 +153,12 @@ function Courses() {
                         <span className="text-xs">👤</span>
                       </div>
                       <span className="text-gray-500">
-                        {course.instructor?.name || 'Instructor'}
+                        {course.instructor?.name || 'Creator'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-primary-500 font-medium">
                       <span>📹</span>
-                      <span>{course.lessonsCount || 0} lessons</span>
+                      <span>{course.lessonsCount || 0} contents</span>
                     </div>
                   </div>
                 </Link>

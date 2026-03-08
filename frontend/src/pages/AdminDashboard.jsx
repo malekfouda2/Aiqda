@@ -213,18 +213,18 @@ function AdminDashboard() {
 }
 
 const statsCards = [
-  { key: 'totalCourses', label: 'Total Courses', icon: '📚', iconClass: 'icon-box-primary' },
+  { key: 'totalCourses', label: 'Total Chapters', icon: '📚', iconClass: 'icon-box-primary' },
   { key: 'totalEnrollments', label: 'Enrollments', icon: '👥', iconClass: 'icon-box-success' },
   { key: 'pendingPayments', label: 'Pending Payments', icon: '💳', iconClass: 'icon-box-warning' },
-  { key: 'qualifiedLessons', label: 'Qualified Lessons', icon: '🎯', iconClass: 'icon-box-accent' }
+  { key: 'qualifiedLessons', label: 'Qualified Contents', icon: '🎯', iconClass: 'icon-box-accent' }
 ];
 
 const quickActions = [
   { to: '/admin/payments', icon: '💳', iconClass: 'icon-box-warning', label: 'Payments', description: 'Review & approve' },
   { to: '/admin/subscriptions', icon: '📋', iconClass: 'icon-box-accent', label: 'Subscriptions', description: 'Manage plans' },
   { to: '/admin/users', icon: '👥', iconClass: 'icon-box-success', label: 'Users', description: 'User management' },
-  { to: '/admin/courses', icon: '📚', iconClass: 'icon-box-primary', label: 'Courses', description: 'Course catalog' },
-  { to: '/admin/instructor-applications', icon: '🎓', iconClass: 'icon-box-accent', label: 'Instructor Apps', description: 'Review applications' }
+  { to: '/admin/courses', icon: '📚', iconClass: 'icon-box-primary', label: 'Chapters', description: 'Chapter catalog' },
+  { to: '/admin/instructor-applications', icon: '🎓', iconClass: 'icon-box-accent', label: 'Creator Apps', description: 'Review applications' }
 ];
 
 export default AdminDashboard;

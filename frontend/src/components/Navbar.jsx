@@ -29,7 +29,7 @@ function Navbar() {
             {user && (
               <div className="hidden md:flex items-center gap-6">
                 <Link to="/courses" className="text-gray-500 hover:text-gray-900 transition-colors">
-                  Courses
+                  Chapters
                 </Link>
                 {user && (
                   <Link to="/dashboard" className="text-gray-500 hover:text-gray-900 transition-colors">
@@ -43,7 +43,7 @@ function Navbar() {
                 )}
                 {isInstructor() && (
                   <Link to="/instructor" className="text-gray-500 hover:text-gray-900 transition-colors">
-                    Instructor
+                    Creator
                   </Link>
                 )}
               </div>

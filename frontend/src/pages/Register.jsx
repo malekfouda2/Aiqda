@@ -151,7 +151,7 @@ function Register() {
               </Link>
             </p>
             <p className="text-gray-400 text-sm">
-              Are you an instructor?{' '}
+              Are you a creator?{' '}
               <Link to="/apply-instructor" className="text-brand-teal hover:text-teal-600 font-medium transition-colors">
                 Apply here
               </Link>

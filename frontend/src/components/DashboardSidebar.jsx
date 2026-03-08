@@ -6,7 +6,7 @@ const studentLinks = [
   { to: '/dashboard', icon: '🏠', label: 'Overview', end: true },
   { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
   { to: '/dashboard/payments', icon: '📝', label: 'Payments' },
-  { to: '/courses', icon: '📚', label: 'Browse Courses' },
+  { to: '/courses', icon: '📚', label: 'Browse Chapters' },
 ];
 
 const adminLinks = [
@@ -14,14 +14,14 @@ const adminLinks = [
   { to: '/admin/payments', icon: '💳', label: 'Payments' },
   { to: '/admin/subscriptions', icon: '📋', label: 'Subscriptions' },
   { to: '/admin/users', icon: '👥', label: 'Users' },
-  { to: '/admin/courses', icon: '📚', label: 'Courses' },
-  { to: '/admin/instructors', icon: '👨‍🏫', label: 'Instructors' },
+  { to: '/admin/courses', icon: '📚', label: 'Chapters' },
+  { to: '/admin/instructors', icon: '👨‍🏫', label: 'Creators' },
   { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
 ];
 
 const instructorLinks = [
   { to: '/instructor', icon: '📊', label: 'Overview', end: true },
-  { to: '/instructor/courses', icon: '📚', label: 'My Courses' },
+  { to: '/instructor/courses', icon: '📚', label: 'My Chapters' },
 ];
 
 function DashboardSidebar({ type }) {
@@ -29,7 +29,7 @@ function DashboardSidebar({ type }) {
   const location = useLocation();
 
   const links = type === 'admin' ? adminLinks : type === 'instructor' ? instructorLinks : studentLinks;
-  const title = type === 'admin' ? 'Admin Panel' : type === 'instructor' ? 'Instructor' : 'My Dashboard';
+  const title = type === 'admin' ? 'Admin Panel' : type === 'instructor' ? 'Creator' : 'My Dashboard';
 
   return (
     <motion.aside
@@ -79,7 +79,7 @@ function DashboardSidebar({ type }) {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 border border-transparent"
               >
                 <span className="text-lg">🔄</span>
-                <span>Student View</span>
+                <span>Member View</span>
               </NavLink>
             </div>
           </div>

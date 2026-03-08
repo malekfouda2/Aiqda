@@ -258,7 +258,7 @@ function AdminSubscriptions() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Courses / Activities Included</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Chapters / Activities Included</label>
                   
                   {packageForm.selectedCourses.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -288,13 +288,13 @@ function AdminSubscriptions() {
                     value={courseSearch}
                     onChange={(e) => setCourseSearch(e.target.value)}
                     className="input-field mb-2"
-                    placeholder="Search courses to add..."
+                    placeholder="Search chapters to add..."
                   />
 
                   <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
                     {filteredCourses.length === 0 ? (
                       <p className="text-gray-400 text-sm p-3 text-center">
-                        {allCourses.length === 0 ? 'No courses created yet' : 'No matching courses'}
+                        {allCourses.length === 0 ? 'No chapters created yet' : 'No matching chapters'}
                       </p>
                     ) : (
                       filteredCourses.map(course => {
@@ -344,7 +344,7 @@ function AdminSubscriptions() {
                     onChange={(e) => setPackageForm(f => ({ ...f, outcome: e.target.value }))}
                     className="input-field"
                     rows={2}
-                    placeholder="e.g. Students will be able to create short animated clips and have a portfolio-ready project"
+                    placeholder="e.g. Members will be able to create short animated clips and have a portfolio-ready project"
                     required
                   />
                 </div>
@@ -413,7 +413,7 @@ function AdminSubscriptions() {
                     </div>
                     {pkg.courses?.length > 0 && (
                       <div className="mt-2 text-sm">
-                        <span className="text-gray-400">Courses:</span>{' '}
+                        <span className="text-gray-400">Chapters:</span>{' '}
                         <span className="text-gray-700">
                           {pkg.courses.map(c => typeof c === 'object' ? c.title : c).join(', ')}
                         </span>

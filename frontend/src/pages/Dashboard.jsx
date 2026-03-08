@@ -55,7 +55,7 @@ function Dashboard() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500">Student Dashboard</span>
+              <span className="text-xs text-gray-500">Member Dashboard</span>
             </motion.div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Welcome back, <span className="gradient-text">{user?.name}</span>
@@ -76,7 +76,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{enrolledCourses.length}</p>
-                  <p className="text-gray-500 text-sm">Enrolled Courses</p>
+                  <p className="text-gray-500 text-sm">Enrolled Chapters</p>
                 </div>
               </div>
             </motion.div>
@@ -93,7 +93,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{progress?.stats?.completedCourses || 0}</p>
-                  <p className="text-gray-500 text-sm">Completed Courses</p>
+                  <p className="text-gray-500 text-sm">Completed Chapters</p>
                 </div>
               </div>
             </motion.div>
@@ -110,7 +110,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{progress?.stats?.totalLessonsCompleted || 0}</p>
-                  <p className="text-gray-500 text-sm">Lessons Completed</p>
+                  <p className="text-gray-500 text-sm">Contents Completed</p>
                 </div>
               </div>
             </motion.div>
@@ -125,7 +125,7 @@ function Dashboard() {
                 className="card"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">My Courses</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">My Chapters</h2>
                   <Link to="/courses" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
                     Browse More →
                   </Link>
@@ -136,9 +136,9 @@ function Dashboard() {
                     <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-4xl">📖</span>
                     </div>
-                    <p className="text-gray-500 mb-6">You haven't enrolled in any courses yet</p>
+                    <p className="text-gray-500 mb-6">You haven't enrolled in any chapters yet</p>
                     <Link to="/courses" className="btn-primary">
-                      Explore Courses
+                      Explore Chapters
                     </Link>
                   </div>
                 ) : (
@@ -289,7 +289,7 @@ function Dashboard() {
 const quickLinks = [
   { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
   { to: '/dashboard/payments', icon: '📝', label: 'Payment History' },
-  { to: '/courses', icon: '🔍', label: 'Browse Courses' }
+  { to: '/courses', icon: '🔍', label: 'Browse Chapters' }
 ];
 
 export default Dashboard;

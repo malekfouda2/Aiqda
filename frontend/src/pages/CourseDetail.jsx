@@ -42,7 +42,7 @@ function CourseDetail() {
       }
     } catch (error) {
       console.error('Failed to fetch course:', error);
-      showError('Failed to load course');
+      showError('Failed to load chapter');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ function CourseDetail() {
     try {
       await coursesAPI.enroll(id);
       setIsEnrolled(true);
-      showSuccess('Successfully enrolled in the course!');
+      showSuccess('Successfully enrolled in the chapter!');
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to enroll');
     } finally {
@@ -75,7 +75,7 @@ function CourseDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading course..." />
+        <LoadingSpinner size="lg" text="Loading chapter..." />
       </div>
     );
   }
@@ -84,8 +84,8 @@ function CourseDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Course not found</h2>
-          <Link to="/courses" className="btn-primary">Browse Courses</Link>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Chapter not found</h2>
+          <Link to="/courses" className="btn-primary">Browse Chapters</Link>
         </div>
       </div>
     );
@@ -110,7 +110,7 @@ function CourseDetail() {
             <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Courses
+            Back to Chapters
           </Link>
 
           <div className="card mb-8">
@@ -135,15 +135,15 @@ function CourseDetail() {
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-xs">👤</span>
                     </div>
-                    <span>{course.instructor?.name || 'Instructor'}</span>
+                    <span>{course.instructor?.name || 'Creator'}</span>
                   </div>
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
-                    <span>📹</span> {lessons.length} lessons
+                    <span>📹</span> {lessons.length} contents
                   </span>
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
-                    <span>👥</span> {course.enrolledStudents?.length || 0} students
+                    <span>👥</span> {course.enrolledStudents?.length || 0} members
                   </span>
                 </div>
               </div>
@@ -197,7 +197,7 @@ function CourseDetail() {
               <div className="icon-box icon-box-primary w-10 h-10 text-lg">
                 <span>📖</span>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Course Content</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Chapter Content</h2>
             </div>
             
             {lessons.length === 0 ? (
@@ -205,7 +205,7 @@ function CourseDetail() {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
                   <span className="text-2xl">📚</span>
                 </div>
-                <p className="text-gray-500">No lessons available yet.</p>
+                <p className="text-gray-500">No contents available yet.</p>
               </div>
             ) : (
               <div className="space-y-3">

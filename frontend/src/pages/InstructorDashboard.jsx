@@ -44,14 +44,14 @@ function InstructorDashboard() {
       animate="visible"
     >
       <motion.div variants={fadeInUp}>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Dashboard</h1>
-        <p className="text-gray-500 mb-10">Track your courses and student progress</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Creator Dashboard</h1>
+        <p className="text-gray-500 mb-10">Track your chapters and member progress</p>
       </motion.div>
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         {[
-          { icon: '📚', bg: 'bg-primary-50', value: analytics?.totalCourses || 0, label: 'Courses' },
-          { icon: '👥', bg: 'bg-green-50', value: analytics?.totalStudents || 0, label: 'Students' },
+          { icon: '📚', bg: 'bg-primary-50', value: analytics?.totalCourses || 0, label: 'Chapters' },
+          { icon: '👥', bg: 'bg-green-50', value: analytics?.totalStudents || 0, label: 'Members' },
           { icon: '✅', bg: 'bg-indigo-50', value: analytics?.totalQualifiedViews || 0, label: 'Qualified Views' },
           { icon: '💰', bg: 'bg-yellow-50', value: 'Coming Soon', label: 'Revenue' },
         ].map((stat) => (
@@ -71,10 +71,10 @@ function InstructorDashboard() {
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8">
         <motion.div variants={cardVariants} className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">My Courses</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">My Chapters</h2>
           
           {courses.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No courses yet</p>
+            <p className="text-gray-500 text-center py-8">No chapters yet</p>
           ) : (
             <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
               {courses.map((course) => {
@@ -89,7 +89,7 @@ function InstructorDashboard() {
                         <div>
                           <h3 className="font-medium text-gray-900">{course.title}</h3>
                           <p className="text-gray-400 text-sm">
-                            {stats?.enrolledCount || 0} students • {stats?.lessonsCount || 0} lessons
+                            {stats?.enrolledCount || 0} members • {stats?.lessonsCount || 0} contents
                           </p>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs ${
@@ -107,7 +107,7 @@ function InstructorDashboard() {
         </motion.div>
 
         <motion.div variants={cardVariants} className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Course Performance</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Chapter Performance</h2>
           
           {analytics?.courseStats?.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No data yet</p>
@@ -126,7 +126,7 @@ function InstructorDashboard() {
                       <p className="text-gray-900 font-medium">{stat.qualifiedViews}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Lessons</p>
+                      <p className="text-gray-400">Contents</p>
                       <p className="text-gray-900 font-medium">{stat.lessonsCount}</p>
                     </div>
                   </div>

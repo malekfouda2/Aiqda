@@ -70,7 +70,7 @@ function AdminUsers() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
             }`}
           >
-            {role.charAt(0).toUpperCase() + role.slice(1)}s
+            {{ all: 'All', student: 'Members', instructor: 'Creators', admin: 'Admins' }[role]}
           </button>
         ))}
       </motion.div>
@@ -109,8 +109,8 @@ function AdminUsers() {
                         onChange={(e) => handleUpdateRole(user._id, e.target.value)}
                         className="bg-white border border-gray-200 rounded-lg px-3 py-1 text-gray-900 text-sm"
                       >
-                        <option value="student">Student</option>
-                        <option value="instructor">Instructor</option>
+                        <option value="student">Member</option>
+                        <option value="instructor">Creator</option>
                         <option value="admin">Admin</option>
                       </select>
                     </td>

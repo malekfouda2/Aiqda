@@ -136,8 +136,8 @@ function AdminInstructorApplications() {
       animate="visible"
     >
       <motion.div variants={fadeInUp}>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Applications</h1>
-          <p className="text-gray-500 mb-8">Review and manage instructor applications</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Creator Applications</h1>
+          <p className="text-gray-500 mb-8">Review and manage creator applications</p>
 
           <div className="flex gap-3 mb-6">
             {['all', 'pending', 'approved', 'rejected'].map((status) => (
@@ -332,9 +332,9 @@ function AdminInstructorApplications() {
                     <div>
                       <SectionTitle>Teaching Approach</SectionTitle>
                       <InfoRow label="Teaching Style" value={selectedApp.teachingStyle} />
-                      <InfoRow label="Student Guidance" value={selectedApp.studentGuidance} />
-                      <InfoRow label="Existing Course Materials" value={selectedApp.existingCourseMaterials} />
-                      <FileLink url={selectedApp.courseMaterialsFile} label="Course Materials File" />
+                      <InfoRow label="Member Guidance" value={selectedApp.studentGuidance} />
+                      <InfoRow label="Existing Chapter Materials" value={selectedApp.existingCourseMaterials} />
+                      <FileLink url={selectedApp.courseMaterialsFile} label="Chapter Materials File" />
                     </div>
 
                     <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />

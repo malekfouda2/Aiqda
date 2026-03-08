@@ -57,7 +57,7 @@ function AdminCourses() {
     setAssigningVideo(lessonId);
     try {
       await videoAPI.assign(lessonId, vimeoVideoId.trim());
-      showSuccess('Video assigned to lesson');
+      showSuccess('Video assigned to content');
       setVideoInputs(prev => ({ ...prev, [lessonId]: '' }));
       fetchData();
     } catch (error) {
@@ -77,7 +77,7 @@ function AdminCourses() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading course analytics..." />
+        <LoadingSpinner size="lg" text="Loading chapter analytics..." />
       </div>
     );
   }
@@ -89,21 +89,21 @@ function AdminCourses() {
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
       <motion.div variants={fadeInUp} className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Course Management</h1>
-        <p className="text-gray-500">Courses organized by instructor with analytics and video assignment</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Chapter Management</h1>
+        <p className="text-gray-500">Chapters organized by creator with analytics and video assignment</p>
       </motion.div>
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <motion.div variants={cardVariants}><StatCard label="Total Instructors" value={data.length} color="primary" /></motion.div>
-        <motion.div variants={cardVariants}><StatCard label="Total Courses" value={totalCourses} color="blue" /></motion.div>
-        <motion.div variants={cardVariants}><StatCard label="Total Students" value={totalStudents} color="green" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Creators" value={data.length} color="primary" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Chapters" value={totalCourses} color="blue" /></motion.div>
+        <motion.div variants={cardVariants}><StatCard label="Total Members" value={totalStudents} color="green" /></motion.div>
         <motion.div variants={cardVariants}><StatCard label="Est. Revenue" value={`SAR ${totalRevenue.toLocaleString()}`} color="cyan" /></motion.div>
       </motion.div>
 
       <motion.div variants={fadeInUp} className="mb-6">
         <input
           type="text"
-          placeholder="Search by instructor name, email, or course title..."
+          placeholder="Search by creator name, email, or chapter title..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="input-field"
@@ -112,7 +112,7 @@ function AdminCourses() {
 
       {filtered.length === 0 ? (
         <motion.div variants={fadeInUp} className="card text-center py-12">
-          <p className="text-gray-500">{searchTerm ? 'No results match your search.' : 'No instructors with courses yet.'}</p>
+          <p className="text-gray-500">{searchTerm ? 'No results match your search.' : 'No creators with chapters yet.'}</p>
         </motion.div>
       ) : (
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
@@ -133,9 +133,9 @@ function AdminCourses() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="hidden md:flex items-center gap-3 text-sm text-gray-500">
-                    <span>{item.totalCourses} course{item.totalCourses !== 1 ? 's' : ''}</span>
+                    <span>{item.totalCourses} chapter{item.totalCourses !== 1 ? 's' : ''}</span>
                     <span className="text-gray-300">|</span>
-                    <span>{item.totalStudents} student{item.totalStudents !== 1 ? 's' : ''}</span>
+                    <span>{item.totalStudents} member{item.totalStudents !== 1 ? 's' : ''}</span>
                     <span className="text-gray-300">|</span>
                     <span>SAR {item.totalRevenue.toLocaleString()}</span>
                   </div>
@@ -158,8 +158,8 @@ function AdminCourses() {
                   >
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                        <StatCard label="Courses" value={item.totalCourses} color="blue" />
-                        <StatCard label="Students" value={item.totalStudents} color="green" />
+                        <StatCard label="Chapters" value={item.totalCourses} color="blue" />
+                        <StatCard label="Members" value={item.totalStudents} color="green" />
                         <StatCard label="Revenue" value={`SAR ${item.totalRevenue.toLocaleString()}`} color="cyan" />
                         <StatCard label="Joined" value={new Date(item.instructor.joinedAt).toLocaleDateString()} color="gray" />
                       </div>
@@ -183,7 +183,7 @@ function AdminCourses() {
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     <div className="text-center bg-white rounded-lg p-2 border border-gray-100">
                                       <p className="text-sm font-bold text-gray-900">{course.enrolledStudents}</p>
-                                      <p className="text-xs text-gray-400">Students</p>
+                                      <p className="text-xs text-gray-400">Members</p>
                                     </div>
                                     <div className="text-center bg-white rounded-lg p-2 border border-gray-100">
                                       <p className="text-sm font-bold text-gray-900">{course.avgWatchPercentage}%</p>
@@ -224,9 +224,9 @@ function AdminCourses() {
                                   className="overflow-hidden"
                                 >
                                   <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-                                    <h5 className="text-sm font-semibold text-gray-700 mb-3">Lessons & Video Assignment</h5>
+                                    <h5 className="text-sm font-semibold text-gray-700 mb-3">Contents & Video Assignment</h5>
                                     {course.lessons.length === 0 ? (
-                                      <p className="text-sm text-gray-400 text-center py-4">No lessons in this course yet.</p>
+                                      <p className="text-sm text-gray-400 text-center py-4">No contents in this chapter yet.</p>
                                     ) : (
                                       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-2">
                                         {course.lessons.map((lesson) => (
