@@ -26,28 +26,31 @@ function Navbar() {
               <img src="/logo.png" alt="Aiqda" className="h-14 w-auto" />
             </Link>
 
-            {user && (
-              <div className="hidden md:flex items-center gap-6">
-                <Link to="/courses" className="text-gray-500 hover:text-gray-900 transition-colors">
-                  Chapters
-                </Link>
-                {user && (
+            <div className="hidden md:flex items-center gap-6">
+              <Link to="/about" className="text-gray-500 hover:text-gray-900 transition-colors">
+                About
+              </Link>
+              {user && (
+                <>
+                  <Link to="/courses" className="text-gray-500 hover:text-gray-900 transition-colors">
+                    Chapters
+                  </Link>
                   <Link to="/dashboard" className="text-gray-500 hover:text-gray-900 transition-colors">
                     Dashboard
                   </Link>
-                )}
-                {isAdmin() && (
-                  <Link to="/admin" className="text-gray-500 hover:text-gray-900 transition-colors">
-                    Admin
-                  </Link>
-                )}
-                {isInstructor() && (
-                  <Link to="/instructor" className="text-gray-500 hover:text-gray-900 transition-colors">
-                    Creator
-                  </Link>
-                )}
-              </div>
-            )}
+                  {isAdmin() && (
+                    <Link to="/admin" className="text-gray-500 hover:text-gray-900 transition-colors">
+                      Admin
+                    </Link>
+                  )}
+                  {isInstructor() && (
+                    <Link to="/instructor" className="text-gray-500 hover:text-gray-900 transition-colors">
+                      Creator
+                    </Link>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
