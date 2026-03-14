@@ -33,6 +33,7 @@ The platform uses the following display terminology (backend routes/DB fields us
       /analytics    - Progress tracking and reporting
       /video        - Vimeo integration
       /instructor-applications - Creator application & approval workflow
+      /studio-applications - Studio (Animation/VFX) application & approval workflow
     /middlewares    - Auth, upload middleware
     /utils          - JWT, password hashing
     app.js
@@ -96,3 +97,4 @@ Backend (.env):
 - **Auto-seed on empty database**: server.js seeds demo data if no users exist
 - **Vimeo Integration (Full)**: Real Vimeo API with Bearer token auth, video validation, `@vimeo/player` SDK with real-time tracking
 - **Terminology rebrand**: All frontend display text updated — Course→Chapter, Lesson→Content, Instructor→Creator, Student→Member. Backend routes/DB fields unchanged.
+- **Studio Application System**: 4-step application form at /apply-studio for Animation & VFX studios (Section 1: Identity, Section 2: Delivery Format policy acknowledgments, Section 3: Contribution domains, Section 4: Objectives). Admin review page at /admin/studio-applications with approve/reject workflow. "For Studios" section added to home page. API: POST/GET /api/studio-applications, PATCH /:id/approve|reject. Wired into admin sidebar (🎬 Studio Apps), admin dashboard quick actions, and api.js studioApplicationsAPI.

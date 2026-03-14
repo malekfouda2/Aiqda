@@ -102,7 +102,7 @@ function Home() {
                     to="/register"
                     className="btn-primary text-lg px-10 py-4"
                   >
-                    Start Learning
+                    Start Improving Your Skills
                     <span className="ml-2">→</span>
                   </Link>
                   <Link
@@ -159,8 +159,8 @@ function Home() {
               <span className="gradient-text"> Excellence</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-lg">
-              Experience learning like never before with our curated chapters and
-              expert creators.
+              Improve your skills like never before with our curated chapters
+              and expert creators.
             </p>
           </motion.div>
 
@@ -206,7 +206,7 @@ function Home() {
               </span>
               <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
                 Choose Your
-                <span className="gradient-text"> Learning Path</span>
+                <span className="gradient-text"> Workthrough Path</span>
               </h2>
               <p className="text-gray-500 max-w-xl mx-auto text-lg">
                 Pick the package that fits your goals and start your creative
@@ -377,7 +377,7 @@ function Home() {
                 <span className="block text-white/90">Transformation?</span>
               </h2>
               <p className="text-white/70 max-w-xl mx-auto mb-10 text-lg">
-                Join thousands of learners who have transformed their careers
+                Join thousands of members who have transformed their careers
                 with Aiqda.
               </p>
               <Link
@@ -411,9 +411,9 @@ function Home() {
               </h2>
               <p className="text-gray-500 text-lg mb-6 leading-relaxed">
                 Are you a skilled animator or creative professional? Join Aiqda
-                as a creator and inspire the next generation of artists.
-                We're looking for passionate educators in 2D, 3D, Storyboarding,
-                Stop Motion, and more.
+                as a creator and inspire the next generation of artists. We're
+                looking for passionate educators in 2D, 3D, Storyboarding, Stop
+                Motion, and more.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
@@ -515,6 +515,125 @@ function Home() {
         </div>
       </section>
 
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <span className="text-primary-500 text-sm font-medium tracking-widest uppercase mb-4 block">
+                For Studios
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
+                Partner as a <span className="gradient-text">Studio</span>
+              </h2>
+              <p className="text-gray-500 text-lg mb-6 leading-relaxed">
+                Bring your Animation & VFX studio's expertise to Aiqda. Publish
+                chapter-based tutorials and reach a global audience of professionals.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  "Reach a global professional audience",
+                  "Brand visibility and institutional exposure",
+                  "Showcase Animation & VFX expertise",
+                ].map((item, i) => (
+                  <motion.li
+                    key={item}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 + i * 0.1 }}
+                    className="flex items-center gap-3 text-gray-600"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-primary-500/10 flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-3.5 h-3.5 text-primary-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </span>
+                    {item}
+                  </motion.li>
+                ))}
+              </ul>
+              <Link
+                to="/apply-studio"
+                className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
+              >
+                Apply as Studio
+                <span>→</span>
+              </Link>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative"
+            >
+              <div className="relative bg-gradient-to-br from-primary-500/5 to-cyan-50 rounded-3xl p-8 border border-gray-100">
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary-500/10 rounded-full blur-2xl" />
+                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-cyan-100/40 rounded-full blur-2xl" />
+                <div className="relative space-y-6">
+                  {[
+                    {
+                      icon: "🏢",
+                      title: "Animation Studios",
+                      desc: "2D & 3D production houses",
+                    },
+                    {
+                      icon: "✨",
+                      title: "VFX Houses",
+                      desc: "Visual effects & compositing",
+                    },
+                    {
+                      icon: "🌍",
+                      title: "Global Reach",
+                      desc: "Connect with international talent",
+                    },
+                    {
+                      icon: "🤝",
+                      title: "Strategic Partnership",
+                      desc: "Long-term collaboration opportunities",
+                    },
+                  ].map((item, i) => (
+                    <motion.div
+                      key={item.title}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 + i * 0.1 }}
+                      className="flex items-start gap-4 p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm"
+                    >
+                      <span className="text-3xl">{item.icon}</span>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">
+                          {item.title}
+                        </h4>
+                        <p className="text-sm text-gray-500">{item.desc}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <footer className="py-12 border-t border-gray-200 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -554,7 +673,7 @@ const features = [
     iconClass: "icon-box-primary",
     title: "Expert Creators",
     description:
-      "Learn from industry professionals with years of experience in their fields.",
+      "Improve your skills from industry professionals with years of experience in their fields.",
   },
   {
     icon: "📚",
@@ -568,7 +687,7 @@ const features = [
     iconClass: "icon-box-accent",
     title: "Track Progress",
     description:
-      "Monitor your learning journey with detailed analytics and insights.",
+      "Monitor your skills improvement journey with detailed analytics and insights.",
   },
 ];
 

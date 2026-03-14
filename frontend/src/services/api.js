@@ -128,6 +128,14 @@ export const instructorApplicationsAPI = {
   reject: (id, reason) => api.patch(`/instructor-applications/${id}/reject`, { reason })
 };
 
+export const studioApplicationsAPI = {
+  submit: (data) => api.post('/studio-applications', data),
+  getAll: (status) => api.get('/studio-applications', { params: { status } }),
+  getById: (id) => api.get(`/studio-applications/${id}`),
+  approve: (id) => api.patch(`/studio-applications/${id}/approve`),
+  reject: (id, reason) => api.patch(`/studio-applications/${id}/reject`, { reason })
+};
+
 export const videoAPI = {
   getList: (params) => api.get('/video/list', { params }),
   getDetails: (videoId) => api.get(`/video/details/${videoId}`),

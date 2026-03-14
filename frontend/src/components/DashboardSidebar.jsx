@@ -17,6 +17,7 @@ const adminLinks = [
   { to: '/admin/courses', icon: '📚', label: 'Chapters' },
   { to: '/admin/instructors', icon: '👨‍🏫', label: 'Creators' },
   { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
+  { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
 ];
 
 const instructorLinks = [
