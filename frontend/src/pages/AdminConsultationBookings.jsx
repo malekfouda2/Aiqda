@@ -114,7 +114,12 @@ function AdminConsultationBookings() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="space-y-4"
+        >
           {bookings.map((booking) => (
             <motion.div
               key={booking._id}
@@ -195,7 +200,7 @@ function AdminConsultationBookings() {
               </div>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       <AnimatePresence>
