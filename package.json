@@ -6,5 +6,8 @@
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
     "build": "cd frontend && npm run build",
     "start": "cd backend && node src/server.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

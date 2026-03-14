@@ -7,6 +7,7 @@ import Quiz from './modules/quizzes/quiz.model.js';
 import { LessonProgress, CourseProgress } from './modules/analytics/progress.model.js';
 import { SubscriptionPackage, Subscription } from './modules/subscriptions/subscription.model.js';
 import Payment from './modules/payments/payment.model.js';
+import Consultation from './modules/consultations/consultation.model.js';
 import { hashPassword } from './utils/password.js';
 
 dotenv.config();
@@ -39,6 +40,7 @@ export async function seedDatabase(options = {}) {
   await SubscriptionPackage.deleteMany({});
   await Subscription.deleteMany({});
   await Payment.deleteMany({});
+  await Consultation.deleteMany({});
   console.log('Cleared existing data');
 
   const hashedPassword = await hashPassword('admin123');
@@ -420,6 +422,62 @@ export async function seedDatabase(options = {}) {
   }
   console.log('3 pending payment requests created');
 
+  await Consultation.create([
+    {
+      title: 'Creative Audit',
+      description: 'A focused 30-minute session for quick project assessment and animation direction guidance.',
+      priceType: 'fixed',
+      price: 250,
+      currency: 'SAR',
+      duration: '30 minutes',
+      mode: '1 to 1',
+      focusPoints: ['Quick assessment', 'Animation direction (2D/3D/Hybrid)', 'Concise notes', 'Practical next steps', 'Optional summary'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/mini-session-30-',
+      isActive: true,
+      order: 1
+    },
+    {
+      title: 'Project Review',
+      description: 'An in-depth 60-minute session covering story, design, and production with a PDF summary.',
+      priceType: 'fixed',
+      price: 450,
+      currency: 'SAR',
+      duration: '60 minutes',
+      mode: '1 to many',
+      focusPoints: ['Detailed project review', 'Material review', 'Strengths & weaknesses plan', 'Tools & workflow guidance', 'Short PDF summary'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/standard-session-60-',
+      isActive: true,
+      order: 2
+    },
+    {
+      title: 'Studio Advisory',
+      description: 'A comprehensive 90-minute deep-dive covering production planning, budgeting, and strategic guidance.',
+      priceType: 'fixed',
+      price: 700,
+      currency: 'SAR',
+      duration: '90 minutes',
+      mode: '1 to many',
+      focusPoints: ['Comprehensive review', 'Team & timeline evaluation', 'Budget & marketing assessment', 'Creative/technical solutions', 'Strategic guidance', 'Full detailed PDF report'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/advanced-consultation-90-',
+      isActive: true,
+      order: 3
+    },
+    {
+      title: 'Strategic Collaboration',
+      description: 'A tailored 1-hour session to discuss collaboration objectives, portfolio scope, and next steps.',
+      priceType: 'contract',
+      price: null,
+      currency: 'SAR',
+      duration: '1 hour',
+      mode: '1 to 1',
+      focusPoints: ['Introduction & Collaboration Objectives', 'Scope Overview: 24 Center Portfolio & Partner\'s Creative Profile', 'Next Steps & Follow-Up Meeting'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/strategic-collaboration-',
+      isActive: true,
+      order: 4
+    }
+  ]);
+  console.log('4 consultations created');
+
   console.log('\n=== Demo Data Summary ===');
   console.log('Admin: admin@aiqda.com / admin123');
   console.log('Instructors (password: instructor123):');
@@ -437,6 +495,51 @@ export async function seedDatabase(options = {}) {
   console.log('Done!');
 }
 
+export async function seedConsultationsIfEmpty() {
+  const count = await Consultation.countDocuments();
+  if (count > 0) return;
+  console.log('Seeding consultation types...');
+  await Consultation.create([
+    {
+      title: 'Creative Audit',
+      description: 'A focused 30-minute session for quick project assessment and animation direction guidance.',
+      priceType: 'fixed', price: 250, currency: 'SAR',
+      duration: '30 minutes', mode: '1 to 1',
+      focusPoints: ['Quick assessment', 'Animation direction (2D/3D/Hybrid)', 'Concise notes', 'Practical next steps', 'Optional summary'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/mini-session-30-',
+      isActive: true, order: 1
+    },
+    {
+      title: 'Project Review',
+      description: 'An in-depth 60-minute session covering story, design, and production with a PDF summary.',
+      priceType: 'fixed', price: 450, currency: 'SAR',
+      duration: '60 minutes', mode: '1 to many',
+      focusPoints: ['Detailed project review', 'Material review', 'Strengths & weaknesses plan', 'Tools & workflow guidance', 'Short PDF summary'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/standard-session-60-',
+      isActive: true, order: 2
+    },
+    {
+      title: 'Studio Advisory',
+      description: 'A comprehensive 90-minute deep-dive covering production planning, budgeting, and strategic guidance.',
+      priceType: 'fixed', price: 700, currency: 'SAR',
+      duration: '90 minutes', mode: '1 to many',
+      focusPoints: ['Comprehensive review', 'Team & timeline evaluation', 'Budget & marketing assessment', 'Creative/technical solutions', 'Strategic guidance', 'Full detailed PDF report'],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/advanced-consultation-90-',
+      isActive: true, order: 3
+    },
+    {
+      title: 'Strategic Collaboration',
+      description: 'A tailored 1-hour session to discuss collaboration objectives, portfolio scope, and next steps.',
+      priceType: 'contract', price: null, currency: 'SAR',
+      duration: '1 hour', mode: '1 to 1',
+      focusPoints: ["Introduction & Collaboration Objectives", "Scope Overview: 24 Center Portfolio & Partner's Creative Profile", "Next Steps & Follow-Up Meeting"],
+      zoomSchedulerLink: 'https://scheduler.zoom.us/24-art-center/strategic-collaboration-',
+      isActive: true, order: 4
+    }
+  ]);
+  console.log('Consultation types seeded.');
+}
+
 export async function autoSeedIfEmpty() {
   try {
     const userCount = await User.countDocuments();
@@ -444,6 +547,7 @@ export async function autoSeedIfEmpty() {
       console.log('Database is empty — auto-seeding demo data...');
       await seedDatabase({ standalone: false });
     }
+    await seedConsultationsIfEmpty();
   } catch (error) {
     console.error('Auto-seed check failed:', error.message);
   }

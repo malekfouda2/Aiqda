@@ -136,6 +136,24 @@ export const studioApplicationsAPI = {
   reject: (id, reason) => api.patch(`/studio-applications/${id}/reject`, { reason })
 };
 
+export const consultationsAPI = {
+  getActive: () => api.get('/consultations'),
+  getById: (id) => api.get(`/consultations/${id}`),
+  create: (data) => api.post('/consultations', data),
+  update: (id, data) => api.put(`/consultations/${id}`, data),
+  remove: (id) => api.delete(`/consultations/${id}`)
+};
+
+export const consultationBookingsAPI = {
+  submit: (data) => api.post('/consultation-bookings', data),
+  getMy: () => api.get('/consultation-bookings/my'),
+  getAll: (status) => api.get('/consultation-bookings', { params: { status } }),
+  getById: (id) => api.get(`/consultation-bookings/${id}`),
+  confirm: (id) => api.patch(`/consultation-bookings/${id}/confirm`),
+  reject: (id, reason) => api.patch(`/consultation-bookings/${id}/reject`, { reason }),
+  cancel: (id) => api.patch(`/consultation-bookings/${id}/cancel`)
+};
+
 export const videoAPI = {
   getList: (params) => api.get('/video/list', { params }),
   getDetails: (videoId) => api.get(`/video/details/${videoId}`),

@@ -225,7 +225,9 @@ const quickActions = [
   { to: '/admin/users', icon: '👥', iconClass: 'icon-box-success', label: 'Users', description: 'User management' },
   { to: '/admin/courses', icon: '📚', iconClass: 'icon-box-primary', label: 'Chapters', description: 'Chapter catalog' },
   { to: '/admin/instructor-applications', icon: '🎓', iconClass: 'icon-box-accent', label: 'Creator Apps', description: 'Review applications' },
-  { to: '/admin/studio-applications', icon: '🎬', iconClass: 'icon-box-primary', label: 'Studio Apps', description: 'Review studio applications' }
+  { to: '/admin/studio-applications', icon: '🎬', iconClass: 'icon-box-primary', label: 'Studio Apps', description: 'Review studio applications' },
+  { to: '/admin/consultations', icon: '🎯', iconClass: 'icon-box-success', label: 'Consultations', description: 'Manage types' },
+  { to: '/admin/consultation-bookings', icon: '📅', iconClass: 'icon-box-warning', label: 'Consult Bookings', description: 'Review bookings' }
 ];
 
 export default AdminDashboard;

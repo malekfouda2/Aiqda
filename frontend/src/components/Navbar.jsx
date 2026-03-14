@@ -30,6 +30,9 @@ function Navbar() {
               <Link to="/about" className="text-gray-500 hover:text-gray-900 transition-colors">
                 About
               </Link>
+              <Link to="/consultations" className="text-gray-500 hover:text-gray-900 transition-colors">
+                Consultations
+              </Link>
               {user && (
                 <>
                   <Link to="/courses" className="text-gray-500 hover:text-gray-900 transition-colors">

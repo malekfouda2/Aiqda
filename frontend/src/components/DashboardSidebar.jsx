@@ -6,6 +6,7 @@ const studentLinks = [
   { to: '/dashboard', icon: '🏠', label: 'Overview', end: true },
   { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
   { to: '/dashboard/payments', icon: '📝', label: 'Payments' },
+  { to: '/dashboard/consultations', icon: '🎯', label: 'Consultations' },
   { to: '/courses', icon: '📚', label: 'Browse Chapters' },
 ];
 
@@ -18,6 +19,8 @@ const adminLinks = [
   { to: '/admin/instructors', icon: '👨‍🏫', label: 'Creators' },
   { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
   { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
+  { to: '/admin/consultations', icon: '🎯', label: 'Consultations' },
+  { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
 ];
 
 const instructorLinks = [
