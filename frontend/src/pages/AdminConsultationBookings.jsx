@@ -100,12 +100,18 @@ function AdminConsultationBookings() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner />
+        <div className="flex items-center justify-center py-20">
+          <LoadingSpinner size="lg" text="Loading bookings..." />
         </div>
       ) : bookings.length === 0 ? (
         <div className="card text-center py-16">
-          <p className="text-gray-500">No bookings found for the selected filter.</p>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
+            <span className="text-2xl">📅</span>
+          </div>
+          <p className="text-gray-700 font-medium mb-1">No bookings found</p>
+          <p className="text-gray-400 text-sm">
+            {filter === 'all' ? 'No consultation bookings have been submitted yet.' : `No ${filter} bookings.`}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
