@@ -1,17 +1,19 @@
+import 'dotenv/config';
 import Lesson from '../lessons/lesson.model.js';
 import Course from '../courses/course.model.js';
 
-const VIMEO_ACCESS_TOKEN = process.env.VIMEO_ACCESS_TOKEN;
 const VIMEO_API_BASE = 'https://api.vimeo.com';
+const getVimeoAccessToken = () => process.env.VIMEO_ACCESS_TOKEN;
 
 const vimeoFetch = async (path, options = {}) => {
-  if (!VIMEO_ACCESS_TOKEN) {
+  const vimeoAccessToken = getVimeoAccessToken();
+  if (!vimeoAccessToken) {
     throw new Error('Vimeo API not configured. Please set VIMEO_ACCESS_TOKEN.');
   }
   const response = await fetch(`${VIMEO_API_BASE}${path}`, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${VIMEO_ACCESS_TOKEN}`,
+      'Authorization': `Bearer ${vimeoAccessToken}`,
       'Content-Type': 'application/json',
       'Accept': 'application/vnd.vimeo.*+json;version=3.4',
       ...options.headers,
@@ -74,7 +76,7 @@ export const assignVideoToLesson = async (lessonId, vimeoVideoId) => {
   const cleanId = vimeoVideoId.replace(/[^0-9]/g, '');
   if (!cleanId) throw new Error('Invalid Vimeo Video ID');
 
-  if (VIMEO_ACCESS_TOKEN) {
+  if (getVimeoAccessToken()) {
     try {
       await getVimeoVideoDetails(cleanId);
     } catch (err) {
@@ -92,23 +94,23 @@ export const assignVideoToLesson = async (lessonId, vimeoVideoId) => {
   return lesson;
 };
 
-export const getVideoEmbedData = async (lessonId, userId) => {
+export const getVideoEmbedData = async (lessonId, userId, userRole = null) => {
   const lesson = await Lesson.findById(lessonId).populate('course');
   if (!lesson) throw new Error('Lesson not found');
   if (!lesson.vimeoVideoId) throw new Error('No video assigned to this lesson');
 
-  const isAdmin = false;
+  const isAdmin = userRole === 'admin';
   const isEnrolled = lesson.course.enrolledStudents.some(
     s => s.toString() === userId.toString()
   );
   const isInstructor = lesson.course.instructor.toString() === userId.toString();
 
-  if (!isEnrolled && !isInstructor) {
+  if (!isAdmin && !isEnrolled && !isInstructor) {
     throw new Error('You are not enrolled in this course');
   }
 
   let videoDetails = null;
-  if (VIMEO_ACCESS_TOKEN) {
+  if (getVimeoAccessToken()) {
     try {
       videoDetails = await getVimeoVideoDetails(lesson.vimeoVideoId);
     } catch {
@@ -129,7 +131,7 @@ export const getVideoEmbedData = async (lessonId, userId) => {
 };
 
 export const validateVimeoToken = async () => {
-  if (!VIMEO_ACCESS_TOKEN) {
+  if (!getVimeoAccessToken()) {
     return { valid: false, message: 'No VIMEO_ACCESS_TOKEN configured' };
   }
   try {

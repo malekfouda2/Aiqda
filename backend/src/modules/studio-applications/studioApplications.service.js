@@ -1,8 +1,38 @@
 import StudioApplication from './studioApplication.model.js';
+import { sendEmail } from '../../utils/email.js';
+import {
+  buildStudioApplicationReceivedEmail,
+  buildStudioApprovalEmail,
+  buildStudioRejectionEmail
+} from '../../utils/emailTemplates.js';
+
+const getStudioMeetingUrl = () => {
+  const meetingUrl = process.env.STUDIO_APPLICATION_MEETING_URL;
+  if (!meetingUrl) {
+    throw new Error('Studio meeting link is not configured. Set STUDIO_APPLICATION_MEETING_URL before approving applications.');
+  }
+  return meetingUrl;
+};
 
 export const create = async (data) => {
   const application = new StudioApplication(data);
   await application.save();
+
+  const receivedEmail = buildStudioApplicationReceivedEmail({
+    studioName: application.studioName,
+  });
+
+  try {
+    await sendEmail({
+      to: application.contactEmail,
+      subject: receivedEmail.subject,
+      text: receivedEmail.text,
+      html: receivedEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send studio application acknowledgement email:', error.message);
+  }
+
   return application;
 };
 
@@ -35,9 +65,26 @@ export const approve = async (id, adminId) => {
     throw new Error('Application has already been reviewed');
   }
 
+  if (!application.contactEmail) {
+    throw new Error('This studio application is missing a contact email.');
+  }
+
+  const meetingUrl = getStudioMeetingUrl();
+  const email = buildStudioApprovalEmail({
+    studioName: application.studioName,
+    meetingUrl,
+  });
+  await sendEmail({
+    to: application.contactEmail,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
+  });
+
   application.status = 'approved';
   application.reviewedBy = adminId;
   application.reviewedAt = new Date();
+  application.approvalEmailSentAt = new Date();
   await application.save();
 
   return application;
@@ -57,6 +104,17 @@ export const reject = async (id, adminId, reason) => {
   application.reviewedBy = adminId;
   application.reviewedAt = new Date();
   application.rejectionReason = reason;
+
+  const rejectionEmail = buildStudioRejectionEmail({
+    studioName: application.studioName,
+    reason,
+  });
+  await sendEmail({
+    to: application.contactEmail,
+    subject: rejectionEmail.subject,
+    text: rejectionEmail.text,
+    html: rejectionEmail.html,
+  });
   await application.save();
 
   return application;

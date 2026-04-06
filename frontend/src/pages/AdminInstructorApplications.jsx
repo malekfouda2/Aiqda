@@ -4,6 +4,7 @@ import api from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { buildUploadUrl } from '../utils/uploads';
 
 function AdminInstructorApplications() {
   const { showSuccess, showError } = useUIStore();
@@ -48,8 +49,20 @@ function AdminInstructorApplications() {
   const handleApprove = async (id) => {
     setProcessing(id);
     try {
-      await api.patch(`/instructor-applications/${id}/approve`);
-      showSuccess('Application approved successfully!');
+      const response = await api.patch(`/instructor-applications/${id}/approve`);
+
+      if (response.data?.setupLink && navigator?.clipboard) {
+        try {
+          await navigator.clipboard.writeText(response.data.setupLink);
+          showSuccess('Application approved. The instructor setup link was copied to your clipboard.');
+        } catch (clipboardError) {
+          console.warn('Failed to copy instructor setup link:', clipboardError);
+          showSuccess('Application approved successfully. The instructor will also receive their setup link by email.');
+        }
+      } else {
+        showSuccess(response.data?.message || 'Application approved successfully!');
+      }
+
       fetchApplications();
       if (selectedApp?._id === id) {
         fetchDetail(id);
@@ -109,7 +122,7 @@ function AdminInstructorApplications() {
 
   const FileLink = ({ url, label }) => {
     if (!url) return <InfoRow label={label} value="Not provided" />;
-    const fullUrl = url.startsWith('http') ? url : `/uploads/${url}`;
+    const fullUrl = buildUploadUrl(url);
     return (
       <div className="py-2">
         <p className="text-gray-500 text-sm">{label}</p>

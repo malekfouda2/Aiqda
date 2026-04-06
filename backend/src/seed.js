@@ -13,6 +13,23 @@ import { hashPassword } from './utils/password.js';
 dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aiqda';
+const isProduction = (env = process.env) => env.NODE_ENV === 'production';
+
+export const shouldAutoSeedDemoData = (env = process.env) => {
+  if (env.AUTO_SEED_DEMO_DATA != null) {
+    return env.AUTO_SEED_DEMO_DATA === 'true';
+  }
+
+  return !isProduction(env);
+};
+
+export const shouldAutoSeedConsultations = (env = process.env) => {
+  if (env.AUTO_SEED_CONSULTATIONS != null) {
+    return env.AUTO_SEED_CONSULTATIONS === 'true';
+  }
+
+  return !isProduction(env);
+};
 
 function randomBetween(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -249,9 +266,10 @@ export async function seedDatabase(options = {}) {
           course: course._id,
           order: i + 1,
           vimeoVideoId: courseData.isPublished && Math.random() > 0.25 ? `${randomBetween(100000000, 999999999)}` : null,
-          supportingFile: `/uploads/lessons/demo-${Date.now()}-${i}.pdf`,
+          supportingFile: `lessons/demo-${Date.now()}-${i}.pdf`,
           supportingFileName: `${lessonData.title.replace(/\s+/g, '_')}.pdf`,
           duration: randomBetween(600, 3600),
+          isPublished: courseData.isPublished,
         });
         courseLessons.push(lesson);
         allLessons.push(lesson);
@@ -542,12 +560,22 @@ export async function seedConsultationsIfEmpty() {
 
 export async function autoSeedIfEmpty() {
   try {
+    const autoSeedDemoData = shouldAutoSeedDemoData();
+    const autoSeedConsultations = shouldAutoSeedConsultations();
+
+    if (!autoSeedDemoData && !autoSeedConsultations) {
+      return;
+    }
+
     const userCount = await User.countDocuments();
-    if (userCount === 0) {
+    if (userCount === 0 && autoSeedDemoData) {
       console.log('Database is empty — auto-seeding demo data...');
       await seedDatabase({ standalone: false });
     }
-    await seedConsultationsIfEmpty();
+
+    if (autoSeedConsultations) {
+      await seedConsultationsIfEmpty();
+    }
   } catch (error) {
     console.error('Auto-seed check failed:', error.message);
   }

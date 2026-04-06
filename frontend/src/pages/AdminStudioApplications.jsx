@@ -49,8 +49,8 @@ function AdminStudioApplications() {
   const handleApprove = async (id) => {
     setProcessing(id);
     try {
-      await studioApplicationsAPI.approve(id);
-      showSuccess('Application approved successfully!');
+      const response = await studioApplicationsAPI.approve(id);
+      showSuccess(response.data?.message || 'Application approved successfully!');
       fetchApplications();
       if (selectedApp?._id === id) {
         fetchDetail(id);
@@ -301,6 +301,13 @@ function AdminStudioApplications() {
                       <SectionTitle>Section 1: Studio Identity & Structure</SectionTitle>
                       <div className="grid sm:grid-cols-2 gap-x-6">
                         <InfoRow label="Legal Studio Name" value={selectedApp.studioName} />
+                        <InfoRow label="Contact Email" value={
+                          selectedApp.contactEmail ? (
+                            <a href={`mailto:${selectedApp.contactEmail}`} className="text-primary-600 hover:text-primary-700 underline break-all">
+                              {selectedApp.contactEmail}
+                            </a>
+                          ) : '—'
+                        } />
                         <InfoRow label="Year Established" value={selectedApp.yearEstablished} />
                         <InfoRow label="Country of Registration" value={selectedApp.countryOfRegistration} />
                         <InfoRow label="Studio Type" value={selectedApp.studioType} />
@@ -388,6 +395,20 @@ function AdminStudioApplications() {
                         <div className="bg-red-50 border border-red-100 rounded-xl p-4">
                           <p className="text-red-600 text-sm font-medium mb-1">Rejection Reason</p>
                           <p className="text-red-700">{selectedApp.rejectionReason}</p>
+                        </div>
+                      </>
+                    )}
+
+                    {selectedApp.status === 'approved' && selectedApp.contactEmail && (
+                      <>
+                        <div className="h-px bg-gray-100" />
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                          <p className="text-green-700 text-sm font-medium mb-1">Scheduling Email Sent</p>
+                          <p className="text-green-800 text-sm">
+                            {selectedApp.approvalEmailSentAt
+                              ? `A scheduling email was sent to ${selectedApp.contactEmail} on ${new Date(selectedApp.approvalEmailSentAt).toLocaleString()}.`
+                              : `A scheduling email was sent to ${selectedApp.contactEmail}.`}
+                          </p>
                         </div>
                       </>
                     )}

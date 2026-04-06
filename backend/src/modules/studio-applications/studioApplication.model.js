@@ -6,6 +6,12 @@ const studioApplicationSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  contactEmail: {
+    type: String,
+    required: true,
+    trim: true,
+    lowercase: true
+  },
   yearEstablished: {
     type: String,
     required: true
@@ -78,6 +84,10 @@ const studioApplicationSchema = new mongoose.Schema({
     default: null
   },
   reviewedAt: {
+    type: Date,
+    default: null
+  },
+  approvalEmailSentAt: {
     type: Date,
     default: null
   },

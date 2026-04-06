@@ -11,19 +11,29 @@ export const createQuiz = async (req, res) => {
 
 export const getQuizByLesson = async (req, res) => {
   try {
-    const quiz = await quizzesService.getQuizByLesson(req.params.lessonId);
+    const quiz = await quizzesService.getQuizByLesson(
+      req.params.lessonId,
+      req.user.id,
+      req.user.role
+    );
     res.json(quiz);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    res.status(statusCode).json({ error: error.message });
   }
 };
 
 export const getQuizForStudent = async (req, res) => {
   try {
-    const quiz = await quizzesService.getQuizForStudent(req.params.lessonId);
+    const quiz = await quizzesService.getQuizForStudent(
+      req.params.lessonId,
+      req.user.id,
+      req.user.role
+    );
     res.json(quiz);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    res.status(statusCode).json({ error: error.message });
   }
 };
 
@@ -50,10 +60,12 @@ export const submitQuiz = async (req, res) => {
     const result = await quizzesService.submitQuiz(
       req.params.lessonId,
       req.user.id,
-      req.body.answers
+      req.body.answers,
+      req.user.role
     );
     res.json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 400;
+    res.status(statusCode).json({ error: error.message });
   }
 };

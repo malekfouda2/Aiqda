@@ -8,10 +8,12 @@ const studentLinks = [
   { to: '/dashboard/payments', icon: '📝', label: 'Payments' },
   { to: '/dashboard/consultations', icon: '🎯', label: 'Consultations' },
   { to: '/courses', icon: '📚', label: 'Browse Chapters' },
+  { to: '/contact-us', icon: '✉️', label: 'Contact Us' },
 ];
 
 const adminLinks = [
   { to: '/admin', icon: '📊', label: 'Overview', end: true },
+  { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
   { to: '/admin/payments', icon: '💳', label: 'Payments' },
   { to: '/admin/subscriptions', icon: '📋', label: 'Subscriptions' },
   { to: '/admin/users', icon: '👥', label: 'Users' },
@@ -26,6 +28,7 @@ const adminLinks = [
 const instructorLinks = [
   { to: '/instructor', icon: '📊', label: 'Overview', end: true },
   { to: '/instructor/courses', icon: '📚', label: 'My Chapters' },
+  { to: '/contact-us', icon: '✉️', label: 'Contact Us' },
 ];
 
 function DashboardSidebar({ type }) {

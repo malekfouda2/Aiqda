@@ -4,6 +4,7 @@ import { paymentsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn } from '../utils/animations';
+import { buildUploadUrl } from '../utils/uploads';
 
 function AdminPayments() {
   const { showSuccess, showError } = useUIStore();
@@ -143,6 +144,16 @@ function AdminPayments() {
                       <p className="mt-2 text-red-600 text-sm">
                         Rejection reason: {payment.rejectionReason}
                       </p>
+                    )}
+                    {payment.proofFile && (
+                      <a
+                        href={buildUploadUrl(payment.proofFile)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 mt-3 text-primary-600 hover:text-primary-700 text-sm font-medium"
+                      >
+                        View payment proof
+                      </a>
                     )}
                   </div>
 

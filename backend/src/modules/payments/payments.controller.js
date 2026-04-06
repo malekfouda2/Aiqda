@@ -35,10 +35,11 @@ export const getAllPayments = async (req, res) => {
 
 export const getPaymentById = async (req, res) => {
   try {
-    const payment = await paymentsService.getPaymentById(req.params.id);
+    const payment = await paymentsService.getPaymentById(req.params.id, req.user);
     res.json(payment);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    res.status(statusCode).json({ error: error.message });
   }
 };
 

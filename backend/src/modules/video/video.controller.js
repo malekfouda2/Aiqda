@@ -33,7 +33,11 @@ export const assignVideoToLesson = async (req, res) => {
 
 export const getVideoEmbedData = async (req, res) => {
   try {
-    const embedData = await videoService.getVideoEmbedData(req.params.lessonId, req.user.id);
+    const embedData = await videoService.getVideoEmbedData(
+      req.params.lessonId,
+      req.user.id,
+      req.user.role
+    );
     res.json(embedData);
   } catch (error) {
     res.status(403).json({ error: error.message });

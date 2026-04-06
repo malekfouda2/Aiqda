@@ -1,6 +1,18 @@
 import User from './user.model.js';
 import { hashPassword } from '../../utils/password.js';
 
+const SELF_UPDATE_FIELDS = new Set(['name', 'avatar', 'password']);
+const ADMIN_UPDATE_FIELDS = new Set(['name', 'email', 'avatar', 'password', 'isActive']);
+
+const pickAllowedUpdates = (updates, allowedFields) => {
+  return Object.entries(updates).reduce((acc, [key, value]) => {
+    if (allowedFields.has(key)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+};
+
 export const getAllUsers = async (filters = {}) => {
   const query = {};
   if (filters.role) query.role = filters.role;
@@ -17,12 +29,23 @@ export const getUserById = async (userId) => {
   return user;
 };
 
-export const updateUser = async (userId, updates) => {
-  if (updates.password) {
-    updates.password = await hashPassword(updates.password);
+export const updateUser = async (userId, updates, requester) => {
+  const isSelfUpdate = requester.id === userId;
+  const allowedFields = requester.role === 'admin' && !isSelfUpdate
+    ? ADMIN_UPDATE_FIELDS
+    : SELF_UPDATE_FIELDS;
+
+  const sanitizedUpdates = pickAllowedUpdates(updates, allowedFields);
+
+  if (Object.keys(sanitizedUpdates).length === 0) {
+    throw new Error('No valid fields to update');
+  }
+
+  if (sanitizedUpdates.password) {
+    sanitizedUpdates.password = await hashPassword(sanitizedUpdates.password);
   }
   
-  const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+  const user = await User.findByIdAndUpdate(userId, sanitizedUpdates, { new: true });
   if (!user) {
     throw new Error('User not found');
   }

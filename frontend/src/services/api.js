@@ -35,6 +35,7 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  acceptInstructorInvite: (data) => api.post('/auth/invite/accept', data),
   getProfile: () => api.get('/auth/profile')
 };
 
@@ -61,7 +62,15 @@ export const subscriptionsAPI = {
 
 export const paymentsAPI = {
   getBankDetails: () => api.get('/payments/bank-details'),
-  submit: (data) => api.post('/payments', data),
+  submit: (data) => {
+    if (data instanceof FormData) {
+      return api.post('/payments', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+
+    return api.post('/payments', data);
+  },
   getUserPayments: () => api.get('/payments/my'),
   getAll: (status) => api.get('/payments', { params: { status } }),
   getById: (id) => api.get(`/payments/${id}`),
@@ -116,6 +125,15 @@ export const analyticsAPI = {
   getAdminInstructors: () => api.get('/analytics/admin/instructors'),
   getAdminInstructorDetail: (id) => api.get(`/analytics/admin/instructors/${id}`),
   getLessonAnalytics: (lessonId) => api.get(`/analytics/lesson/${lessonId}`)
+};
+
+export const contactMessagesAPI = {
+  submit: (data) => api.post('/contact-messages', data),
+  getAll: (status) => api.get('/contact-messages', { params: { status } }),
+  getById: (id) => api.get(`/contact-messages/${id}`),
+  markRead: (id) => api.patch(`/contact-messages/${id}/read`),
+  markUnread: (id) => api.patch(`/contact-messages/${id}/unread`),
+  remove: (id) => api.delete(`/contact-messages/${id}`)
 };
 
 export const instructorApplicationsAPI = {

@@ -1,6 +1,260 @@
 import { LessonProgress, CourseProgress } from './progress.model.js';
 import Course from '../courses/course.model.js';
 import Lesson from '../lessons/lesson.model.js';
+import User from '../users/user.model.js';
+import Payment from '../payments/payment.model.js';
+import { Subscription, SubscriptionPackage } from '../subscriptions/subscription.model.js';
+
+const roundCurrency = (value) => Math.round(value * 100) / 100;
+const toIdString = (value) => value?.toString();
+
+const createEmptyCourseMetrics = () => ({
+  lessons: [],
+  lessonsCount: 0,
+  videosAssigned: 0,
+  videosPending: 0,
+  progressCount: 0,
+  watchPercentageSum: 0,
+  avgWatchPercentage: 0,
+  qualifiedViews: 0,
+  quizPassCount: 0,
+  estimatedRevenue: 0,
+});
+
+const countUniqueStudents = (courses = []) => {
+  const uniqueStudents = new Set();
+
+  for (const course of courses) {
+    for (const studentId of course.enrolledStudents || []) {
+      uniqueStudents.add(toIdString(studentId));
+    }
+  }
+
+  return uniqueStudents.size;
+};
+
+const buildMonthlyCounts = (records = [], dateField) => {
+  const monthlyCounts = new Map();
+
+  for (const record of records) {
+    const dateValue = record?.[dateField];
+
+    if (!dateValue) {
+      continue;
+    }
+
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    const currentBucket = monthlyCounts.get(key);
+
+    if (currentBucket) {
+      currentBucket.count += 1;
+      continue;
+    }
+
+    monthlyCounts.set(key, {
+      _id: { year, month },
+      count: 1
+    });
+  }
+
+  return [...monthlyCounts.values()]
+    .sort((a, b) => b._id.year - a._id.year || b._id.month - a._id.month)
+    .slice(0, 12);
+};
+
+const getCourseRevenueAllocation = async (courseIds = []) => {
+  const normalizedCourseIds = [...new Set(courseIds.map((courseId) => courseId.toString()))];
+  const revenueByCourse = new Map(normalizedCourseIds.map((courseId) => [courseId, 0]));
+
+  if (normalizedCourseIds.length === 0) {
+    return revenueByCourse;
+  }
+
+  const packages = await SubscriptionPackage.find({ courses: { $in: courseIds } })
+    .select('_id courses')
+    .lean();
+
+  if (packages.length === 0) {
+    return revenueByCourse;
+  }
+
+  const packageCourseMap = new Map(
+    packages.map((pkg) => [
+      pkg._id.toString(),
+      (pkg.courses || []).map((courseId) => courseId.toString())
+    ])
+  );
+
+  const subscriptions = await Subscription.find({ package: { $in: packages.map((pkg) => pkg._id) } })
+    .select('_id package')
+    .lean();
+
+  if (subscriptions.length === 0) {
+    return revenueByCourse;
+  }
+
+  const subscriptionPackageMap = new Map(
+    subscriptions.map((subscription) => [
+      subscription._id.toString(),
+      subscription.package.toString()
+    ])
+  );
+
+  const payments = await Payment.find({
+    subscription: { $in: subscriptions.map((subscription) => subscription._id) },
+    status: 'approved'
+  })
+    .select('subscription amount')
+    .lean();
+
+  for (const payment of payments) {
+    const packageId = subscriptionPackageMap.get(payment.subscription.toString());
+    const packageCourses = packageCourseMap.get(packageId) || [];
+    const packageCourseCount = packageCourses.length || 1;
+    const revenueShare = Number(payment.amount || 0) / packageCourseCount;
+
+    for (const courseId of packageCourses) {
+      if (!revenueByCourse.has(courseId)) {
+        continue;
+      }
+
+      revenueByCourse.set(courseId, revenueByCourse.get(courseId) + revenueShare);
+    }
+  }
+
+  return new Map(
+    [...revenueByCourse.entries()].map(([courseId, amount]) => [courseId, roundCurrency(amount)])
+  );
+};
+
+const getCourseRevenue = (revenueByCourse, courseId) => {
+  return roundCurrency(revenueByCourse.get(courseId.toString()) || 0);
+};
+
+const getCourseMetrics = (courseMetricsById, courseId) => {
+  return courseMetricsById.get(toIdString(courseId)) || createEmptyCourseMetrics();
+};
+
+const buildCourseAnalyticsSnapshot = async (courses = []) => {
+  const courseIds = courses.map((course) => course._id);
+  const courseMetricsById = new Map(
+    courseIds.map((courseId) => [toIdString(courseId), createEmptyCourseMetrics()])
+  );
+
+  if (courseIds.length === 0) {
+    return {
+      courseMetricsById,
+      lessonProgress: [],
+    };
+  }
+
+  const [lessons, lessonProgress, revenueByCourse] = await Promise.all([
+    Lesson.find({ course: { $in: courseIds } })
+      .select('course title vimeoVideoId order supportingFile supportingFileName')
+      .sort({ course: 1, order: 1 })
+      .lean(),
+    LessonProgress.find({ course: { $in: courseIds } })
+      .select('course watchPercentage isQualified quizPassed completedAt')
+      .lean(),
+    getCourseRevenueAllocation(courseIds)
+  ]);
+
+  for (const lesson of lessons) {
+    const courseMetrics = courseMetricsById.get(toIdString(lesson.course));
+
+    if (!courseMetrics) {
+      continue;
+    }
+
+    courseMetrics.lessons.push(lesson);
+    courseMetrics.lessonsCount += 1;
+
+    if (lesson.vimeoVideoId) {
+      courseMetrics.videosAssigned += 1;
+    }
+  }
+
+  for (const progressEntry of lessonProgress) {
+    const courseMetrics = courseMetricsById.get(toIdString(progressEntry.course));
+
+    if (!courseMetrics) {
+      continue;
+    }
+
+    courseMetrics.progressCount += 1;
+    courseMetrics.watchPercentageSum += Number(progressEntry.watchPercentage || 0);
+
+    if (progressEntry.isQualified) {
+      courseMetrics.qualifiedViews += 1;
+    }
+
+    if (progressEntry.quizPassed) {
+      courseMetrics.quizPassCount += 1;
+    }
+  }
+
+  for (const [courseId, courseMetrics] of courseMetricsById.entries()) {
+    courseMetrics.videosPending = Math.max(courseMetrics.lessonsCount - courseMetrics.videosAssigned, 0);
+    courseMetrics.avgWatchPercentage = courseMetrics.progressCount > 0
+      ? Math.round(courseMetrics.watchPercentageSum / courseMetrics.progressCount)
+      : 0;
+    courseMetrics.estimatedRevenue = getCourseRevenue(revenueByCourse, courseId);
+  }
+
+  return {
+    courseMetricsById,
+    lessonProgress,
+  };
+};
+
+const getInstructorCourseDataset = async ({ activeOnly = false } = {}) => {
+  const instructorQuery = { role: 'instructor' };
+
+  if (activeOnly) {
+    instructorQuery.isActive = true;
+  }
+
+  const instructors = await User.find(instructorQuery)
+    .select('name email avatar createdAt isActive')
+    .lean();
+
+  const instructorIds = instructors.map((instructor) => instructor._id);
+  const courses = instructorIds.length > 0
+    ? await Course.find({ instructor: { $in: instructorIds } })
+      .select('instructor title category level isPublished enrolledStudents lessonsCount createdAt')
+      .lean()
+    : [];
+
+  const { courseMetricsById } = await buildCourseAnalyticsSnapshot(courses);
+  const coursesByInstructorId = new Map(
+    instructors.map((instructor) => [toIdString(instructor._id), []])
+  );
+
+  for (const course of courses) {
+    const instructorCourses = coursesByInstructorId.get(toIdString(course.instructor));
+
+    if (!instructorCourses) {
+      coursesByInstructorId.set(toIdString(course.instructor), [course]);
+      continue;
+    }
+
+    instructorCourses.push(course);
+  }
+
+  return {
+    instructors,
+    coursesByInstructorId,
+    courseMetricsById,
+  };
+};
 
 export const getStudentProgress = async (userId) => {
   const courseProgress = await CourseProgress.find({ user: userId })
@@ -37,78 +291,70 @@ export const getCourseProgress = async (userId, courseId) => {
 };
 
 export const getInstructorAnalytics = async (instructorId) => {
-  const courses = await Course.find({ instructor: instructorId });
-  const courseIds = courses.map(c => c._id);
+  const courses = await Course.find({ instructor: instructorId })
+    .select('title enrolledStudents')
+    .lean();
+  const { courseMetricsById, lessonProgress } = await buildCourseAnalyticsSnapshot(courses);
 
-  const totalStudents = new Set();
-  courses.forEach(c => c.enrolledStudents.forEach(s => totalStudents.add(s.toString())));
+  const courseStats = courses.map((course) => {
+    const courseMetrics = getCourseMetrics(courseMetricsById, course._id);
 
-  const qualifiedViews = await LessonProgress.countDocuments({
-    course: { $in: courseIds },
-    isQualified: true
-  });
-
-  const monthlyStats = await LessonProgress.aggregate([
-    { $match: { course: { $in: courseIds }, isQualified: true } },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$completedAt' },
-          month: { $month: '$completedAt' }
-        },
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id.year': -1, '_id.month': -1 } },
-    { $limit: 12 }
-  ]);
-
-  const courseStats = await Promise.all(courses.map(async (course) => {
-    const lessons = await Lesson.countDocuments({ course: course._id });
-    const qualified = await LessonProgress.countDocuments({ 
-      course: course._id, 
-      isQualified: true 
-    });
-    
     return {
       courseId: course._id,
       title: course.title,
-      enrolledCount: course.enrolledStudents.length,
-      lessonsCount: lessons,
-      qualifiedViews: qualified
+      enrolledCount: course.enrolledStudents?.length || 0,
+      lessonsCount: courseMetrics.lessonsCount,
+      qualifiedViews: courseMetrics.qualifiedViews,
+      estimatedRevenue: courseMetrics.estimatedRevenue
     };
-  }));
+  });
+
+  const totalRevenue = roundCurrency(
+    courseStats.reduce((sum, course) => sum + course.estimatedRevenue, 0)
+  );
+  const totalQualifiedViews = courseStats.reduce((sum, course) => sum + course.qualifiedViews, 0);
+  const monthlyStats = buildMonthlyCounts(
+    lessonProgress.filter((progressEntry) => progressEntry.isQualified),
+    'completedAt'
+  );
 
   return {
     totalCourses: courses.length,
-    totalStudents: totalStudents.size,
-    totalQualifiedViews: qualifiedViews,
+    totalStudents: countUniqueStudents(courses),
+    totalQualifiedViews,
+    totalRevenue,
     monthlyStats,
     courseStats,
     revenueCalculation: {
-      placeholder: true,
-      message: 'Revenue calculation will be implemented based on business rules'
+      placeholder: false,
+      methodology: 'Approved subscription payments are allocated evenly across all courses included in each package.'
     }
   };
 };
 
 export const getAdminAnalytics = async () => {
-  const totalCourses = await Course.countDocuments();
-  const publishedCourses = await Course.countDocuments({ isPublished: true });
-  const totalLessons = await Lesson.countDocuments();
-  
-  const courseProgress = await CourseProgress.find();
+  const [
+    totalCourses,
+    publishedCourses,
+    totalLessons,
+    courseProgress,
+    qualifiedLessons,
+    recentActivity
+  ] = await Promise.all([
+    Course.countDocuments(),
+    Course.countDocuments({ isPublished: true }),
+    Lesson.countDocuments(),
+    CourseProgress.find().lean(),
+    LessonProgress.countDocuments({ isQualified: true }),
+    LessonProgress.find()
+      .populate('user', 'name email')
+      .populate('lesson', 'title')
+      .populate('course', 'title')
+      .sort({ updatedAt: -1 })
+      .limit(20)
+  ]);
   const totalEnrollments = courseProgress.length;
-  const completedCourses = courseProgress.filter(cp => cp.isCompleted).length;
-
-  const qualifiedLessons = await LessonProgress.countDocuments({ isQualified: true });
-
-  const recentActivity = await LessonProgress.find()
-    .populate('user', 'name email')
-    .populate('lesson', 'title')
-    .populate('course', 'title')
-    .sort({ updatedAt: -1 })
-    .limit(20);
+  const completedCourses = courseProgress.filter((progressEntry) => progressEntry.isCompleted).length;
 
   return {
     overview: {
@@ -124,45 +370,14 @@ export const getAdminAnalytics = async () => {
 };
 
 export const getAdminCoursesByInstructor = async () => {
-  const User = (await import('../users/user.model.js')).default;
-  const Payment = (await import('../payments/payment.model.js')).default;
-  const { Subscription, SubscriptionPackage } = await import('../subscriptions/subscription.model.js');
+  const { instructors, coursesByInstructorId, courseMetricsById } = await getInstructorCourseDataset({
+    activeOnly: true
+  });
 
-  const instructors = await User.find({ role: 'instructor', isActive: true }).select('name email avatar createdAt');
-
-  const result = await Promise.all(instructors.map(async (instructor) => {
-    const courses = await Course.find({ instructor: instructor._id })
-      .select('title category level isPublished enrolledStudents lessonsCount createdAt');
-
-    const courseIds = courses.map(c => c._id);
-
-    const courseAnalytics = await Promise.all(courses.map(async (course) => {
-      const lessons = await Lesson.find({ course: course._id }).select('title vimeoVideoId order');
-
-      const lessonProgressData = await LessonProgress.find({ course: course._id });
-      const avgWatchPct = lessonProgressData.length > 0
-        ? lessonProgressData.reduce((acc, lp) => acc + lp.watchPercentage, 0) / lessonProgressData.length
-        : 0;
-      const qualifiedCount = lessonProgressData.filter(lp => lp.isQualified).length;
-      const quizPassCount = lessonProgressData.filter(lp => lp.quizPassed).length;
-
-      const packages = await SubscriptionPackage.find({ courses: course._id });
-      const packageIds = packages.map(p => p._id);
-
-      let courseRevenue = 0;
-      if (packageIds.length > 0) {
-        const subs = await Subscription.find({ package: { $in: packageIds }, status: 'active' });
-        const subIds = subs.map(s => s._id);
-        if (subIds.length > 0) {
-          const payments = await Payment.find({ subscription: { $in: subIds }, status: 'approved' });
-          const totalPayments = payments.reduce((acc, p) => acc + p.amount, 0);
-          const avgCoursesPerPackage = packages.reduce((acc, pkg) => acc + (pkg.courses?.length || 1), 0) / packages.length;
-          courseRevenue = totalPayments / avgCoursesPerPackage;
-        }
-      }
-
-      const videosAssigned = lessons.filter(l => l.vimeoVideoId).length;
-      const totalLessons = lessons.length;
+  const result = instructors.map((instructor) => {
+    const courses = coursesByInstructorId.get(toIdString(instructor._id)) || [];
+    const courseAnalytics = courses.map((course) => {
+      const courseMetrics = getCourseMetrics(courseMetricsById, course._id);
 
       return {
         _id: course._id,
@@ -172,26 +387,25 @@ export const getAdminCoursesByInstructor = async () => {
         isPublished: course.isPublished,
         createdAt: course.createdAt,
         enrolledStudents: course.enrolledStudents?.length || 0,
-        lessonsCount: totalLessons,
-        videosAssigned,
-        videosPending: totalLessons - videosAssigned,
-        avgWatchPercentage: Math.round(avgWatchPct),
-        qualifiedViews: qualifiedCount,
-        quizPassCount,
-        estimatedRevenue: Math.round(courseRevenue * 100) / 100,
-        lessons: lessons.map(l => ({
-          _id: l._id,
-          title: l.title,
-          order: l.order,
-          hasVideo: !!l.vimeoVideoId,
-          vimeoVideoId: l.vimeoVideoId,
+        lessonsCount: courseMetrics.lessonsCount,
+        videosAssigned: courseMetrics.videosAssigned,
+        videosPending: courseMetrics.videosPending,
+        avgWatchPercentage: courseMetrics.avgWatchPercentage,
+        qualifiedViews: courseMetrics.qualifiedViews,
+        quizPassCount: courseMetrics.quizPassCount,
+        estimatedRevenue: roundCurrency(courseMetrics.estimatedRevenue),
+        lessons: courseMetrics.lessons.map((lesson) => ({
+          _id: lesson._id,
+          title: lesson.title,
+          order: lesson.order,
+          hasVideo: !!lesson.vimeoVideoId,
+          vimeoVideoId: lesson.vimeoVideoId,
         })),
       };
-    }));
-
-    const totalStudents = new Set();
-    courses.forEach(c => c.enrolledStudents?.forEach(s => totalStudents.add(s.toString())));
-    const totalRevenue = courseAnalytics.reduce((acc, ca) => acc + ca.estimatedRevenue, 0);
+    });
+    const totalRevenue = roundCurrency(
+      courseAnalytics.reduce((sum, course) => sum + course.estimatedRevenue, 0)
+    );
 
     return {
       instructor: {
@@ -202,71 +416,50 @@ export const getAdminCoursesByInstructor = async () => {
         joinedAt: instructor.createdAt,
       },
       totalCourses: courses.length,
-      totalStudents: totalStudents.size,
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      totalStudents: countUniqueStudents(courses),
+      totalRevenue,
       courses: courseAnalytics,
     };
-  }));
+  });
 
   return result.sort((a, b) => b.totalStudents - a.totalStudents);
 };
 
 export const getAdminInstructorDetail = async (instructorId) => {
-  const User = (await import('../users/user.model.js')).default;
-  const Payment = (await import('../payments/payment.model.js')).default;
-  const { Subscription, SubscriptionPackage } = await import('../subscriptions/subscription.model.js');
-
-  const instructor = await User.findById(instructorId).select('name email avatar role createdAt isActive');
+  const instructor = await User.findById(instructorId)
+    .select('name email avatar role createdAt isActive')
+    .lean();
   if (!instructor || instructor.role !== 'instructor') {
     throw new Error('Instructor not found');
   }
 
   const courses = await Course.find({ instructor: instructorId })
-    .select('title category level isPublished enrolledStudents lessonsCount createdAt');
+    .select('title category level isPublished enrolledStudents lessonsCount createdAt')
+    .lean();
 
-  const courseIds = courses.map(c => c._id);
+  const courseIds = courses.map((course) => course._id);
+  const [{ courseMetricsById }, allCourseProgress] = await Promise.all([
+    buildCourseAnalyticsSnapshot(courses),
+    courseIds.length > 0
+      ? CourseProgress.find({ course: { $in: courseIds } })
+        .select('course isCompleted startedAt')
+        .lean()
+      : Promise.resolve([])
+  ]);
 
-  const allLessonProgress = await LessonProgress.find({ course: { $in: courseIds } });
-  const allCourseProgress = await CourseProgress.find({ course: { $in: courseIds } });
+  const totalStudents = countUniqueStudents(courses);
+  const totalProgressEntries = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.progressCount, 0);
+  const totalWatchPercentage = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.watchPercentageSum, 0);
+  const qualifiedViews = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.qualifiedViews, 0);
+  const quizPassCount = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.quizPassCount, 0);
+  const completedCourses = allCourseProgress.filter((progressEntry) => progressEntry.isCompleted).length;
 
-  const totalStudents = new Set();
-  courses.forEach(c => c.enrolledStudents?.forEach(s => totalStudents.add(s.toString())));
-
-  const avgWatchPct = allLessonProgress.length > 0
-    ? allLessonProgress.reduce((acc, lp) => acc + lp.watchPercentage, 0) / allLessonProgress.length
-    : 0;
-
-  const completedCourses = allCourseProgress.filter(cp => cp.isCompleted).length;
-  const qualifiedViews = allLessonProgress.filter(lp => lp.isQualified).length;
-  const quizPassRate = allLessonProgress.length > 0
-    ? (allLessonProgress.filter(lp => lp.quizPassed).length / allLessonProgress.length) * 100
-    : 0;
-
-  let totalRevenue = 0;
-  const courseAnalytics = await Promise.all(courses.map(async (course) => {
-    const lessons = await Lesson.find({ course: course._id }).select('title vimeoVideoId order supportingFile supportingFileName');
-    const courseLessonProgress = allLessonProgress.filter(lp => lp.course.toString() === course._id.toString());
-
-    const courseAvgWatch = courseLessonProgress.length > 0
-      ? courseLessonProgress.reduce((acc, lp) => acc + lp.watchPercentage, 0) / courseLessonProgress.length
-      : 0;
-
-    const packages = await SubscriptionPackage.find({ courses: course._id });
-    const packageIds = packages.map(p => p._id);
-    let courseRevenue = 0;
-    if (packageIds.length > 0) {
-      const subs = await Subscription.find({ package: { $in: packageIds }, status: 'active' });
-      const subIds = subs.map(s => s._id);
-      if (subIds.length > 0) {
-        const payments = await Payment.find({ subscription: { $in: subIds }, status: 'approved' });
-        const totalPayments = payments.reduce((acc, p) => acc + p.amount, 0);
-        const avgCoursesPerPackage = packages.reduce((acc, pkg) => acc + (pkg.courses?.length || 1), 0) / packages.length;
-        courseRevenue = totalPayments / avgCoursesPerPackage;
-      }
-    }
-    totalRevenue += courseRevenue;
-
-    const videosAssigned = lessons.filter(l => l.vimeoVideoId).length;
+  const courseAnalytics = courses.map((course) => {
+    const courseMetrics = getCourseMetrics(courseMetricsById, course._id);
 
     return {
       _id: course._id,
@@ -276,31 +469,27 @@ export const getAdminInstructorDetail = async (instructorId) => {
       isPublished: course.isPublished,
       createdAt: course.createdAt,
       enrolledStudents: course.enrolledStudents?.length || 0,
-      lessonsCount: lessons.length,
-      videosAssigned,
-      videosPending: lessons.length - videosAssigned,
-      avgWatchPercentage: Math.round(courseAvgWatch),
-      qualifiedViews: courseLessonProgress.filter(lp => lp.isQualified).length,
-      quizPassCount: courseLessonProgress.filter(lp => lp.quizPassed).length,
-      estimatedRevenue: Math.round(courseRevenue * 100) / 100,
-      lessons,
+      lessonsCount: courseMetrics.lessonsCount,
+      videosAssigned: courseMetrics.videosAssigned,
+      videosPending: courseMetrics.videosPending,
+      avgWatchPercentage: courseMetrics.avgWatchPercentage,
+      qualifiedViews: courseMetrics.qualifiedViews,
+      quizPassCount: courseMetrics.quizPassCount,
+      estimatedRevenue: roundCurrency(courseMetrics.estimatedRevenue),
+      lessons: courseMetrics.lessons.map((lesson) => ({
+        _id: lesson._id,
+        title: lesson.title,
+        order: lesson.order,
+        vimeoVideoId: lesson.vimeoVideoId,
+        supportingFile: lesson.supportingFile,
+        supportingFileName: lesson.supportingFileName,
+      })),
     };
-  }));
-
-  const monthlyEnrollments = await CourseProgress.aggregate([
-    { $match: { course: { $in: courseIds } } },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$startedAt' },
-          month: { $month: '$startedAt' },
-        },
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { '_id.year': -1, '_id.month': -1 } },
-    { $limit: 12 },
-  ]);
+  });
+  const totalRevenue = roundCurrency(
+    courseAnalytics.reduce((sum, course) => sum + course.estimatedRevenue, 0)
+  );
+  const monthlyEnrollments = buildMonthlyCounts(allCourseProgress, 'startedAt');
 
   return {
     instructor: {
@@ -313,13 +502,17 @@ export const getAdminInstructorDetail = async (instructorId) => {
     },
     summary: {
       totalCourses: courses.length,
-      publishedCourses: courses.filter(c => c.isPublished).length,
-      totalStudents: totalStudents.size,
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      avgWatchPercentage: Math.round(avgWatchPct),
+      publishedCourses: courses.filter((course) => course.isPublished).length,
+      totalStudents,
+      totalRevenue,
+      avgWatchPercentage: totalProgressEntries > 0
+        ? Math.round(totalWatchPercentage / totalProgressEntries)
+        : 0,
       completedCourses,
       qualifiedViews,
-      quizPassRate: Math.round(quizPassRate),
+      quizPassRate: totalProgressEntries > 0
+        ? Math.round((quizPassCount / totalProgressEntries) * 100)
+        : 0,
     },
     courses: courseAnalytics,
     monthlyEnrollments,
@@ -327,46 +520,36 @@ export const getAdminInstructorDetail = async (instructorId) => {
 };
 
 export const getAdminAllInstructors = async () => {
-  const User = (await import('../users/user.model.js')).default;
-  const Payment = (await import('../payments/payment.model.js')).default;
-  const { Subscription, SubscriptionPackage } = await import('../subscriptions/subscription.model.js');
+  const { instructors, coursesByInstructorId, courseMetricsById } = await getInstructorCourseDataset();
 
-  const instructors = await User.find({ role: 'instructor' }).select('name email avatar createdAt isActive');
-
-  const result = await Promise.all(instructors.map(async (instructor) => {
-    const courses = await Course.find({ instructor: instructor._id })
-      .select('title isPublished enrolledStudents lessonsCount');
-
-    const courseIds = courses.map(c => c._id);
-
-    const totalStudents = new Set();
-    courses.forEach(c => c.enrolledStudents?.forEach(s => totalStudents.add(s.toString())));
-
-    const lessonProgress = await LessonProgress.find({ course: { $in: courseIds } });
-    const avgWatch = lessonProgress.length > 0
-      ? lessonProgress.reduce((acc, lp) => acc + lp.watchPercentage, 0) / lessonProgress.length
-      : 0;
-    const qualifiedViews = lessonProgress.filter(lp => lp.isQualified).length;
-
-    const totalLessons = courses.reduce((acc, c) => acc + (c.lessonsCount || 0), 0);
-    const allLessons = await Lesson.find({ course: { $in: courseIds } }).select('vimeoVideoId');
-    const videosAssigned = allLessons.filter(l => l.vimeoVideoId).length;
-
-    let totalRevenue = 0;
-    for (const course of courses) {
-      const packages = await SubscriptionPackage.find({ courses: course._id });
-      const packageIds = packages.map(p => p._id);
-      if (packageIds.length > 0) {
-        const subs = await Subscription.find({ package: { $in: packageIds }, status: 'active' });
-        const subIds = subs.map(s => s._id);
-        if (subIds.length > 0) {
-          const payments = await Payment.find({ subscription: { $in: subIds }, status: 'approved' });
-          const paidTotal = payments.reduce((acc, p) => acc + p.amount, 0);
-          const avgCourses = packages.reduce((acc, pkg) => acc + (pkg.courses?.length || 1), 0) / packages.length;
-          totalRevenue += paidTotal / avgCourses;
-        }
-      }
-    }
+  const result = instructors.map((instructor) => {
+    const courses = coursesByInstructorId.get(toIdString(instructor._id)) || [];
+    const totalLessons = courses.reduce(
+      (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).lessonsCount,
+      0
+    );
+    const videosAssigned = courses.reduce(
+      (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).videosAssigned,
+      0
+    );
+    const totalRevenue = roundCurrency(
+      courses.reduce(
+        (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).estimatedRevenue,
+        0
+      )
+    );
+    const totalProgressEntries = courses.reduce(
+      (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).progressCount,
+      0
+    );
+    const totalWatchPercentage = courses.reduce(
+      (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).watchPercentageSum,
+      0
+    );
+    const qualifiedViews = courses.reduce(
+      (sum, course) => sum + getCourseMetrics(courseMetricsById, course._id).qualifiedViews,
+      0
+    );
 
     return {
       _id: instructor._id,
@@ -376,16 +559,18 @@ export const getAdminAllInstructors = async () => {
       isActive: instructor.isActive,
       joinedAt: instructor.createdAt,
       totalCourses: courses.length,
-      publishedCourses: courses.filter(c => c.isPublished).length,
-      totalStudents: totalStudents.size,
+      publishedCourses: courses.filter((course) => course.isPublished).length,
+      totalStudents: countUniqueStudents(courses),
       totalLessons,
       videosAssigned,
-      videosPending: totalLessons - videosAssigned,
-      avgWatchPercentage: Math.round(avgWatch),
+      videosPending: Math.max(totalLessons - videosAssigned, 0),
+      avgWatchPercentage: totalProgressEntries > 0
+        ? Math.round(totalWatchPercentage / totalProgressEntries)
+        : 0,
       qualifiedViews,
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      totalRevenue,
     };
-  }));
+  });
 
   return result.sort((a, b) => b.totalStudents - a.totalStudents);
 };

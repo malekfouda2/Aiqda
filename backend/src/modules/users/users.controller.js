@@ -20,7 +20,7 @@ export const getUserById = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
-    const user = await usersService.updateUser(req.params.id, req.body);
+    const user = await usersService.updateUser(req.params.id, req.body, req.user);
     res.json(user);
   } catch (error) {
     res.status(400).json({ error: error.message });

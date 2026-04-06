@@ -6,6 +6,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
 import { pageVariants, fadeInUp } from '../utils/animations';
+import { buildUploadUrl } from '../utils/uploads';
 
 function LessonView() {
   const { id } = useParams();
@@ -219,7 +220,7 @@ function LessonView() {
                   <p className="text-gray-400 text-sm">Download the content material</p>
                 </div>
                 <a
-                  href={`/uploads/${lesson.supportingFile}`}
+                  href={buildUploadUrl(lesson.supportingFile)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download

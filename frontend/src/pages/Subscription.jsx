@@ -18,7 +18,8 @@ function Subscription() {
   const [expandedPkg, setExpandedPkg] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
     paymentReference: '',
-    amount: ''
+    amount: '',
+    proofFile: null,
   });
   const [showPaymentForm, setShowPaymentForm] = useState(false);
 
@@ -66,11 +67,15 @@ function Subscription() {
     if (!pendingSubscription) return;
 
     try {
-      await paymentsAPI.submit({
-        subscriptionId: pendingSubscription._id,
-        amount: parseFloat(paymentForm.amount),
-        paymentReference: paymentForm.paymentReference
-      });
+      const formData = new FormData();
+      formData.append('subscriptionId', pendingSubscription._id);
+      formData.append('amount', paymentForm.amount);
+      formData.append('paymentReference', paymentForm.paymentReference);
+      if (paymentForm.proofFile) {
+        formData.append('proofFile', paymentForm.proofFile);
+      }
+
+      await paymentsAPI.submit(formData);
       showSuccess('Payment submitted! Awaiting admin approval.');
       navigate('/dashboard/payments');
     } catch (error) {
@@ -175,6 +180,18 @@ function Subscription() {
                     onChange={(e) => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
                     className="input-field"
                     placeholder="Enter amount"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Payment Proof
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    onChange={(e) => setPaymentForm(f => ({ ...f, proofFile: e.target.files?.[0] || null }))}
+                    className="input-field"
                     required
                   />
                 </div>

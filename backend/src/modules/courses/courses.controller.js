@@ -29,7 +29,11 @@ export const getPublishedCourses = async (req, res) => {
 
 export const getCourseById = async (req, res) => {
   try {
-    const course = await coursesService.getCourseById(req.params.id);
+    const course = await coursesService.getCourseById(
+      req.params.id,
+      req.user?.id,
+      req.user?.role
+    );
     res.json(course);
   } catch (error) {
     res.status(404).json({ error: error.message });
@@ -65,7 +69,7 @@ export const deleteCourse = async (req, res) => {
 
 export const enrollStudent = async (req, res) => {
   try {
-    const course = await coursesService.enrollStudent(req.params.id, req.user.id);
+    const course = await coursesService.enrollStudent(req.params.id, req.user.id, req.user.role);
     res.json(course);
   } catch (error) {
     res.status(400).json({ error: error.message });

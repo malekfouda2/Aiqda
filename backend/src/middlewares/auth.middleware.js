@@ -1,6 +1,14 @@
 import { verifyToken } from '../utils/jwt.js';
+import User from '../modules/users/user.model.js';
 
-export const authenticate = (req, res, next) => {
+const buildRequestUser = (user) => ({
+  id: user._id.toString(),
+  email: user.email,
+  role: user.role,
+  isActive: user.isActive,
+});
+
+export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -11,11 +19,36 @@ export const authenticate = (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-    req.user = decoded;
+    const user = await User.findById(decoded.id).select('_id email role isActive');
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+
+    req.user = buildRequestUser(user);
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Invalid or expired token.' });
   }
+};
+
+export const authenticateOptional = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = verifyToken(token);
+    const user = await User.findById(decoded.id).select('_id email role isActive');
+    req.user = user && user.isActive ? buildRequestUser(user) : null;
+  } catch (error) {
+    req.user = null;
+  }
+
+  next();
 };
 
 export const authorize = (...roles) => {

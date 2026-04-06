@@ -34,7 +34,10 @@ export const getApplicationById = async (req, res) => {
 export const approveApplication = async (req, res) => {
   try {
     const application = await studioApplicationsService.approve(req.params.id, req.user.id);
-    res.json(application);
+    res.json({
+      application,
+      message: `Application approved and scheduling email sent to ${application.contactEmail}.`,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

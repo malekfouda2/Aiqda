@@ -78,6 +78,13 @@ Backend (.env):
 - MONGODB_URI=mongodb://localhost:27017/aiqda
 - JWT_SECRET=your-secret-key
 - VIMEO_ACCESS_TOKEN=your-vimeo-token (optional)
+- SMTP_HOST=your-smtp-host
+- SMTP_PORT=587
+- SMTP_SECURE=false
+- SMTP_USER=your-smtp-user
+- SMTP_PASS=your-smtp-password
+- EMAIL_FROM=Aiqda <notifications@example.com>
+- STUDIO_APPLICATION_MEETING_URL=your-meeting-scheduler-link
 
 ## Recent Changes
 - Initial MVP implementation with all core modules
@@ -100,3 +107,4 @@ Backend (.env):
 - **Consultation Booking System**: Public listing at /consultations, detail+booking at /consultations/:id. 4 types seeded (Creative Audit 250 SAR/30 min, Project Review 450 SAR/60 min, Studio Advisory 700 SAR/90 min, Strategic Collaboration contract/1 hr). Bank Albilad payment flow — user transfers money, submits payment reference, admin confirms → Zoom scheduler link activated. Admin CRUD at /admin/consultations (add/edit/delete types), admin booking review at /admin/consultation-bookings (approve/reject). User booking history at /dashboard/consultations. Consultations link in Navbar and admin/student sidebars. `consultationsAPI` + `consultationBookingsAPI` added to api.js. DB auto-seeds consultations independently from users via `seedConsultationsIfEmpty()`.
 - **About Us page** (`/about`): Public page with four sections — hero ("One Center, All Things Animation"), vision/message quote, team profiles (Abdulwahed Alabdlee & Michael Murengezi with achievements), and contact section. "About" link added to Navbar for all visitors. `slideInRight` animation variant added to animations.js.
 - **Studio Application System**: 4-step application form at /apply-studio for Animation & VFX studios (Section 1: Identity, Section 2: Delivery Format policy acknowledgments, Section 3: Contribution domains, Section 4: Objectives). Admin review page at /admin/studio-applications with approve/reject workflow. "For Studios" section added to home page. API: POST/GET /api/studio-applications, PATCH /:id/approve|reject. Wired into admin sidebar (🎬 Studio Apps), admin dashboard quick actions, and api.js studioApplicationsAPI.
+- **Studio approval email flow**: Studio applications now collect a contact email. When an admin approves an application, Aiqda sends a scheduling email to that address using SMTP and the configured `STUDIO_APPLICATION_MEETING_URL`. No user account is created as part of studio approval.

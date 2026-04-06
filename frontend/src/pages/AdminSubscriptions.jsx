@@ -112,16 +112,6 @@ function AdminSubscriptions() {
     c.category?.toLowerCase().includes(courseSearch.toLowerCase())
   );
 
-  const handleApprove = async (subscriptionId) => {
-    try {
-      await subscriptionsAPI.approve(subscriptionId);
-      showSuccess('Subscription approved');
-      fetchData();
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to approve subscription');
-    }
-  };
-
   const handleCancel = async (subscriptionId) => {
     try {
       await subscriptionsAPI.cancel(subscriptionId);
@@ -481,12 +471,6 @@ function AdminSubscriptions() {
                     {sub.status === 'pending' && (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleApprove(sub._id)}
-                          className="btn-primary"
-                        >
-                          Approve
-                        </button>
-                        <button
                           onClick={() => handleCancel(sub._id)}
                           className="btn-secondary"
                         >
@@ -495,6 +479,11 @@ function AdminSubscriptions() {
                       </div>
                     )}
                   </div>
+                  {sub.status === 'pending' && (
+                    <p className="text-sm text-gray-400 mt-3">
+                      Pending subscriptions are activated from Payment Management after payment review.
+                    </p>
+                  )}
                 </motion.div>
               ))}
             </motion.div>

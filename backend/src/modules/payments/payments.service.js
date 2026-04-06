@@ -1,5 +1,11 @@
 import Payment from './payment.model.js';
 import { Subscription } from '../subscriptions/subscription.model.js';
+import { sendEmail } from '../../utils/email.js';
+import {
+  buildPaymentSubmittedEmail,
+  buildPaymentApprovedEmail,
+  buildPaymentRejectedEmail
+} from '../../utils/emailTemplates.js';
 
 export const submitPayment = async (userId, paymentData) => {
   const { subscriptionId, amount, paymentReference, proofFile } = paymentData;
@@ -8,10 +14,27 @@ export const submitPayment = async (userId, paymentData) => {
     _id: subscriptionId,
     user: userId,
     status: 'pending'
-  });
+  }).populate('package');
 
   if (!subscription) {
     throw new Error('No pending subscription found');
+  }
+
+  if (!proofFile) {
+    throw new Error('Payment proof is required');
+  }
+
+  if (!paymentReference?.trim()) {
+    throw new Error('Payment reference is required');
+  }
+
+  const normalizedAmount = Number(amount);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+    throw new Error('A valid payment amount is required');
+  }
+
+  if (subscription.package?.price != null && normalizedAmount !== subscription.package.price) {
+    throw new Error(`Payment amount must match the package price of ${subscription.package.price} SAR`);
   }
 
   const existingPayment = await Payment.findOne({
@@ -26,13 +49,39 @@ export const submitPayment = async (userId, paymentData) => {
   const payment = new Payment({
     user: userId,
     subscription: subscriptionId,
-    amount,
-    paymentReference,
+    amount: normalizedAmount,
+    paymentReference: paymentReference.trim(),
     proofFile
   });
 
   await payment.save();
-  return payment.populate(['user', 'subscription']);
+  const populatedPayment = await payment.populate([
+    { path: 'user', select: 'name email' },
+    {
+      path: 'subscription',
+      populate: { path: 'package', select: 'name' }
+    }
+  ]);
+
+  const submittedEmail = buildPaymentSubmittedEmail({
+    recipientName: populatedPayment.user.name,
+    packageName: populatedPayment.subscription?.package?.name || 'your subscription',
+    amount: normalizedAmount,
+    paymentReference: payment.paymentReference,
+  });
+
+  try {
+    await sendEmail({
+      to: populatedPayment.user.email,
+      subject: submittedEmail.subject,
+      text: submittedEmail.text,
+      html: submittedEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send payment submission acknowledgement email:', error.message);
+  }
+
+  return populatedPayment;
 };
 
 export const getUserPayments = async (userId) => {
@@ -49,18 +98,25 @@ export const getAllPayments = async (status) => {
     .sort({ createdAt: -1 });
 };
 
-export const getPaymentById = async (paymentId) => {
+export const getPaymentById = async (paymentId, requester) => {
   const payment = await Payment.findById(paymentId)
     .populate('user', 'name email')
     .populate('subscription');
   if (!payment) {
     throw new Error('Payment not found');
   }
+
+  if (requester.role !== 'admin' && payment.user?._id?.toString() !== requester.id) {
+    throw new Error('Access denied. Insufficient permissions.');
+  }
+
   return payment;
 };
 
 export const approvePayment = async (paymentId, adminId) => {
-  const payment = await Payment.findById(paymentId).populate('subscription');
+  const payment = await Payment.findById(paymentId)
+    .populate('subscription')
+    .populate('user', 'name email');
   if (!payment) {
     throw new Error('Payment not found');
   }
@@ -86,13 +142,34 @@ export const approvePayment = async (paymentId, adminId) => {
     subscription.approvedBy = adminId;
     subscription.approvedAt = new Date();
     await subscription.save();
+
+    const approvalEmail = buildPaymentApprovedEmail({
+      recipientName: payment.user.name,
+      packageName: subscription.package?.name || 'your subscription',
+      endDate: subscription.endDate?.toLocaleDateString(),
+    });
+    try {
+      await sendEmail({
+        to: payment.user.email,
+        subject: approvalEmail.subject,
+        text: approvalEmail.text,
+        html: approvalEmail.html,
+      });
+    } catch (error) {
+      console.error('Failed to send payment approval email:', error.message);
+    }
   }
 
   return payment;
 };
 
 export const rejectPayment = async (paymentId, adminId, reason) => {
-  const payment = await Payment.findById(paymentId);
+  const payment = await Payment.findById(paymentId)
+    .populate({
+      path: 'subscription',
+      populate: { path: 'package', select: 'name' }
+    })
+    .populate('user', 'name email');
   if (!payment) {
     throw new Error('Payment not found');
   }
@@ -106,6 +183,22 @@ export const rejectPayment = async (paymentId, adminId, reason) => {
   payment.reviewedAt = new Date();
   payment.rejectionReason = reason;
   await payment.save();
+
+  const rejectionEmail = buildPaymentRejectedEmail({
+    recipientName: payment.user.name,
+    packageName: payment.subscription?.package?.name || 'your subscription',
+    reason,
+  });
+  try {
+    await sendEmail({
+      to: payment.user.email,
+      subject: rejectionEmail.subject,
+      text: rejectionEmail.text,
+      html: rejectionEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send payment rejection email:', error.message);
+  }
 
   return payment;
 };

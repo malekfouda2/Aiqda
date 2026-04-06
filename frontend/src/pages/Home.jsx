@@ -377,7 +377,7 @@ function Home() {
                 <span className="block text-white/90">Transformation?</span>
               </h2>
               <p className="text-white/70 max-w-xl mx-auto mb-10 text-lg">
-                Join thousands of members who have transformed their careers
+                Join thousands of members who have elevated their skills
                 with Aiqda.
               </p>
               <Link
@@ -418,7 +418,6 @@ function Home() {
               <ul className="space-y-3 mb-8">
                 {[
                   "Reach members worldwide",
-                  "Flexible teaching schedule",
                   "Professional platform & support",
                   "Share your unique creative vision",
                 ].map((item, i) => (
@@ -533,7 +532,7 @@ function Home() {
               </h2>
               <p className="text-gray-500 text-lg mb-6 leading-relaxed">
                 Bring your Animation & VFX studio's expertise to Aiqda. Publish
-                chapter-based tutorials and reach a global audience of professionals.
+                project-based chapters and reach a global audience of professionals.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
@@ -644,6 +643,9 @@ function Home() {
               <Link to="/courses" className="nav-link text-sm">
                 Chapters
               </Link>
+              <Link to="/contact-us" className="nav-link text-sm">
+                Contact Us
+              </Link>
               <Link to="/login" className="nav-link text-sm">
                 Login
               </Link>
@@ -678,14 +680,14 @@ const features = [
   {
     icon: "📚",
     iconClass: "icon-box-success",
-    title: "Quality Content",
+    title: "Project Based Chapters",
     description:
       "Carefully curated chapters with video contents, quizzes, and resources.",
   },
   {
     icon: "📊",
     iconClass: "icon-box-accent",
-    title: "Track Progress",
+    title: "See How You Improve",
     description:
       "Monitor your skills improvement journey with detailed analytics and insights.",
   },

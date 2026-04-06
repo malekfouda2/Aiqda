@@ -6,10 +6,10 @@ export const submitApplication = async (req, res) => {
 
     if (req.files) {
       if (req.files.cvFile && req.files.cvFile[0]) {
-        data.cvFile = '/uploads/' + req.files.cvFile[0].filename;
+        data.cvFile = req.files.cvFile[0].filename;
       }
       if (req.files.courseMaterialsFile && req.files.courseMaterialsFile[0]) {
-        data.courseMaterialsFile = '/uploads/' + req.files.courseMaterialsFile[0].filename;
+        data.courseMaterialsFile = req.files.courseMaterialsFile[0].filename;
       }
     }
 
@@ -53,7 +53,12 @@ export const getApplicationById = async (req, res) => {
 export const approveApplication = async (req, res) => {
   try {
     const result = await instructorApplicationsService.approve(req.params.id, req.user.id);
-    res.json(result);
+    res.json({
+      ...result,
+      message: result.setupLink
+        ? 'Application approved. A setup link was generated for the new instructor account.'
+        : 'Application approved. The existing user was promoted to instructor.',
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

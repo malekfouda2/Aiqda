@@ -37,6 +37,7 @@ export default function StudioApplication() {
 
   const [formState, setFormState] = useState({
     studioName: '',
+    contactEmail: '',
     yearEstablished: '',
     countryOfRegistration: '',
     websitePortfolio: '',
@@ -84,6 +85,11 @@ export default function StudioApplication() {
 
     if (step === 1) {
       if (!formState.studioName.trim()) newErrors.studioName = 'Studio name is required';
+      if (!formState.contactEmail.trim()) {
+        newErrors.contactEmail = 'Contact email is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.contactEmail.trim())) {
+        newErrors.contactEmail = 'Enter a valid email address';
+      }
       if (!formState.yearEstablished.trim()) newErrors.yearEstablished = 'Year established is required';
       if (!formState.countryOfRegistration.trim()) newErrors.countryOfRegistration = 'Country is required';
       if (!formState.websitePortfolio.trim()) newErrors.websitePortfolio = 'Website/Portfolio link is required';
@@ -131,7 +137,7 @@ export default function StudioApplication() {
       await axios.post('/api/studio-applications', formState);
       setIsSubmitted(true);
     } catch (err) {
-      setErrors({ submit: err.response?.data?.message || 'Something went wrong. Please try again.' });
+      setErrors({ submit: err.response?.data?.error || err.response?.data?.message || 'Something went wrong. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -160,6 +166,17 @@ export default function StudioApplication() {
           placeholder="Enter studio name"
         />
         {renderError('studioName')}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email *</label>
+        <input
+          type="email"
+          value={formState.contactEmail}
+          onChange={(e) => updateField('contactEmail', e.target.value)}
+          className="input-field"
+          placeholder="studio@example.com"
+        />
+        {renderError('contactEmail')}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -394,7 +411,7 @@ export default function StudioApplication() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Application Submitted!</h2>
           <p className="text-gray-600 mb-8 leading-relaxed">
-            Thank you for applying as a studio partner at Aiqda. We'll review your application and get back to you soon.
+            Thank you for applying as a studio partner at Aiqda. We'll review your application and, if approved, send a scheduling email to your contact address.
           </p>
           <Link to="/" className="btn-primary w-full py-3 inline-block">
             Return Home

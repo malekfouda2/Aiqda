@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, slideInRight } from '../utils/animations';
 
@@ -89,9 +90,7 @@ function About() {
                 of Animation
               </h2>
               <p className="text-gray-600 text-lg leading-relaxed">
-                24 Center inspires and nurtures the next generation of visionary
-                animators in Saudi Arabia, blending cultural heritage with
-                innovative storytelling to shape the future of animation.
+                Aiqda, powered by 24 Center, connects artists worldwide and fosters a global community exploring the evolving art of animation.
               </p>
             </motion.div>
 
@@ -102,8 +101,7 @@ function About() {
                 <div className="relative">
                   <div className="text-5xl font-black gradient-text text-glow mb-4">"</div>
                   <blockquote className="text-xl font-semibold text-gray-800 leading-relaxed">
-                    Empowering Saudi Arabia's future animators to creatively
-                    blend cultural heritage with innovative storytelling.
+                    Where global creators meet to shape the next chapter of animation
                   </blockquote>
                   <div className="mt-6 flex items-center gap-3">
                     <div className="h-px flex-1 bg-gray-200" />
@@ -210,12 +208,17 @@ function About() {
               <p className="text-gray-500 text-lg mb-2">
                 Get in touch with us and start your animation journey today.
               </p>
-              <a
-                href="mailto:info@24center.edu.sa"
-                className="text-primary-500 hover:text-primary-600 font-semibold text-lg transition-colors"
-              >
-                info@24center.edu.sa
-              </a>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
+                <Link to="/contact-us" className="btn-primary">
+                  Go to Contact Us
+                </Link>
+                <a
+                  href="mailto:info@24center.edu.sa"
+                  className="text-primary-500 hover:text-primary-600 font-semibold text-lg transition-colors"
+                >
+                  info@24center.edu.sa
+                </a>
+              </div>
             </motion.div>
           </motion.div>
         </div>

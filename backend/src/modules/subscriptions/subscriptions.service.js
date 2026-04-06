@@ -43,6 +43,15 @@ export const requestSubscription = async (userId, packageId) => {
     throw new Error('You already have an active subscription');
   }
 
+  const existingPending = await Subscription.findOne({
+    user: userId,
+    status: 'pending'
+  });
+
+  if (existingPending) {
+    throw new Error('You already have a pending subscription awaiting payment or review');
+  }
+
   const subscription = new Subscription({
     user: userId,
     package: packageId,
@@ -76,27 +85,7 @@ export const getAllSubscriptions = async (status) => {
 };
 
 export const approveSubscription = async (subscriptionId, adminId) => {
-  const subscription = await Subscription.findById(subscriptionId).populate('package');
-  if (!subscription) {
-    throw new Error('Subscription not found');
-  }
-
-  if (subscription.status !== 'pending') {
-    throw new Error('Subscription is not pending');
-  }
-
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + subscription.package.durationDays);
-
-  subscription.status = 'active';
-  subscription.startDate = startDate;
-  subscription.endDate = endDate;
-  subscription.approvedBy = adminId;
-  subscription.approvedAt = new Date();
-
-  await subscription.save();
-  return subscription;
+  throw new Error('Subscriptions are activated from Payment Management after payment review.');
 };
 
 export const cancelSubscription = async (subscriptionId) => {

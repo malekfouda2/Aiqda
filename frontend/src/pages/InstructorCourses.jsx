@@ -180,6 +180,17 @@ function InstructorCourses() {
     }
   };
 
+  const handleToggleLessonPublish = async (courseId, lessonId, isPublished) => {
+    try {
+      await lessonsAPI.update(lessonId, { isPublished: !isPublished });
+      showSuccess(`Content ${isPublished ? 'unpublished' : 'published'}`);
+      fetchLessons(courseId);
+      fetchCourses();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update content');
+    }
+  };
+
   const addQuestion = () => {
     if (lessonForm.questions.length >= 8) {
       showError('Maximum 8 questions allowed');
@@ -474,7 +485,7 @@ function InstructorCourses() {
                                 <div className="space-y-4">
                                   <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Supporting Document <span className="text-red-400">*</span></label>
-                                    <p className="text-xs text-gray-400 mb-3">Upload a file for members (PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, images, or TXT). Max 50MB.</p>
+                                    <p className="text-xs text-gray-400 mb-3">Upload a file for members (PDF, DOC, DOCX, or TXT). Max 50MB.</p>
                                     {lessonForm.file ? (
                                       <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
                                         <span className="text-2xl">📄</span>
@@ -498,7 +509,7 @@ function InstructorCourses() {
                                       ref={lessonFileRef}
                                       type="file"
                                       className="hidden"
-                                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.gif,.txt"
+                                      accept=".pdf,.doc,.docx,.txt"
                                       onChange={(e) => {
                                         const file = e.target.files[0];
                                         if (file) {
@@ -575,7 +586,12 @@ function InstructorCourses() {
                                 <div className="flex items-start gap-3 flex-1">
                                   <span className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500 shrink-0">{lesson.order}</span>
                                   <div className="flex-1 min-w-0">
-                                    <h5 className="font-medium text-gray-900">{lesson.title}</h5>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h5 className="font-medium text-gray-900">{lesson.title}</h5>
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${lesson.isPublished ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
+                                        {lesson.isPublished ? 'Published' : 'Draft'}
+                                      </span>
+                                    </div>
                                     {lesson.description && <p className="text-sm text-gray-400 mt-1">{lesson.description}</p>}
                                     <div className="flex flex-wrap gap-2 mt-2">
                                       {lesson.vimeoVideoId ? (
@@ -592,6 +608,13 @@ function InstructorCourses() {
                                   </div>
                                 </div>
                                 <div className="flex gap-1 shrink-0">
+                                  <button
+                                    onClick={() => handleToggleLessonPublish(course._id, lesson._id, lesson.isPublished)}
+                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title={lesson.isPublished ? 'Unpublish content' : 'Publish content'}
+                                  >
+                                    {lesson.isPublished ? '🙈' : '🚀'}
+                                  </button>
                                   <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>

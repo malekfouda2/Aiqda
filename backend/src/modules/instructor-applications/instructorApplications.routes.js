@@ -1,12 +1,14 @@
 import express from 'express';
 import * as instructorApplicationsController from './instructorApplications.controller.js';
 import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
+import { instructorApplicationRateLimit } from '../../middlewares/rateLimit.middleware.js';
 import { uploadInstructorDocs } from '../../middlewares/upload.middleware.js';
 
 const router = express.Router();
 
 router.post(
   '/',
+  instructorApplicationRateLimit,
   uploadInstructorDocs.fields([
     { name: 'cvFile', maxCount: 1 },
     { name: 'courseMaterialsFile', maxCount: 1 }

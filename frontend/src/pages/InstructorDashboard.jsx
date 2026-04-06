@@ -53,7 +53,12 @@ function InstructorDashboard() {
           { icon: '📚', bg: 'bg-primary-50', value: analytics?.totalCourses || 0, label: 'Chapters' },
           { icon: '👥', bg: 'bg-green-50', value: analytics?.totalStudents || 0, label: 'Members' },
           { icon: '✅', bg: 'bg-indigo-50', value: analytics?.totalQualifiedViews || 0, label: 'Qualified Views' },
-          { icon: '💰', bg: 'bg-yellow-50', value: 'Coming Soon', label: 'Revenue' },
+          {
+            icon: '💰',
+            bg: 'bg-yellow-50',
+            value: `SAR ${(analytics?.totalRevenue || 0).toLocaleString()}`,
+            label: 'Revenue'
+          },
         ].map((stat) => (
           <motion.div key={stat.label} variants={cardVariants} className="card group">
             <div className="flex items-center gap-4">
@@ -61,13 +66,19 @@ function InstructorDashboard() {
                 <span className="text-2xl">{stat.icon}</span>
               </div>
               <div>
-                <p className={`${stat.value === 'Coming Soon' ? 'text-lg' : 'text-2xl'} font-bold text-gray-900`}>{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                 <p className="text-gray-500 text-sm">{stat.label}</p>
               </div>
             </div>
           </motion.div>
         ))}
       </motion.div>
+
+      {analytics?.revenueCalculation?.methodology && (
+        <motion.p variants={fadeInUp} className="text-xs text-gray-400 mb-8">
+          Revenue is estimated from approved subscription payments allocated evenly across each package&apos;s included chapters.
+        </motion.p>
+      )}
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8">
         <motion.div variants={cardVariants} className="card">
@@ -78,7 +89,7 @@ function InstructorDashboard() {
           ) : (
             <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
               {courses.map((course) => {
-                const stats = analytics?.courseStats?.find(cs => cs.courseId === course._id);
+                const stats = analytics?.courseStats?.find((courseStat) => String(courseStat.courseId) === String(course._id));
                 return (
                   <motion.div key={course._id} variants={tableRowVariants}>
                     <Link
@@ -89,7 +100,7 @@ function InstructorDashboard() {
                         <div>
                           <h3 className="font-medium text-gray-900">{course.title}</h3>
                           <p className="text-gray-400 text-sm">
-                            {stats?.enrolledCount || 0} members • {stats?.lessonsCount || 0} contents
+                            {stats?.enrolledCount || 0} members • {stats?.lessonsCount || 0} contents • SAR {(stats?.estimatedRevenue || 0).toLocaleString()}
                           </p>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs ${
@@ -116,7 +127,7 @@ function InstructorDashboard() {
               {analytics?.courseStats?.map((stat) => (
                 <motion.div key={stat.courseId} variants={tableRowVariants} className="p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">{stat.title}</h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-400">Enrolled</p>
                       <p className="text-gray-900 font-medium">{stat.enrolledCount}</p>
@@ -128,6 +139,10 @@ function InstructorDashboard() {
                     <div>
                       <p className="text-gray-400">Contents</p>
                       <p className="text-gray-900 font-medium">{stat.lessonsCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Revenue</p>
+                      <p className="text-gray-900 font-medium">SAR {(stat.estimatedRevenue || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </motion.div>

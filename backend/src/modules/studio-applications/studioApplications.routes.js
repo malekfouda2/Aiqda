@@ -1,10 +1,11 @@
 import express from 'express';
 import * as studioApplicationsController from './studioApplications.controller.js';
 import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
+import { studioApplicationRateLimit } from '../../middlewares/rateLimit.middleware.js';
 
 const router = express.Router();
 
-router.post('/', studioApplicationsController.submitApplication);
+router.post('/', studioApplicationRateLimit, studioApplicationsController.submitApplication);
 
 router.get('/', authenticate, isAdmin, studioApplicationsController.getAllApplications);
 router.get('/:id', authenticate, isAdmin, studioApplicationsController.getApplicationById);
