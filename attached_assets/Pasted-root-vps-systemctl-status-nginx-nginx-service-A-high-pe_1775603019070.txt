@@ -1,0 +1,29 @@
+root@vps:~# systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: en>
+     Active: active (running) since Mon 2026-04-06 23:03:37 EET; 1 day 1h ago
+ Invocation: 470c8f6b6f5149a1bfd2d5b0803f6062
+       Docs: man:nginx(8)
+    Process: 15433 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_proc>
+    Process: 15436 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (>
+   Main PID: 15437 (nginx)
+      Tasks: 2 (limit: 2331)
+     Memory: 3.9M (peak: 4.5M)
+        CPU: 393ms
+     CGroup: /system.slice/nginx.service
+             ├─15437 "nginx: master process /usr/sbin/nginx -g daemon on; maste>
+             └─29847 "nginx: worker process"
+
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Starting nginx.service - A high perfo>
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Started nginx.service - A high perfor>
+
+root@vps:~# ss -tlnp | grep 443
+LISTEN 0      511          0.0.0.0:443        0.0.0.0:*    users:(("nginx",pid=29847,fd=11),("nginx",pid=15437,fd=11))
+root@vps:~# journalctl -u nginx --no-pager -n 30
+Apr 06 17:14:43 129-121-86-46.bluehost.com systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 06 17:14:43 129-121-86-46.bluehost.com systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Stopping nginx.service - A high performance web server and a reverse proxy server...
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: nginx.service: Deactivated successfully.
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Stopped nginx.service - A high performance web server and a reverse proxy server.
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 06 23:03:37 vps.aiqda.pro systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
