@@ -9,7 +9,8 @@ import fs from 'fs';
 
 const uploadsDir = path.join(__dirname, '../../uploads');
 const lessonsDir = path.join(uploadsDir, 'lessons');
-[uploadsDir, lessonsDir].forEach(dir => {
+const teamMembersDir = path.join(uploadsDir, 'team-members');
+[uploadsDir, lessonsDir, teamMembersDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -26,6 +27,16 @@ const storage = multer.diskStorage({
 const lessonStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, lessonsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const teamMemberStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, teamMembersDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -78,4 +89,17 @@ export const uploadInstructorDocs = multer({
     }
   },
   limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+export const uploadTeamMemberPhoto = multer({
+  storage: teamMemberStorage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'), false);
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
 });

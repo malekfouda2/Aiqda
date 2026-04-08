@@ -22,6 +22,7 @@ import studioAppRoutes from './modules/studio-applications/studioApplications.ro
 import consultationRoutes from './modules/consultations/consultations.routes.js';
 import consultationBookingRoutes from './modules/consultations/consultationBookings.routes.js';
 import contactMessageRoutes from './modules/contact-messages/contactMessages.routes.js';
+import teamMemberRoutes from './modules/team-members/teamMembers.routes.js';
 
 const app = express();
 
@@ -98,6 +99,7 @@ app.use('/api/studio-applications', studioAppRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/consultation-bookings', consultationBookingRoutes);
 app.use('/api/contact-messages', contactMessageRoutes);
+app.use('/api/team-members', teamMemberRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aiqda API is running' });

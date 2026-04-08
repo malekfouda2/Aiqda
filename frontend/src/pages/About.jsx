@@ -1,34 +1,53 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+
+import { teamMembersAPI } from '../services/api';
+import { buildUploadUrl } from '../utils/uploads';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, slideInRight } from '../utils/animations';
 
-const teamMembers = [
-  {
-    name: 'Abdulwahed Alabdlee',
-    title: 'Managing Partner & Trainer Consultant',
-    initials: 'AA',
-    gradient: 'from-primary-400 to-primary-600',
-    achievements: [
-      'Currently serving as the Chairman of the Animation Society in Saudi Arabia since 2021.',
-      'Honored by the U.S. Embassy in Saudi Arabia for contributing in the Gaming Development Workshop.',
-      'Received international awards for outstanding contributions in the film industry.',
-      'Co-director of Captain Munch which won several awards: Animatex, Animex Awards, 11th Showreel: Effat International Student Film Festival, Rassam International Short Film Festival.',
-    ],
-  },
-  {
-    name: 'Michael Murengezi',
-    title: 'Education Partner & Trainer',
-    initials: 'MM',
-    gradient: 'from-cyan-400 to-blue-600',
-    achievements: [
-      'Worked as a Story Artist at Triggerfish Studios, Netflix.',
-      'Honored by the Animation Society in Saudi Arabia with a trophy for participation.',
-      'Director of Captain Munch which won several awards: Animatex, Animex Awards, 11th Showreel: Effat International Student Film Festival, Rassam International Short Film Festival.',
-    ],
-  },
-];
+function TeamMemberAvatar({ member }) {
+  const imageUrl = buildUploadUrl(member.image);
+
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={member.name}
+        className="w-16 h-16 rounded-2xl object-cover shrink-0 shadow-lg border border-white/80"
+      />
+    );
+  }
+
+  return (
+    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-cyan-100 border border-primary-200 flex items-center justify-center shrink-0 shadow-sm">
+      <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 14a4 4 0 10-8 0m8 0a4 4 0 01-8 0m8 0v1a3 3 0 01-3 3H11a3 3 0 01-3-3v-1m8 0H8" />
+      </svg>
+    </div>
+  );
+}
 
 function About() {
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const response = await teamMembersAPI.getPublic();
+        setTeamMembers(response.data);
+      } catch (error) {
+        console.error('Failed to load team members:', error);
+        setTeamMembers([]);
+      } finally {
+        setLoadingTeam(false);
+      }
+    };
+
+    fetchTeamMembers();
+  }, []);
+
   return (
     <motion.div
       variants={pageVariants}
@@ -132,60 +151,81 @@ function About() {
               Meet Our <span className="gradient-text">Team</span>
             </h2>
             <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
-              Award-winning industry professionals leading Aiqda's mission to
+              Award-winning industry professionals leading Aiqda&apos;s mission to
               elevate animation education.
             </p>
           </motion.div>
 
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-60px' }}
-            className="grid lg:grid-cols-2 gap-8"
-          >
-            {teamMembers.map((member) => (
-              <motion.div
-                key={member.name}
-                variants={cardVariants}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden group"
-              >
-                <div className="p-8">
+          {loadingTeam ? (
+            <div className="grid lg:grid-cols-2 gap-8">
+              {[0, 1].map((item) => (
+                <div key={item} className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8 animate-pulse">
                   <div className="flex items-start gap-5 mb-6">
-                    <div
-                      className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${member.gradient} flex items-center justify-center text-white text-xl font-bold shrink-0 shadow-lg`}
-                    >
-                      {member.initials}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        {member.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {member.title}
-                      </p>
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 bg-gray-100 rounded-full w-2/3" />
+                      <div className="h-4 bg-gray-100 rounded-full w-1/2" />
                     </div>
                   </div>
-
-                  <ul className="space-y-3">
-                    {member.achievements.map((item, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <span className="mt-1.5 w-5 h-5 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-                        </span>
-                        <span className="text-gray-600 text-sm leading-relaxed">
-                          {item}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-100 rounded-full w-full" />
+                    <div className="h-4 bg-gray-100 rounded-full w-11/12" />
+                    <div className="h-4 bg-gray-100 rounded-full w-10/12" />
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : teamMembers.length === 0 ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-3xl px-8 py-12 text-center text-gray-500">
+              Team details will appear here soon.
+            </div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-60px' }}
+              className="grid lg:grid-cols-2 gap-8"
+            >
+              {teamMembers.map((member) => (
+                <motion.div
+                  key={member._id}
+                  variants={cardVariants}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden group"
+                >
+                  <div className="p-8">
+                    <div className="flex items-start gap-5 mb-6">
+                      <TeamMemberAvatar member={member} />
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">
+                          {member.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {member.title}
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="h-1 bg-gradient-to-r from-transparent via-primary-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </motion.div>
-            ))}
-          </motion.div>
+                    <ul className="space-y-3">
+                      {member.achievements.map((item, index) => (
+                        <li key={`${member._id}-${index}`} className="flex items-start gap-3">
+                          <span className="mt-1.5 w-5 h-5 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                          </span>
+                          <span className="text-gray-600 text-sm leading-relaxed">
+                            {item}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="h-1 bg-gradient-to-r from-transparent via-primary-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </div>
       </section>
 

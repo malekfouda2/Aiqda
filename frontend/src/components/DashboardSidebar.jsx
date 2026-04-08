@@ -14,6 +14,7 @@ const studentLinks = [
 const adminLinks = [
   { to: '/admin', icon: '📊', label: 'Overview', end: true },
   { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
+  { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },
   { to: '/admin/payments', icon: '💳', label: 'Payments' },
   { to: '/admin/subscriptions', icon: '📋', label: 'Subscriptions' },
   { to: '/admin/users', icon: '👥', label: 'Users' },
