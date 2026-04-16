@@ -1,6 +1,6 @@
 import express from 'express';
 import * as subscriptionsController from './subscriptions.controller.js';
-import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
+import { authenticate, isAdmin, requirePlatformNoticeAcknowledgement } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -12,7 +12,7 @@ router.use(authenticate);
 router.post('/packages', isAdmin, subscriptionsController.createPackage);
 router.put('/packages/:id', isAdmin, subscriptionsController.updatePackage);
 
-router.post('/request', subscriptionsController.requestSubscription);
+router.post('/request', requirePlatformNoticeAcknowledgement, subscriptionsController.requestSubscription);
 router.get('/my', subscriptionsController.getUserSubscriptions);
 router.get('/active', subscriptionsController.getActiveSubscription);
 

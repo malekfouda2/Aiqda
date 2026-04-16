@@ -163,6 +163,26 @@
   .tag-advanced {
     @apply bg-rose-50 text-rose-600 border-rose-200;
   }
+
+  .app-modal-shell {
+    @apply fixed inset-0 flex items-center justify-center p-4;
+  }
+
+  .app-modal-backdrop {
+    @apply absolute inset-0 bg-gray-950/45;
+  }
+
+  .app-modal-panel {
+    @apply relative w-full bg-white border border-gray-200 rounded-2xl shadow-xl;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+
+  .app-modal-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @keyframes shimmer {

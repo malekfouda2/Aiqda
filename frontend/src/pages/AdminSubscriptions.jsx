@@ -4,15 +4,20 @@ import { subscriptionsAPI, coursesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn, fadeInScale, expandVariants } from '../utils/animations';
+import { formatMoney, getPackageAccessNames } from '../utils/subscriptions';
 
 const emptyForm = {
   name: '',
-  price: '',
   scheduleDuration: '',
-  durationDays: 30,
+  purchaseMode: 'self_serve',
+  monthlyPrice: '',
+  monthlyDurationDays: 30,
+  annualPrice: '',
+  annualDurationDays: 365,
   learningMode: '',
   focus: '',
   selectedCourses: [],
+  includedPackages: [],
   softwareExposure: '',
   outcome: ''
 };
@@ -54,14 +59,34 @@ function AdminSubscriptions() {
   const handleCreateOrUpdatePackage = async (e) => {
     e.preventDefault();
     try {
+      const billingOptions = [
+        packageForm.monthlyPrice
+          ? {
+              term: 'monthly',
+              label: 'Monthly',
+              price: parseFloat(packageForm.monthlyPrice),
+              durationDays: parseInt(packageForm.monthlyDurationDays) || 30,
+            }
+          : null,
+        packageForm.annualPrice
+          ? {
+              term: 'annual',
+              label: 'Annual',
+              price: parseFloat(packageForm.annualPrice),
+              durationDays: parseInt(packageForm.annualDurationDays) || 365,
+            }
+          : null,
+      ].filter(Boolean);
+
       const data = {
         name: packageForm.name,
-        price: parseFloat(packageForm.price),
         scheduleDuration: packageForm.scheduleDuration,
-        durationDays: parseInt(packageForm.durationDays) || 30,
+        purchaseMode: packageForm.purchaseMode,
+        billingOptions: packageForm.purchaseMode === 'contact_only' ? [] : billingOptions,
         learningMode: packageForm.learningMode,
         focus: packageForm.focus,
         courses: packageForm.selectedCourses,
+        includedPackages: packageForm.includedPackages,
         softwareExposure: packageForm.softwareExposure.split('\n').filter(f => f.trim()),
         outcome: packageForm.outcome
       };
@@ -83,14 +108,20 @@ function AdminSubscriptions() {
   };
 
   const handleEditPackage = (pkg) => {
+    const monthlyOption = pkg.billingOptions?.find((option) => option.term === 'monthly');
+    const annualOption = pkg.billingOptions?.find((option) => option.term === 'annual');
     setPackageForm({
       name: pkg.name || '',
-      price: pkg.price?.toString() || '',
       scheduleDuration: pkg.scheduleDuration || '',
-      durationDays: pkg.durationDays || 30,
+      purchaseMode: pkg.purchaseMode || 'self_serve',
+      monthlyPrice: monthlyOption?.price?.toString() || '',
+      monthlyDurationDays: monthlyOption?.durationDays || 30,
+      annualPrice: annualOption?.price?.toString() || '',
+      annualDurationDays: annualOption?.durationDays || 365,
       learningMode: pkg.learningMode || '',
       focus: pkg.focus || '',
       selectedCourses: (pkg.courses || []).map(c => typeof c === 'object' ? c._id : c),
+      includedPackages: (pkg.includedPackages || []).map(pkgEntry => typeof pkgEntry === 'object' ? pkgEntry._id : pkgEntry),
       softwareExposure: (pkg.softwareExposure || []).join('\n'),
       outcome: pkg.outcome || ''
     });
@@ -107,10 +138,21 @@ function AdminSubscriptions() {
     }));
   };
 
+  const toggleIncludedPackage = (packageId) => {
+    setPackageForm((current) => ({
+      ...current,
+      includedPackages: current.includedPackages.includes(packageId)
+        ? current.includedPackages.filter((id) => id !== packageId)
+        : [...current.includedPackages, packageId],
+    }));
+  };
+
   const filteredCourses = allCourses.filter(c =>
     c.title?.toLowerCase().includes(courseSearch.toLowerCase()) ||
     c.category?.toLowerCase().includes(courseSearch.toLowerCase())
   );
+
+  const availableIncludedPackages = packages.filter((pkg) => pkg._id !== editingPackage?._id);
 
   const handleCancel = async (subscriptionId) => {
     try {
@@ -186,15 +228,16 @@ function AdminSubscriptions() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Price (SAR) *</label>
-                    <input
-                      type="number"
-                      value={packageForm.price}
-                      onChange={(e) => setPackageForm(f => ({ ...f, price: e.target.value }))}
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Package Type *</label>
+                    <select
+                      value={packageForm.purchaseMode}
+                      onChange={(e) => setPackageForm(f => ({ ...f, purchaseMode: e.target.value }))}
                       className="input-field"
-                      placeholder="e.g. 500"
                       required
-                    />
+                    >
+                      <option value="self_serve">Self-Serve Subscription</option>
+                      <option value="contact_only">Contact / Appointment Only</option>
+                    </select>
                   </div>
                 </div>
 
@@ -211,14 +254,79 @@ function AdminSubscriptions() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Duration in Days (for subscription tracking)</label>
-                    <input
-                      type="number"
-                      value={packageForm.durationDays}
-                      onChange={(e) => setPackageForm(f => ({ ...f, durationDays: parseInt(e.target.value) || 30 }))}
-                      className="input-field"
-                      placeholder="e.g. 90"
-                    />
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 h-full">
+                      <p className="text-sm font-medium text-gray-700 mb-1">Billing Setup</p>
+                      <p className="text-sm text-gray-500 leading-6">
+                        Configure monthly and annual pricing here. Contact-only packages can leave both terms empty.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-gray-200 p-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Monthly Billing</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Monthly Price (SAR)</label>
+                        <input
+                          type="number"
+                          value={packageForm.monthlyPrice}
+                          onChange={(e) => setPackageForm(f => ({ ...f, monthlyPrice: e.target.value }))}
+                          className="input-field"
+                          placeholder="e.g. 299"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Monthly Duration in Days</label>
+                        <input
+                          type="number"
+                          value={packageForm.monthlyDurationDays}
+                          onChange={(e) => setPackageForm(f => ({ ...f, monthlyDurationDays: parseInt(e.target.value) || 30 }))}
+                          className="input-field"
+                          placeholder="30"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 p-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Annual Billing</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Annual Price (SAR)</label>
+                        <input
+                          type="number"
+                          value={packageForm.annualPrice}
+                          onChange={(e) => setPackageForm(f => ({ ...f, annualPrice: e.target.value }))}
+                          className="input-field"
+                          placeholder="e.g. 2990"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Annual Duration in Days</label>
+                        <input
+                          type="number"
+                          value={packageForm.annualDurationDays}
+                          onChange={(e) => setPackageForm(f => ({ ...f, annualDurationDays: parseInt(e.target.value) || 365 }))}
+                          className="input-field"
+                          placeholder="365"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+
+                    {packageForm.monthlyPrice && packageForm.annualPrice && (() => {
+                      const savings = (Number(packageForm.monthlyPrice) * 12) - Number(packageForm.annualPrice);
+                      return Number.isFinite(savings) && savings > 0 ? (
+                        <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                          Annual savings preview: {formatMoney(savings)} SAR compared to paying monthly for 12 months.
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
 
@@ -317,6 +425,66 @@ function AdminSubscriptions() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Included Package Access</label>
+                  {packageForm.includedPackages.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {packageForm.includedPackages.map((packageId) => {
+                        const packageEntry = availableIncludedPackages.find((pkg) => pkg._id === packageId);
+                        return (
+                          <span
+                            key={packageId}
+                            className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-medium"
+                          >
+                            {packageEntry?.name || packageId}
+                            <button
+                              type="button"
+                              onClick={() => toggleIncludedPackage(packageId)}
+                              className="text-emerald-500 hover:text-emerald-700 ml-1"
+                            >
+                              x
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                    {availableIncludedPackages.length === 0 ? (
+                      <p className="text-gray-400 text-sm p-3 text-center">
+                        Create another package first to enable included access.
+                      </p>
+                    ) : (
+                      availableIncludedPackages.map((pkg) => {
+                        const isSelected = packageForm.includedPackages.includes(pkg._id);
+                        return (
+                          <button
+                            key={pkg._id}
+                            type="button"
+                            onClick={() => toggleIncludedPackage(pkg._id)}
+                            className={`w-full text-left px-4 py-2.5 flex items-center justify-between border-b border-gray-100 last:border-0 transition-colors ${
+                              isSelected
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'hover:bg-gray-50 text-gray-700'
+                            }`}
+                          >
+                            <div>
+                              <span className="text-sm font-medium">{pkg.name}</span>
+                              <span className="text-xs text-gray-400 ml-2">
+                                {pkg.purchaseMode === 'contact_only' ? 'Contact-only' : 'Self-serve'}
+                              </span>
+                            </div>
+                            {isSelected && (
+                              <span className="text-emerald-600 text-sm font-medium">Included</span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">Software Exposure (one per line)</label>
                   <textarea
                     value={packageForm.softwareExposure}
@@ -374,7 +542,19 @@ function AdminSubscriptions() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900 text-lg">{pkg.name}</h3>
-                        <p className="text-primary-500 font-bold text-xl">{pkg.price} SAR</p>
+                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                          {(pkg.billingOptions || []).length > 0 ? (
+                            (pkg.billingOptions || []).map((option) => (
+                              <span key={option.term} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-medium text-primary-700 border border-primary-100">
+                                {option.term === 'annual' ? 'Annual' : 'Monthly'}: {formatMoney(option.price)} SAR
+                              </span>
+                            ))
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-600 border border-gray-200">
+                              Contact / Appointment Only
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => handleEditPackage(pkg)}
@@ -384,6 +564,10 @@ function AdminSubscriptions() {
                       </button>
                     </div>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-400">Type:</span>{' '}
+                        <span className="text-gray-700">{pkg.purchaseMode === 'contact_only' ? 'Contact-only' : 'Self-serve'}</span>
+                      </div>
                       <div>
                         <span className="text-gray-400">Schedule:</span>{' '}
                         <span className="text-gray-700">{pkg.scheduleDuration || '—'}</span>
@@ -401,6 +585,14 @@ function AdminSubscriptions() {
                         <span className="text-gray-700">{pkg.outcome || '—'}</span>
                       </div>
                     </div>
+                    {getPackageAccessNames(pkg).length > 1 && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-gray-400">Included access:</span>{' '}
+                        <span className="text-gray-700">
+                          {getPackageAccessNames(pkg).slice(1).join(', ')}
+                        </span>
+                      </div>
+                    )}
                     {pkg.courses?.length > 0 && (
                       <div className="mt-2 text-sm">
                         <span className="text-gray-400">Chapters:</span>{' '}
@@ -459,7 +651,9 @@ function AdminSubscriptions() {
                       <p className="text-gray-900 font-medium">{sub.user?.name}</p>
                       <p className="text-gray-500 text-sm">{sub.user?.email}</p>
                       <p className="text-gray-400 text-sm mt-1">
-                        Package: {sub.package?.name} ({sub.package?.price} SAR)
+                        Package: {sub.package?.name}
+                        {sub.billingTerm ? ` (${sub.billingTerm === 'annual' ? 'Annual' : 'Monthly'})` : ''}
+                        {sub.priceAtPurchase ? ` - ${formatMoney(sub.priceAtPurchase)} SAR` : ''}
                       </p>
                       {sub.startDate && (
                         <p className="text-gray-400 text-sm">

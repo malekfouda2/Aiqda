@@ -1,13 +1,19 @@
 import User from '../users/user.model.js';
 import { hashPassword, comparePassword } from '../../utils/password.js';
 import { generateToken, verifyToken } from '../../utils/jwt.js';
+import { getSocialOnlyLoginMessageForUser } from './socialAuth.service.js';
+import {
+  hasAcceptedPlatformNoticeInput,
+  PLATFORM_NOTICE_ERROR_MESSAGE,
+  PLATFORM_NOTICE_VERSION,
+} from '../../config/platformNotice.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 const normalizeName = (value) => (typeof value === 'string' ? value.trim() : '');
 
-export const register = async ({ email, password, name }) => {
+export const register = async ({ email, password, name, platformNoticeAccepted }) => {
   const normalizedEmail = normalizeEmail(email);
   const normalizedName = normalizeName(name);
 
@@ -27,6 +33,10 @@ export const register = async ({ email, password, name }) => {
     throw new Error('Password must be at least 8 characters');
   }
 
+  if (!hasAcceptedPlatformNoticeInput(platformNoticeAccepted)) {
+    throw new Error(PLATFORM_NOTICE_ERROR_MESSAGE);
+  }
+
   const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     throw new Error('Email already registered');
@@ -37,7 +47,11 @@ export const register = async ({ email, password, name }) => {
     email: normalizedEmail,
     password: hashedPassword,
     name: normalizedName,
-    role: 'student'
+    role: 'student',
+    platformNoticeAcknowledgement: {
+      version: PLATFORM_NOTICE_VERSION,
+      acceptedAt: new Date(),
+    },
   });
 
   await user.save();
@@ -72,6 +86,10 @@ export const login = async ({ email, password }) => {
 
   if (user.mustChangePassword) {
     throw new Error('Account setup is still pending. Use your invitation link to finish setting your password.');
+  }
+
+  if (!user.password) {
+    throw new Error(getSocialOnlyLoginMessageForUser(user));
   }
 
   const isValidPassword = await comparePassword(password, user.password);

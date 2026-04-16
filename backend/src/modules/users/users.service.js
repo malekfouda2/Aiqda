@@ -1,5 +1,6 @@
 import User from './user.model.js';
 import { hashPassword } from '../../utils/password.js';
+import { PLATFORM_NOTICE_VERSION } from '../../config/platformNotice.js';
 
 const SELF_UPDATE_FIELDS = new Set(['name', 'avatar', 'password']);
 const ADMIN_UPDATE_FIELDS = new Set(['name', 'email', 'avatar', 'password', 'isActive']);
@@ -72,5 +73,24 @@ export const updateUserRole = async (userId, newRole) => {
   if (!user) {
     throw new Error('User not found');
   }
+  return user;
+};
+
+export const acknowledgePlatformNotice = async (userId) => {
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      platformNoticeAcknowledgement: {
+        version: PLATFORM_NOTICE_VERSION,
+        acceptedAt: new Date(),
+      },
+    },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
   return user;
 };

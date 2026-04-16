@@ -4,6 +4,7 @@ import { contactMessagesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function AdminContactMessages() {
   const { showSuccess, showError } = useUIStore();
@@ -14,6 +15,8 @@ function AdminContactMessages() {
   const [processing, setProcessing] = useState('');
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  useBodyScrollLock(Boolean(selectedMessage));
 
   useEffect(() => {
     fetchMessages();
@@ -263,15 +266,16 @@ function AdminContactMessages() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="app-modal-shell z-50"
             onClick={() => setSelectedMessage(null)}
           >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div className="app-modal-backdrop" />
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              initial={{ opacity: 0, scale: 0.99, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+              exit={{ opacity: 0, scale: 0.99, y: 12 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="app-modal-panel max-w-3xl max-h-[90vh] overflow-hidden flex flex-col rounded-[2rem]"
               onClick={(event) => event.stopPropagation()}
             >
               {detailLoading ? (
@@ -303,7 +307,7 @@ function AdminContactMessages() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-y-auto space-y-6">
+                  <div className="app-modal-scroll p-6 overflow-y-auto space-y-6">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
                         <p className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-2">From</p>

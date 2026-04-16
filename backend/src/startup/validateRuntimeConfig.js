@@ -29,6 +29,18 @@ const validateEmailList = (value) => {
 
 export const validateRuntimeConfig = (env = process.env) => {
   const errors = [];
+  const socialProviders = [
+    {
+      name: 'Google',
+      clientIdKey: 'GOOGLE_OAUTH_CLIENT_ID',
+      clientSecretKey: 'GOOGLE_OAUTH_CLIENT_SECRET',
+    },
+    {
+      name: 'LinkedIn',
+      clientIdKey: 'LINKEDIN_OAUTH_CLIENT_ID',
+      clientSecretKey: 'LINKEDIN_OAUTH_CLIENT_SECRET',
+    },
+  ];
 
   if (!env.MONGODB_URI) {
     errors.push('MONGODB_URI is required.');
@@ -77,6 +89,15 @@ export const validateRuntimeConfig = (env = process.env) => {
 
   if (env.CONTACT_NOTIFICATION_TO && !validateEmailList(env.CONTACT_NOTIFICATION_TO)) {
     errors.push('CONTACT_NOTIFICATION_TO must contain one or more valid comma-separated email addresses.');
+  }
+
+  for (const provider of socialProviders) {
+    const hasClientId = Boolean(env[provider.clientIdKey]);
+    const hasClientSecret = Boolean(env[provider.clientSecretKey]);
+
+    if (hasClientId !== hasClientSecret) {
+      errors.push(`${provider.clientIdKey} and ${provider.clientSecretKey} must either both be set or both be empty.`);
+    }
   }
 
   const autoSeedEnabled = isTruthyFlag(env.AUTO_SEED_DEMO_DATA) || isTruthyFlag(env.AUTO_SEED_CONSULTATIONS);

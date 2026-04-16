@@ -6,6 +6,11 @@ import Lesson from './modules/lessons/lesson.model.js';
 import Quiz from './modules/quizzes/quiz.model.js';
 import { LessonProgress, CourseProgress } from './modules/analytics/progress.model.js';
 import { SubscriptionPackage, Subscription } from './modules/subscriptions/subscription.model.js';
+import {
+  buildSelfServeBillingOptions,
+  ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT,
+  ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS
+} from './modules/subscriptions/subscriptionRoadmap.js';
 import Payment from './modules/payments/payment.model.js';
 import Consultation from './modules/consultations/consultation.model.js';
 import { hashPassword } from './utils/password.js';
@@ -336,69 +341,97 @@ export async function seedDatabase(options = {}) {
   }
   console.log(`${allCourses.length} courses created with ${allLessons.length} lessons, quizzes, and progress data`);
 
-  const packages = [
-    {
-      name: 'Engineering Starter',
-      price: 499,
-      scheduleDuration: '4 weeks',
-      durationDays: 30,
-      learningMode: 'Self-paced',
-      focus: 'CAD Fundamentals',
-      courses: allCourses.filter(c => c.category === 'Engineering').map(c => c._id),
-      softwareExposure: ['AutoCAD'],
-      outcome: 'Master 2D and 3D CAD drafting fundamentals',
-    },
-    {
-      name: 'Architecture Professional',
-      price: 799,
-      scheduleDuration: '8 weeks',
-      durationDays: 60,
-      learningMode: 'Creator-led',
-      focus: 'BIM & Design',
-      courses: allCourses.filter(c => ['Architecture', 'Interior Design'].includes(c.category)).map(c => c._id),
-      softwareExposure: ['Revit', 'SketchUp'],
-      outcome: 'Create professional architectural designs using BIM tools',
-    },
-    {
-      name: 'Business Analytics Bundle',
-      price: 599,
-      scheduleDuration: '6 weeks',
-      durationDays: 45,
-      learningMode: 'Hybrid',
-      focus: 'Data Analysis & PM',
-      courses: allCourses.filter(c => ['Business', 'Project Management'].includes(c.category)).map(c => c._id),
-      softwareExposure: ['Excel', 'Primavera P6'],
-      outcome: 'Analyze business data and manage projects effectively',
-    },
-    {
-      name: 'Complete Professional Package',
-      price: 1499,
-      scheduleDuration: '12 weeks',
-      durationDays: 90,
-      learningMode: 'Creator-led',
-      focus: 'Full Curriculum',
-      courses: allCourses.filter(c => c.isPublished).map(c => c._id),
-      softwareExposure: ['AutoCAD', 'Revit', 'SketchUp', 'Excel', 'Primavera P6'],
-      outcome: 'Complete engineering and business professional certification',
-    },
-  ];
+  const engineeringCourseIds = allCourses
+    .filter((course) => course.category === 'Engineering')
+    .map((course) => course._id);
+  const architectureCourseIds = allCourses
+    .filter((course) => ['Architecture', 'Interior Design'].includes(course.category))
+    .map((course) => course._id);
+  const businessCourseIds = allCourses
+    .filter((course) => ['Business', 'Project Management'].includes(course.category))
+    .map((course) => course._id);
+  const allPublishedCourseIds = allCourses
+    .filter((course) => course.isPublished)
+    .map((course) => course._id);
+
+  const roadmapCourseAssignments = {
+    'Start Smart': engineeringCourseIds,
+    'Pro Artist': architectureCourseIds,
+    'Full Studio': businessCourseIds,
+    'Semester / Professional Track': allPublishedCourseIds,
+    Enterprise: [],
+  };
 
   const createdPackages = [];
-  for (const pkg of packages) {
-    const p = await SubscriptionPackage.create(pkg);
-    createdPackages.push(p);
+  const createdPackageIdsByName = new Map();
+
+  for (const blueprint of ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS) {
+    const pkg = await SubscriptionPackage.create({
+      name: blueprint.name,
+      price: blueprint.monthlyPrice,
+      billingOptions: buildSelfServeBillingOptions(blueprint.monthlyPrice),
+      scheduleDuration: blueprint.scheduleDuration,
+      durationDays: 30,
+      learningMode: blueprint.learningMode,
+      focus: blueprint.focus,
+      courses: roadmapCourseAssignments[blueprint.name] || [],
+      softwareExposure: blueprint.softwareExposure,
+      outcome: blueprint.outcome,
+      purchaseMode: 'self_serve',
+      includedPackages: [],
+    });
+
+    createdPackages.push(pkg);
+    createdPackageIdsByName.set(pkg.name, pkg._id);
   }
+
+  const enterprisePackage = await SubscriptionPackage.create({
+    name: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.name,
+    price: null,
+    billingOptions: [],
+    scheduleDuration: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.scheduleDuration,
+    durationDays: null,
+    learningMode: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.learningMode,
+    focus: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.focus,
+    courses: roadmapCourseAssignments.Enterprise,
+    softwareExposure: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.softwareExposure,
+    outcome: ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT.outcome,
+    purchaseMode: 'contact_only',
+    includedPackages: [],
+  });
+
+  createdPackages.push(enterprisePackage);
+  createdPackageIdsByName.set(enterprisePackage.name, enterprisePackage._id);
+
+  await SubscriptionPackage.findByIdAndUpdate(
+    createdPackageIdsByName.get('Pro Artist'),
+    { includedPackages: [createdPackageIdsByName.get('Start Smart')] }
+  );
+  await SubscriptionPackage.findByIdAndUpdate(
+    createdPackageIdsByName.get('Full Studio'),
+    { includedPackages: [createdPackageIdsByName.get('Pro Artist')] }
+  );
+  await SubscriptionPackage.findByIdAndUpdate(
+    createdPackageIdsByName.get('Semester / Professional Track'),
+    { includedPackages: [createdPackageIdsByName.get('Full Studio')] }
+  );
   console.log(`${createdPackages.length} subscription packages created`);
 
+  const selfServePackages = createdPackages.filter((pkg) => pkg.purchaseMode === 'self_serve');
   const subscribedStudents = students.slice(0, 10);
   for (const student of subscribedStudents) {
-    const pkg = createdPackages[randomBetween(0, createdPackages.length - 1)];
+    const pkg = selfServePackages[randomBetween(0, selfServePackages.length - 1)];
+    const monthlyBilling = pkg.billingOptions.find((option) => option.term === 'monthly') || pkg.billingOptions[0];
     const startDate = randomDate(4);
-    const endDate = new Date(startDate.getTime() + pkg.durationDays * 24 * 60 * 60 * 1000);
+    const endDate = new Date(startDate.getTime() + monthlyBilling.durationDays * 24 * 60 * 60 * 1000);
 
     const sub = await Subscription.create({
       user: student._id,
       package: pkg._id,
+      billingTerm: monthlyBilling.term,
+      priceAtPurchase: monthlyBilling.price,
+      durationDaysSnapshot: monthlyBilling.durationDays,
+      purchaseModeSnapshot: 'self_serve',
       status: 'active',
       startDate,
       endDate,
@@ -409,7 +442,7 @@ export async function seedDatabase(options = {}) {
     await Payment.create({
       user: student._id,
       subscription: sub._id,
-      amount: pkg.price,
+      amount: monthlyBilling.price,
       paymentReference: `ALB-${Date.now()}-${randomBetween(1000, 9999)}`,
       status: 'approved',
       reviewedBy: admin._id,
@@ -421,18 +454,23 @@ export async function seedDatabase(options = {}) {
 
   for (let i = 0; i < 3; i++) {
     const student = students[10 + i];
-    const pkg = createdPackages[randomBetween(0, 2)];
+    const pkg = selfServePackages[randomBetween(0, Math.max(selfServePackages.length - 2, 0))];
+    const monthlyBilling = pkg.billingOptions.find((option) => option.term === 'monthly') || pkg.billingOptions[0];
 
     const sub = await Subscription.create({
       user: student._id,
       package: pkg._id,
+      billingTerm: monthlyBilling.term,
+      priceAtPurchase: monthlyBilling.price,
+      durationDaysSnapshot: monthlyBilling.durationDays,
+      purchaseModeSnapshot: 'self_serve',
       status: 'pending',
     });
 
     await Payment.create({
       user: student._id,
       subscription: sub._id,
-      amount: pkg.price,
+      amount: monthlyBilling.price,
       paymentReference: `ALB-PENDING-${randomBetween(10000, 99999)}`,
       status: 'submitted',
       bankName: 'Bank Albilad',

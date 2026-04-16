@@ -16,6 +16,44 @@ import {
 
 const suite = setupIntegrationSuite();
 
+test('requesting an annual subscription stores the selected billing term and validates the annual amount', async () => {
+  const student = await createUser({ role: 'student' });
+  const packageRecord = await createSubscriptionPackage({
+    billingOptions: [
+      { term: 'monthly', label: 'Monthly', price: 299, durationDays: 30, isActive: true },
+      { term: 'annual', label: 'Annual', price: 2799, durationDays: 365, isActive: true },
+    ],
+  });
+
+  const subscriptionResponse = await request(suite.app)
+    .post('/api/subscriptions/request')
+    .set(authHeader(student.token))
+    .send({
+      packageId: packageRecord._id.toString(),
+      billingTerm: 'annual',
+    });
+
+  assert.equal(subscriptionResponse.status, 201);
+  assert.equal(subscriptionResponse.body.billingTerm, 'annual');
+  assert.equal(subscriptionResponse.body.priceAtPurchase, 2799);
+  assert.equal(subscriptionResponse.body.durationDaysSnapshot, 365);
+
+  const wrongAmountResponse = await request(suite.app)
+    .post('/api/payments')
+    .set(authHeader(student.token))
+    .field('subscriptionId', subscriptionResponse.body._id)
+    .field('amount', '299')
+    .field('paymentReference', 'PAY-ANNUAL-001')
+    .field('checkoutDisclaimerAccepted', 'true')
+    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
+      filename: 'proof.pdf',
+      contentType: 'application/pdf'
+    });
+
+  assert.equal(wrongAmountResponse.status, 400);
+  assert.match(wrongAmountResponse.body.error, /2799/i);
+});
+
 test('payment submission validates proof and amount before creating a payment', async () => {
   const student = await createUser({ role: 'student' });
   const packageRecord = await createSubscriptionPackage({ price: 499 });
@@ -34,12 +72,29 @@ test('payment submission validates proof and amount before creating a payment', 
   assert.equal(missingProofResponse.status, 400);
   assert.equal(missingProofResponse.body.error, 'Payment proof is required');
 
+  const missingDisclaimerResponse = await request(suite.app)
+    .post('/api/payments')
+    .set(authHeader(student.token))
+    .field('subscriptionId', subscription._id.toString())
+    .field('amount', '499')
+    .field('paymentReference', 'PAY-001A')
+    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
+      filename: 'proof.pdf',
+      contentType: 'application/pdf'
+    });
+  assert.equal(missingDisclaimerResponse.status, 400);
+  assert.equal(
+    missingDisclaimerResponse.body.error,
+    'Please accept the refund policy checkout disclaimer before submitting payment.'
+  );
+
   const wrongAmountResponse = await request(suite.app)
     .post('/api/payments')
     .set(authHeader(student.token))
     .field('subscriptionId', subscription._id.toString())
     .field('amount', '100')
     .field('paymentReference', 'PAY-002')
+    .field('checkoutDisclaimerAccepted', 'true')
     .attach('proofFile', Buffer.from('%PDF-test-proof'), {
       filename: 'proof.pdf',
       contentType: 'application/pdf'
@@ -65,12 +120,15 @@ test('payment access is restricted and admin approval activates the subscription
     .field('subscriptionId', subscription._id.toString())
     .field('amount', '599')
     .field('paymentReference', 'PAY-APPROVE-001')
+    .field('checkoutDisclaimerAccepted', 'true')
     .attach('proofFile', Buffer.from('%PDF-test-proof'), {
       filename: 'proof.pdf',
       contentType: 'application/pdf'
     });
 
   assert.equal(createPaymentResponse.status, 201);
+  assert.equal(createPaymentResponse.body.checkoutDisclaimerVersion, 'POL-0015');
+  assert.ok(createPaymentResponse.body.checkoutDisclaimerAcceptedAt);
   const paymentId = createPaymentResponse.body._id;
 
   const forbiddenGetResponse = await request(suite.app)
@@ -115,6 +173,7 @@ test('instructor analytics returns allocated revenue from approved payments', as
     .field('subscriptionId', subscription._id.toString())
     .field('amount', '750')
     .field('paymentReference', 'PAY-ANALYTICS-001')
+    .field('checkoutDisclaimerAccepted', 'true')
     .attach('proofFile', Buffer.from('%PDF-test-proof'), {
       filename: 'proof.pdf',
       contentType: 'application/pdf'
@@ -170,8 +229,11 @@ test('approved instructor applications require invite acceptance before login wo
     .field('existingCourseMaterials', applicationPayload.existingCourseMaterials)
     .field('preferredSchedule', applicationPayload.preferredSchedule)
     .field('earliestStartDate', applicationPayload.earliestStartDate)
-    .field('additionalComments', applicationPayload.additionalComments);
+    .field('additionalComments', applicationPayload.additionalComments)
+    .field('creatorAgreementAccepted', 'true');
   assert.equal(submitResponse.status, 201);
+  assert.equal(submitResponse.body.creatorTermsVersion, 'POL-0016');
+  assert.ok(submitResponse.body.creatorTermsAcceptedAt);
 
   const approveResponse = await request(suite.app)
     .patch(`/api/instructor-applications/${submitResponse.body._id}/approve`)
@@ -205,4 +267,41 @@ test('approved instructor applications require invite acceptance before login wo
   assert.equal(loginResponse.status, 200);
   assert.equal(loginResponse.body.user.role, 'instructor');
   assert.equal(loginResponse.body.user.mustChangePassword, false);
+});
+
+test('creator agreement acknowledgement is required before submitting an instructor application', async () => {
+  const applicationPayload = createInstructorApplicationPayload({
+    email: 'creator-agreement-required@example.com'
+  });
+
+  const submitResponse = await request(suite.app)
+    .post('/api/instructor-applications')
+    .field('email', applicationPayload.email)
+    .field('fullName', applicationPayload.fullName)
+    .field('nationality', applicationPayload.nationality)
+    .field('country', applicationPayload.country)
+    .field('city', applicationPayload.city)
+    .field('phoneCode', applicationPayload.phoneCode)
+    .field('phoneNumber', applicationPayload.phoneNumber)
+    .field('educationLevel', applicationPayload.educationLevel)
+    .field('fieldOfStudy', applicationPayload.fieldOfStudy)
+    .field('yearsOfExperience', applicationPayload.yearsOfExperience)
+    .field('specialization', applicationPayload.specialization[0])
+    .field('previousTeachingExperience', applicationPayload.previousTeachingExperience)
+    .field('softwareProficiency', applicationPayload.softwareProficiency)
+    .field('institutionsOrStudios', applicationPayload.institutionsOrStudios)
+    .field('notableWorks', applicationPayload.notableWorks)
+    .field('websiteOrPortfolio', applicationPayload.websiteOrPortfolio)
+    .field('teachingStyle', applicationPayload.teachingStyle)
+    .field('studentGuidance', applicationPayload.studentGuidance)
+    .field('existingCourseMaterials', applicationPayload.existingCourseMaterials)
+    .field('preferredSchedule', applicationPayload.preferredSchedule)
+    .field('earliestStartDate', applicationPayload.earliestStartDate)
+    .field('additionalComments', applicationPayload.additionalComments);
+
+  assert.equal(submitResponse.status, 400);
+  assert.equal(
+    submitResponse.body.error,
+    'Please accept the creator agreement disclaimer before submitting your application.'
+  );
 });

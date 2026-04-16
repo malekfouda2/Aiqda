@@ -4,6 +4,7 @@ import { consultationBookingsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function AdminConsultationBookings() {
   const { showSuccess, showError } = useUIStore();
@@ -14,6 +15,8 @@ function AdminConsultationBookings() {
   const [rejectModalId, setRejectModalId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  useBodyScrollLock(Boolean(rejectModalId));
 
   useEffect(() => {
     fetchBookings();
@@ -205,9 +208,9 @@ function AdminConsultationBookings() {
 
       <AnimatePresence>
         {rejectModalId && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setRejectModalId(null)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="app-modal-shell z-50">
+            <div className="app-modal-backdrop" onClick={() => setRejectModalId(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.99, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.99, y: 10 }} transition={{ duration: 0.16, ease: 'easeOut' }} className="app-modal-panel max-w-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Booking</h3>
               <p className="text-gray-500 text-sm mb-4">Provide a reason for rejecting this consultation booking.</p>
               <textarea

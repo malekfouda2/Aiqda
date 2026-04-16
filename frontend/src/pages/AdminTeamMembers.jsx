@@ -6,6 +6,7 @@ import useUIStore from '../store/uiStore';
 import { teamMembersAPI } from '../services/api';
 import { buildUploadUrl } from '../utils/uploads';
 import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const buildInitialFormState = () => ({
   _id: null,
@@ -28,6 +29,8 @@ function AdminTeamMembers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(buildInitialFormState());
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
+
+  useBodyScrollLock(modalOpen);
 
   useEffect(() => {
     fetchTeamMembers();
@@ -335,14 +338,15 @@ function AdminTeamMembers() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="app-modal-shell z-50"
           >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeModal} />
+            <div className="app-modal-backdrop" onClick={closeModal} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.99, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+              exit={{ opacity: 0, scale: 0.99, y: 12 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="app-modal-panel max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
             >
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
@@ -355,7 +359,7 @@ function AdminTeamMembers() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-1">
+              <form onSubmit={handleSubmit} className="app-modal-scroll overflow-y-auto p-6 space-y-6 flex-1">
                 <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
                   <div className="space-y-6">
                     <div className="grid sm:grid-cols-2 gap-6">

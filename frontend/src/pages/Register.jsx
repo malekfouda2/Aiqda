@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import SocialAuthButtons from '../components/SocialAuthButtons';
+import PlatformNoticeModal from '../components/PlatformNoticeModal';
 
 function Register() {
   const [name, setName] = useState('');
@@ -9,8 +11,11 @@ function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const { register, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedPath = location.state?.from?.pathname || '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,15 +26,22 @@ function Register() {
       return;
     }
 
-    if (password.length < 6) {
-      setLocalError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setLocalError('Password must be at least 8 characters');
       return;
     }
 
-    const result = await register(name, email, password, 'student');
+    setShowTermsModal(true);
+  };
+
+  const handleRegisterWithTerms = async () => {
+    const result = await register(name, email, password, 'student', true);
     if (result.success) {
       navigate('/dashboard');
+      return;
     }
+
+    setShowTermsModal(false);
   };
 
   return (
@@ -105,7 +117,7 @@ function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-field"
-                placeholder="Min 6 characters"
+                placeholder="Min 8 characters"
                 required
               />
             </div>
@@ -141,6 +153,10 @@ function Register() {
             </button>
           </form>
 
+          <div className="mt-7">
+            <SocialAuthButtons redirectPath={requestedPath} />
+          </div>
+
           <div className="divider my-8" />
 
           <div className="text-center space-y-3">
@@ -158,6 +174,19 @@ function Register() {
             </p>
           </div>
         </div>
+
+        <PlatformNoticeModal
+          open={showTermsModal}
+          onAccept={handleRegisterWithTerms}
+          onDecline={() => setShowTermsModal(false)}
+          isSubmitting={isLoading}
+          acceptLabel="Create Account"
+          declineLabel="Back"
+          title="Please Review These Terms"
+          subtitle="This acknowledgement is required before your account can be created."
+          badgeLabel="Account Creation Terms"
+          confirmSummary="By creating your account, you confirm that you have reviewed and accepted the Terms & Conditions For Users and the related policies listed below."
+        />
       </motion.div>
     </div>
   );

@@ -31,6 +31,8 @@ test('production runtime configuration validation fails for unsafe deployment se
       SMTP_PASS: '',
       EMAIL_FROM: '',
       STUDIO_APPLICATION_MEETING_URL: '',
+      GOOGLE_OAUTH_CLIENT_ID: 'google-client-id',
+      GOOGLE_OAUTH_CLIENT_SECRET: '',
       AUTO_SEED_DEMO_DATA: 'true',
       AUTO_SEED_CONSULTATIONS: 'false',
       ALLOW_PRODUCTION_AUTO_SEED: 'false',
@@ -79,7 +81,8 @@ test('instructor and studio rejections persist correctly while email notificatio
     .field('existingCourseMaterials', instructorPayload.existingCourseMaterials)
     .field('preferredSchedule', instructorPayload.preferredSchedule)
     .field('earliestStartDate', instructorPayload.earliestStartDate)
-    .field('additionalComments', instructorPayload.additionalComments);
+    .field('additionalComments', instructorPayload.additionalComments)
+    .field('creatorAgreementAccepted', 'true');
   assert.equal(instructorSubmitResponse.status, 201);
 
   const instructorRejectResponse = await request(suite.app)
@@ -187,6 +190,7 @@ test('payment rejection leaves the subscription pending while recording the revi
     .field('subscriptionId', subscription._id.toString())
     .field('amount', '699')
     .field('paymentReference', 'PAY-REJECT-001')
+    .field('checkoutDisclaimerAccepted', 'true')
     .attach('proofFile', Buffer.from('%PDF-test-proof'), {
       filename: 'proof.pdf',
       contentType: 'application/pdf'

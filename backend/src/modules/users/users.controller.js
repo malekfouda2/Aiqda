@@ -45,3 +45,12 @@ export const updateUserRole = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const acknowledgePlatformNotice = async (req, res) => {
+  try {
+    const user = await usersService.acknowledgePlatformNotice(req.user.id);
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

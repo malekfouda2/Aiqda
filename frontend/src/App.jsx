@@ -8,8 +8,14 @@ import LoadingSpinner from './components/LoadingSpinner';
 const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
+const TermsAndConditionsForUsers = lazy(() => import('./pages/TermsAndConditionsForUsers'));
+const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
+const UserContentAccessPolicy = lazy(() => import('./pages/UserContentAccessPolicy'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const SocialAuthCallback = lazy(() => import('./pages/SocialAuthCallback'));
 const InstructorSetup = lazy(() => import('./pages/InstructorSetup'));
 const Courses = lazy(() => import('./pages/Courses'));
 const CourseDetail = lazy(() => import('./pages/CourseDetail'));
@@ -58,8 +64,15 @@ function App() {
         <Route path="/" element={renderLazyPage(Home)} />
         <Route path="/about" element={renderLazyPage(About)} />
         <Route path="/contact-us" element={renderLazyPage(ContactUs)} />
+        <Route path="/privacy-policy" element={renderLazyPage(PrivacyPolicy)} />
+        <Route path="/terms-and-conditions" element={renderLazyPage(TermsAndConditionsForUsers)} />
+        <Route path="/terms-and-conditions-for-creators" element={renderLazyPage(TermsAndConditions)} />
+        <Route path="/terms-and-conditions-for-users" element={renderLazyPage(TermsAndConditionsForUsers)} />
+        <Route path="/refund-policy" element={renderLazyPage(RefundPolicy)} />
+        <Route path="/user-content-access-policy" element={renderLazyPage(UserContentAccessPolicy)} />
         <Route path="/login" element={renderLazyPage(Login)} />
         <Route path="/register" element={renderLazyPage(Register)} />
+        <Route path="/auth/social/callback" element={renderLazyPage(SocialAuthCallback)} />
         <Route path="/instructor-setup" element={renderLazyPage(InstructorSetup)} />
         <Route path="/apply-instructor" element={renderLazyPage(InstructorApplication)} />
         <Route path="/apply-studio" element={renderLazyPage(StudioApplication)} />

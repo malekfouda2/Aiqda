@@ -4,6 +4,7 @@ import { consultationsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function AdminConsultations() {
   const { showSuccess, showError } = useUIStore();
@@ -28,6 +29,8 @@ function AdminConsultations() {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+
+  useBodyScrollLock(modalOpen);
 
   useEffect(() => {
     fetchConsultations();
@@ -191,9 +194,9 @@ function AdminConsultations() {
 
       <AnimatePresence>
         {modalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="app-modal-shell z-50">
+            <div className="app-modal-backdrop" onClick={() => setModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.99, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.99, y: 12 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="app-modal-panel max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Edit' : 'Add'} Consultation</h2>
                 <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
@@ -201,7 +204,7 @@ function AdminConsultations() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-1">
+              <form onSubmit={handleSubmit} className="app-modal-scroll overflow-y-auto p-6 space-y-6 flex-1">
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>

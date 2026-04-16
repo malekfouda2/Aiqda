@@ -40,23 +40,41 @@ test('registration validates required fields and normalizes the email', async ()
     .send({
       name: '',
       email: 'invalid-email',
-      password: 'short'
+      password: 'short',
+      platformNoticeAccepted: true
     });
 
   assert.equal(invalidResponse.status, 400);
   assert.equal(invalidResponse.body.error, 'Name is required');
+
+  const missingAcceptanceResponse = await request(suite.app)
+    .post('/api/auth/register')
+    .send({
+      name: 'New Student',
+      email: 'new.student@example.com',
+      password: 'Password123!'
+    });
+
+  assert.equal(missingAcceptanceResponse.status, 400);
+  assert.equal(
+    missingAcceptanceResponse.body.error,
+    'Please accept the Terms & Conditions For Users before continuing.'
+  );
 
   const validResponse = await request(suite.app)
     .post('/api/auth/register')
     .send({
       name: '  New Student  ',
       email: 'NEW.STUDENT@EXAMPLE.COM',
-      password: 'Password123!'
+      password: 'Password123!',
+      platformNoticeAccepted: true
     });
 
   assert.equal(validResponse.status, 201);
   assert.equal(validResponse.body.user.email, 'new.student@example.com');
   assert.equal(validResponse.body.user.name, 'New Student');
+  assert.equal(validResponse.body.user.platformNoticeAcknowledgement.version, 'POL-0016');
+  assert.ok(validResponse.body.user.platformNoticeAcknowledgement.acceptedAt);
 });
 
 test('login endpoint is rate limited after repeated failed attempts', async () => {

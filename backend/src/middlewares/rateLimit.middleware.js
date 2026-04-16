@@ -80,6 +80,13 @@ export const inviteAcceptRateLimit = createIpRateLimiter({
   message: 'Too many invite acceptance attempts. Please try again later.',
 });
 
+export const authSocialRateLimit = createIpRateLimiter({
+  namespace: 'auth-social',
+  windowMs: parsePositiveInteger(process.env.AUTH_SOCIAL_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+  max: parsePositiveInteger(process.env.AUTH_SOCIAL_RATE_LIMIT_MAX, 20),
+  message: 'Too many social sign-in attempts. Please try again later.',
+});
+
 export const contactSubmissionRateLimit = createIpRateLimiter({
   namespace: 'contact-submit',
   windowMs: parsePositiveInteger(process.env.CONTACT_SUBMISSION_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000),

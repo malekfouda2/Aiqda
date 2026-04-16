@@ -74,17 +74,23 @@ export const approve = async (id, adminId) => {
     studioName: application.studioName,
     meetingUrl,
   });
-  await sendEmail({
-    to: application.contactEmail,
-    subject: email.subject,
-    text: email.text,
-    html: email.html,
-  });
+  let approvalEmailSentAt = null;
+  try {
+    await sendEmail({
+      to: application.contactEmail,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+    approvalEmailSentAt = new Date();
+  } catch (error) {
+    console.error('Failed to send studio approval email:', error.message);
+  }
 
   application.status = 'approved';
   application.reviewedBy = adminId;
   application.reviewedAt = new Date();
-  application.approvalEmailSentAt = new Date();
+  application.approvalEmailSentAt = approvalEmailSentAt;
   await application.save();
 
   return application;
@@ -109,12 +115,16 @@ export const reject = async (id, adminId, reason) => {
     studioName: application.studioName,
     reason,
   });
-  await sendEmail({
-    to: application.contactEmail,
-    subject: rejectionEmail.subject,
-    text: rejectionEmail.text,
-    html: rejectionEmail.html,
-  });
+  try {
+    await sendEmail({
+      to: application.contactEmail,
+      subject: rejectionEmail.subject,
+      text: rejectionEmail.text,
+      html: rejectionEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send studio rejection email:', error.message);
+  }
   await application.save();
 
   return application;

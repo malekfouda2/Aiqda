@@ -79,6 +79,14 @@ const instructorApplicationSchema = new mongoose.Schema({
   courseMaterialsFile: {
     type: String
   },
+  creatorTermsVersion: {
+    type: String,
+    default: null
+  },
+  creatorTermsAcceptedAt: {
+    type: Date,
+    default: null
+  },
   preferredSchedule: {
     type: String,
     required: true

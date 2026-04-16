@@ -1,7 +1,7 @@
 import Course from './course.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { CourseProgress } from '../analytics/progress.model.js';
-import { checkSubscriptionAccess } from '../subscriptions/subscriptions.service.js';
+import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 
 const COURSE_UPDATABLE_FIELDS = [
   'title',
@@ -124,9 +124,12 @@ export const enrollStudent = async (courseId, studentId, userRole = null) => {
   }
 
   if (!['admin', 'instructor'].includes(userRole)) {
-    const hasActiveSubscription = await checkSubscriptionAccess(studentId);
-    if (!hasActiveSubscription) {
+    const subscriptionAccess = await getSubscriptionAccessContext(studentId, courseId);
+    if (!subscriptionAccess.hasActiveSubscription) {
       throw new Error('You need an active subscription to enroll in this course');
+    }
+    if (!subscriptionAccess.hasCourseAccess) {
+      throw new Error('Your current subscription does not include access to this chapter');
     }
   }
 

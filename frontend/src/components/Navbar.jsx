@@ -9,10 +9,11 @@ function Navbar() {
   const navigate = useNavigate();
 
   const navLinks = [
-    { to: '/about', label: 'About' },
-    { to: '/consultations', label: 'Consultations' },
+    { to: '/', label: 'Home' },
     { to: '/courses', label: 'Chapters' },
+    { to: '/consultations', label: 'Consultations' },
     { to: '/contact-us', label: 'Contact Us' },
+    { to: '/about', label: 'About Us' },
   ];
 
   if (user) {

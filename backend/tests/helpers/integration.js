@@ -12,6 +12,7 @@ import Consultation from '../../src/modules/consultations/consultation.model.js'
 import { clearRateLimitStore } from '../../src/middlewares/rateLimit.middleware.js';
 import { hashPassword } from '../../src/utils/password.js';
 import { generateToken } from '../../src/utils/jwt.js';
+import { PLATFORM_NOTICE_VERSION } from '../../src/config/platformNotice.js';
 
 const DEFAULT_TEST_MONGODB_URI = 'mongodb://127.0.0.1:27017/aiqda';
 
@@ -69,14 +70,23 @@ export const setupIntegrationSuite = () => {
 
 export const createUser = async (overrides = {}) => {
   const password = overrides.password || 'Password123!';
+  const {
+    platformNoticeAcknowledgement = {
+      version: PLATFORM_NOTICE_VERSION,
+      acceptedAt: new Date(),
+    },
+    ...userOverrides
+  } = overrides;
+
   const user = await User.create({
-    email: overrides.email || `user-${randomUUID()}@example.com`,
+    email: userOverrides.email || `user-${randomUUID()}@example.com`,
     password: await hashPassword(password),
-    name: overrides.name || 'Test User',
-    role: overrides.role || 'student',
-    avatar: overrides.avatar || null,
-    isActive: overrides.isActive ?? true,
-    mustChangePassword: overrides.mustChangePassword ?? false,
+    name: userOverrides.name || 'Test User',
+    role: userOverrides.role || 'student',
+    avatar: userOverrides.avatar || null,
+    isActive: userOverrides.isActive ?? true,
+    mustChangePassword: userOverrides.mustChangePassword ?? false,
+    platformNoticeAcknowledgement,
   });
 
   return {
@@ -180,16 +190,42 @@ export const createCourseProgress = async (overrides = {}) => {
 };
 
 export const createSubscriptionPackage = async (overrides = {}) => {
+  const purchaseMode = overrides.purchaseMode || 'self_serve';
+  const billingOptions = overrides.billingOptions ?? (
+    purchaseMode === 'contact_only'
+      ? []
+      : [
+          {
+            term: 'monthly',
+            label: 'Monthly',
+            price: overrides.price || 499,
+            durationDays: overrides.durationDays || 30,
+            isActive: true,
+          },
+          {
+            term: 'annual',
+            label: 'Annual',
+            price: overrides.annualPrice || (overrides.price || 499) * 10,
+            durationDays: overrides.annualDurationDays || 365,
+            isActive: true,
+          },
+        ]
+  );
+  const defaultBilling = billingOptions.find((option) => option.term === 'monthly') || billingOptions[0] || null;
+
   return SubscriptionPackage.create({
     name: overrides.name || 'Standard Plan',
-    price: overrides.price || 499,
+    price: overrides.price ?? defaultBilling?.price ?? null,
+    billingOptions,
     scheduleDuration: overrides.scheduleDuration || '1 month',
-    durationDays: overrides.durationDays || 30,
+    durationDays: overrides.durationDays ?? defaultBilling?.durationDays ?? null,
     learningMode: overrides.learningMode || 'Online',
     focus: overrides.focus || 'Skill building',
     courses: overrides.courses || [],
+    includedPackages: overrides.includedPackages || [],
     softwareExposure: overrides.softwareExposure || ['AutoCAD'],
     outcome: overrides.outcome || 'Confident learner',
+    purchaseMode,
     isActive: overrides.isActive ?? true
   });
 };
@@ -199,9 +235,19 @@ export const createSubscription = async (overrides = {}) => {
     throw new Error('createSubscription requires user and package ids');
   }
 
+  const packageRecord = await SubscriptionPackage.findById(overrides.package);
+  const billingTerm = overrides.billingTerm || 'monthly';
+  const billingOption = packageRecord?.billingOptions?.find((option) => option.term === billingTerm)
+    || packageRecord?.billingOptions?.[0]
+    || null;
+
   return Subscription.create({
     user: overrides.user,
     package: overrides.package,
+    billingTerm,
+    priceAtPurchase: overrides.priceAtPurchase ?? billingOption?.price ?? packageRecord?.price ?? null,
+    durationDaysSnapshot: overrides.durationDaysSnapshot ?? billingOption?.durationDays ?? packageRecord?.durationDays ?? null,
+    purchaseModeSnapshot: overrides.purchaseModeSnapshot ?? packageRecord?.purchaseMode ?? 'self_serve',
     status: overrides.status || 'pending',
     startDate: overrides.startDate || null,
     endDate: overrides.endDate || null,

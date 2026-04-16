@@ -4,6 +4,11 @@ import { hashPassword } from '../../utils/password.js';
 import { generateToken } from '../../utils/jwt.js';
 import { sendEmail } from '../../utils/email.js';
 import {
+  CREATOR_AGREEMENT_ERROR_MESSAGE,
+  CREATOR_TERMS_VERSION,
+  hasAcceptedCreatorAgreement
+} from '../../config/creatorTerms.js';
+import {
   buildInstructorApprovalInviteEmail,
   buildInstructorApplicationReceivedEmail,
   buildInstructorExistingAccountApprovalEmail,
@@ -21,7 +26,19 @@ const buildInstructorSetupLink = (token) => {
 };
 
 export const create = async (data) => {
-  const application = new InstructorApplication(data);
+  if (!hasAcceptedCreatorAgreement(data.creatorAgreementAccepted)) {
+    throw new Error(CREATOR_AGREEMENT_ERROR_MESSAGE);
+  }
+
+  const normalizedData = {
+    ...data,
+    creatorTermsVersion: CREATOR_TERMS_VERSION,
+    creatorTermsAcceptedAt: new Date(),
+  };
+
+  delete normalizedData.creatorAgreementAccepted;
+
+  const application = new InstructorApplication(normalizedData);
   await application.save();
 
   const receivedEmail = buildInstructorApplicationReceivedEmail({
@@ -86,12 +103,16 @@ export const approve = async (id, adminId) => {
       fullName: application.fullName,
       loginUrl,
     });
-    await sendEmail({
-      to: application.email,
-      subject: approvalEmail.subject,
-      text: approvalEmail.text,
-      html: approvalEmail.html,
-    });
+    try {
+      await sendEmail({
+        to: application.email,
+        subject: approvalEmail.subject,
+        text: approvalEmail.text,
+        html: approvalEmail.html,
+      });
+    } catch (error) {
+      console.error('Failed to send instructor approval email to existing account:', error.message);
+    }
   } else {
     const temporaryPassword = crypto.randomBytes(32).toString('hex');
     const hashedPassword = await hashPassword(temporaryPassword);
@@ -117,12 +138,16 @@ export const approve = async (id, adminId) => {
       fullName: application.fullName,
       setupLink,
     });
-    await sendEmail({
-      to: application.email,
-      subject: approvalEmail.subject,
-      text: approvalEmail.text,
-      html: approvalEmail.html,
-    });
+    try {
+      await sendEmail({
+        to: application.email,
+        subject: approvalEmail.subject,
+        text: approvalEmail.text,
+        html: approvalEmail.html,
+      });
+    } catch (error) {
+      console.error('Failed to send instructor approval invite email:', error.message);
+    }
   }
 
   application.status = 'approved';
@@ -152,12 +177,16 @@ export const reject = async (id, adminId, reason) => {
     fullName: application.fullName,
     reason,
   });
-  await sendEmail({
-    to: application.email,
-    subject: rejectionEmail.subject,
-    text: rejectionEmail.text,
-    html: rejectionEmail.html,
-  });
+  try {
+    await sendEmail({
+      to: application.email,
+      subject: rejectionEmail.subject,
+      text: rejectionEmail.text,
+      html: rejectionEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send instructor rejection email:', error.message);
+  }
   await application.save();
 
   return application;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { lessonsAPI, quizzesAPI, videoAPI } from '../services/api';
+import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
@@ -10,6 +11,7 @@ import { buildUploadUrl } from '../utils/uploads';
 
 function LessonView() {
   const { id } = useParams();
+  const { hasAcceptedCurrentPlatformNotice } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
   const [lesson, setLesson] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -22,8 +24,13 @@ function LessonView() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, [id]);
+    if (hasAcceptedCurrentPlatformNotice()) {
+      fetchData();
+      return;
+    }
+
+    setLoading(false);
+  }, [hasAcceptedCurrentPlatformNotice, id]);
 
   const fetchData = async () => {
     try {
@@ -90,6 +97,24 @@ function LessonView() {
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" text="Loading content..." />
       </div>
+    );
+  }
+
+  if (!hasAcceptedCurrentPlatformNotice()) {
+    return (
+      <motion.div
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="min-h-screen flex items-center justify-center"
+      >
+        <motion.div variants={fadeInUp} className="card max-w-2xl text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Content Access Requires Acknowledgement</h2>
+          <p className="text-gray-500">
+            Please review and accept the Terms & Conditions For Users to continue into this content.
+          </p>
+        </motion.div>
+      </motion.div>
     );
   }
 

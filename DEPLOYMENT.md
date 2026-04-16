@@ -48,10 +48,20 @@ Recommended:
 - `JWT_EXPIRES_IN`
 - `AUTH_REGISTER_RATE_LIMIT_MAX`
 - `AUTH_LOGIN_RATE_LIMIT_MAX`
+- `AUTH_SOCIAL_RATE_LIMIT_MAX`
 - `INVITE_ACCEPT_RATE_LIMIT_MAX`
 - `CONTACT_SUBMISSION_RATE_LIMIT_MAX`
 - `INSTRUCTOR_APPLICATION_RATE_LIMIT_MAX`
 - `STUDIO_APPLICATION_RATE_LIMIT_MAX`
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `LINKEDIN_OAUTH_CLIENT_ID`
+- `LINKEDIN_OAUTH_CLIENT_SECRET`
+
+If you enable social login, configure the provider redirect URIs to point to your backend callback endpoints:
+
+- Google: `https://your-domain.com/api/auth/social/google/callback`
+- LinkedIn: `https://your-domain.com/api/auth/social/linkedin/callback`
 
 ## Seeding Policy
 
@@ -111,6 +121,7 @@ The backend now includes app-level request throttling for:
 
 - registration
 - login
+- social sign-in start and completion
 - instructor invite acceptance
 - public contact submissions
 - public instructor applications

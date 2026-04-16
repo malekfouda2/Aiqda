@@ -3,19 +3,46 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import useAuthStore from "../store/authStore";
 import { subscriptionsAPI } from "../services/api";
+import {
+  BILLING_TERM_LABELS,
+  formatMoney,
+  getActiveBillingOptions,
+  getAnnualSavings,
+  getBillingOption,
+  getDefaultBillingTerm,
+  getPackageAccessNames,
+} from "../utils/subscriptions";
 
 function Home() {
   const { user } = useAuthStore();
   const [packages, setPackages] = useState([]);
+  const [selectedTerms, setSelectedTerms] = useState({});
 
   useEffect(() => {
     subscriptionsAPI
       .getPackages(true)
       .then((res) => {
-        setPackages(res.data || []);
+        const nextPackages = res.data || [];
+        setPackages(nextPackages);
+        setSelectedTerms(
+          nextPackages.reduce((accumulator, pkg) => {
+            const defaultTerm = getDefaultBillingTerm(pkg);
+            if (defaultTerm) {
+              accumulator[pkg._id] = defaultTerm;
+            }
+            return accumulator;
+          }, {})
+        );
       })
       .catch(() => {});
   }, []);
+
+  const updateSelectedTerm = (packageId, billingTerm) => {
+    setSelectedTerms((current) => ({
+      ...current,
+      [packageId]: billingTerm,
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -217,132 +244,205 @@ function Home() {
             <div
               className={`grid gap-8 ${packages.length === 1 ? "max-w-md mx-auto" : packages.length === 2 ? "md:grid-cols-2 max-w-3xl mx-auto" : "md:grid-cols-2 lg:grid-cols-3"}`}
             >
-              {packages.map((pkg, index) => (
-                <motion.div
-                  key={pkg._id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.15, duration: 0.6 }}
-                  className="relative bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
-                >
-                  {index === 1 && packages.length > 1 && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="bg-gradient-to-r from-primary-500 to-brand-teal text-white text-xs font-semibold px-4 py-1.5 rounded-full">
-                        Most Popular
-                      </span>
-                    </div>
-                  )}
+              {packages.map((pkg, index) => {
+                const isContactOnly = pkg.purchaseMode === "contact_only";
+                const activeBillingOptions = getActiveBillingOptions(pkg);
+                const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
+                const selectedOption = getBillingOption(pkg, selectedTerm);
+                const annualSavings = getAnnualSavings(pkg);
+                const accessNames = getPackageAccessNames(pkg);
 
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">
-                    {pkg.name}
-                  </h3>
-                  <div className="mb-5">
-                    <span className="text-4xl font-bold text-gray-900">
-                      {pkg.price}
-                    </span>
-                    <span className="text-gray-500 ml-1">SAR</span>
-                  </div>
-
-                  <div className="space-y-3 mb-6 flex-1">
-                    {pkg.scheduleDuration && (
-                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0 text-xs">
-                          📅
-                        </span>
-                        {pkg.scheduleDuration}
-                      </div>
-                    )}
-                    {pkg.learningMode && (
-                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-xs">
-                          💻
-                        </span>
-                        {pkg.learningMode}
-                      </div>
-                    )}
-                    {pkg.focus && (
-                      <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <span className="w-5 h-5 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 text-xs">
-                          🎯
-                        </span>
-                        {pkg.focus}
-                      </div>
-                    )}
-
-                    {pkg.courses?.length > 0 && (
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-                          Chapters Included
-                        </p>
-                        <ul className="space-y-1.5">
-                          {pkg.courses.map((course, i) => (
-                            <li
-                              key={i}
-                              className="flex items-start gap-2 text-sm text-gray-600"
-                            >
-                              <svg
-                                className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              {typeof course === "object"
-                                ? course.title
-                                : course}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {pkg.softwareExposure?.length > 0 && (
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-                          Software Exposure
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {pkg.softwareExposure.map((sw, i) => (
-                            <span
-                              key={i}
-                              className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
-                            >
-                              {sw}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {pkg.outcome && (
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                          Outcome
-                        </p>
-                        <p className="text-sm text-gray-600">{pkg.outcome}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <Link
-                    to={user ? "/dashboard/subscription" : "/register"}
-                    className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
-                      index === 1 && packages.length > 1
-                        ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25"
-                        : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    }`}
+                return (
+                  <motion.div
+                    key={pkg._id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.15, duration: 0.6 }}
+                    className="relative bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
                   >
-                    Get Started
-                  </Link>
-                </motion.div>
-              ))}
+                    {index === 1 && packages.length > 1 && !isContactOnly && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span className="bg-gradient-to-r from-primary-500 to-brand-teal text-white text-xs font-semibold px-4 py-1.5 rounded-full">
+                          Most Popular
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          {pkg.name}
+                        </h3>
+                        {accessNames.length > 1 && (
+                          <p className="text-sm text-primary-600">
+                            Includes access to {accessNames.slice(1).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                      {isContactOnly && (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+
+                    {!isContactOnly && activeBillingOptions.length > 1 && (
+                      <div className="mb-5 rounded-2xl bg-gray-100 p-1 flex gap-1">
+                        {activeBillingOptions.map((option) => (
+                          <button
+                            key={option.term}
+                            type="button"
+                            onClick={() => updateSelectedTerm(pkg._id, option.term)}
+                            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                              selectedOption?.term === option.term
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-700"
+                            }`}
+                          >
+                            {BILLING_TERM_LABELS[option.term] || option.label || option.term}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mb-5">
+                      {isContactOnly ? (
+                        <>
+                          <span className="text-4xl font-bold text-gray-900">
+                            Custom
+                          </span>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Strategic collaboration pricing is tailored after the discovery conversation.
+                          </p>
+                        </>
+                      ) : selectedOption ? (
+                        <>
+                          <span className="text-4xl font-bold text-gray-900">
+                            {formatMoney(selectedOption.price)}
+                          </span>
+                          <span className="text-gray-500 ml-1">SAR</span>
+                          <p className="text-sm text-gray-500 mt-2">
+                            {selectedOption.term === "annual" ? "per year" : "per month"}
+                          </p>
+                          {selectedOption.term === "annual" && annualSavings && (
+                            <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                              <p className="text-sm font-semibold text-emerald-700">
+                                Save {formatMoney(annualSavings.savings)} SAR per year
+                              </p>
+                              <p className="text-xs text-emerald-600 mt-1">
+                                Equivalent to {formatMoney(annualSavings.monthlyEquivalent)} SAR per month.
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          Pricing will be available once this package is configured.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 mb-6 flex-1">
+                      {pkg.scheduleDuration && (
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                          <span className="w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0 text-xs">
+                            📅
+                          </span>
+                          {pkg.scheduleDuration}
+                        </div>
+                      )}
+                      {pkg.learningMode && (
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                          <span className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-xs">
+                            💻
+                          </span>
+                          {pkg.learningMode}
+                        </div>
+                      )}
+                      {pkg.focus && (
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                          <span className="w-5 h-5 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 text-xs">
+                            🎯
+                          </span>
+                          {pkg.focus}
+                        </div>
+                      )}
+
+                      {pkg.courses?.length > 0 && (
+                        <div className="pt-2 border-t border-gray-100">
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                            Chapters Included
+                          </p>
+                          <ul className="space-y-1.5">
+                            {pkg.courses.map((course, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm text-gray-600"
+                              >
+                                <svg
+                                  className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                {typeof course === "object"
+                                  ? course.title
+                                  : course}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {pkg.softwareExposure?.length > 0 && (
+                        <div className="pt-2 border-t border-gray-100">
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                            Software Exposure
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {pkg.softwareExposure.map((sw, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
+                              >
+                                {sw}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {pkg.outcome && (
+                        <div className="pt-2 border-t border-gray-100">
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                            Outcome
+                          </p>
+                          <p className="text-sm text-gray-600">{pkg.outcome}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Link
+                      to={isContactOnly ? "/contact-us" : user ? "/dashboard/subscription" : "/register"}
+                      className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
+                        index === 1 && packages.length > 1 && !isContactOnly
+                          ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25"
+                          : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                      }`}
+                    >
+                      {isContactOnly ? "Book Appointment" : "Get Started"}
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -632,33 +732,6 @@ function Home() {
           </div>
         </div>
       </section>
-
-      <footer className="py-12 border-t border-gray-200 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Aiqda" className="h-14 w-auto" />
-            </div>
-            <div className="flex items-center gap-8">
-              <Link to="/courses" className="nav-link text-sm">
-                Chapters
-              </Link>
-              <Link to="/contact-us" className="nav-link text-sm">
-                Contact Us
-              </Link>
-              <Link to="/login" className="nav-link text-sm">
-                Login
-              </Link>
-              <Link to="/register" className="nav-link text-sm">
-                Register
-              </Link>
-            </div>
-            <p className="text-gray-400 text-sm">
-              &copy; {new Date().getFullYear()} Aiqda. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

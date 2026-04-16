@@ -6,7 +6,8 @@ export const submitPayment = async (req, res) => {
       subscriptionId: req.body.subscriptionId,
       amount: req.body.amount,
       paymentReference: req.body.paymentReference,
-      proofFile: req.file ? req.file.filename : null
+      proofFile: req.file ? req.file.filename : null,
+      checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted
     };
     const payment = await paymentsService.submitPayment(req.user.id, paymentData);
     res.status(201).json(payment);

@@ -41,7 +41,8 @@ export const requestSubscription = async (req, res) => {
   try {
     const subscription = await subscriptionsService.requestSubscription(
       req.user.id,
-      req.body.packageId
+      req.body.packageId,
+      req.body.billingTerm
     );
     res.status(201).json(subscription);
   } catch (error) {

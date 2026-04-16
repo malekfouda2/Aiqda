@@ -1,5 +1,10 @@
 import Payment from './payment.model.js';
 import { Subscription } from '../subscriptions/subscription.model.js';
+import {
+  CHECKOUT_DISCLAIMER_ERROR_MESSAGE,
+  hasAcceptedCheckoutDisclaimer,
+  REFUND_POLICY_VERSION
+} from '../../config/refundPolicy.js';
 import { sendEmail } from '../../utils/email.js';
 import {
   buildPaymentSubmittedEmail,
@@ -8,7 +13,7 @@ import {
 } from '../../utils/emailTemplates.js';
 
 export const submitPayment = async (userId, paymentData) => {
-  const { subscriptionId, amount, paymentReference, proofFile } = paymentData;
+  const { subscriptionId, amount, paymentReference, proofFile, checkoutDisclaimerAccepted } = paymentData;
 
   const subscription = await Subscription.findOne({
     _id: subscriptionId,
@@ -24,6 +29,10 @@ export const submitPayment = async (userId, paymentData) => {
     throw new Error('Payment proof is required');
   }
 
+  if (!hasAcceptedCheckoutDisclaimer(checkoutDisclaimerAccepted)) {
+    throw new Error(CHECKOUT_DISCLAIMER_ERROR_MESSAGE);
+  }
+
   if (!paymentReference?.trim()) {
     throw new Error('Payment reference is required');
   }
@@ -33,8 +42,9 @@ export const submitPayment = async (userId, paymentData) => {
     throw new Error('A valid payment amount is required');
   }
 
-  if (subscription.package?.price != null && normalizedAmount !== subscription.package.price) {
-    throw new Error(`Payment amount must match the package price of ${subscription.package.price} SAR`);
+  const expectedAmount = Number(subscription.priceAtPurchase ?? subscription.package?.price);
+  if (Number.isFinite(expectedAmount) && normalizedAmount !== expectedAmount) {
+    throw new Error(`Payment amount must match the package price of ${expectedAmount} SAR`);
   }
 
   const existingPayment = await Payment.findOne({
@@ -51,7 +61,9 @@ export const submitPayment = async (userId, paymentData) => {
     subscription: subscriptionId,
     amount: normalizedAmount,
     paymentReference: paymentReference.trim(),
-    proofFile
+    proofFile,
+    checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
+    checkoutDisclaimerAcceptedAt: new Date()
   });
 
   await payment.save();
@@ -134,7 +146,10 @@ export const approvePayment = async (paymentId, adminId) => {
   if (subscription && subscription.status === 'pending') {
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + subscription.package.durationDays);
+    const accessDurationDays = Number(
+      subscription.durationDaysSnapshot ?? subscription.package?.durationDays ?? 30
+    ) || 30;
+    endDate.setDate(endDate.getDate() + accessDurationDays);
 
     subscription.status = 'active';
     subscription.startDate = startDate;

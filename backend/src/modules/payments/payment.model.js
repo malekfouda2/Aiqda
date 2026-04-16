@@ -24,6 +24,14 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  checkoutDisclaimerVersion: {
+    type: String,
+    default: null
+  },
+  checkoutDisclaimerAcceptedAt: {
+    type: Date,
+    default: null
+  },
   status: {
     type: String,
     enum: ['submitted', 'approved', 'rejected'],

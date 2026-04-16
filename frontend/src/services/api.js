@@ -21,7 +21,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isAuthRoute = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+      const isAuthRoute = error.config?.url?.includes('/auth/login')
+        || error.config?.url?.includes('/auth/register')
+        || error.config?.url?.includes('/auth/social/complete');
       if (!isAuthRoute) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -35,6 +37,8 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  getSocialProviders: () => api.get('/auth/social/providers'),
+  completeSocialLogin: (data) => api.post('/auth/social/complete', data),
   acceptInstructorInvite: (data) => api.post('/auth/invite/accept', data),
   getProfile: () => api.get('/auth/profile')
 };
@@ -44,7 +48,8 @@ export const usersAPI = {
   getById: (id) => api.get(`/users/${id}`),
   update: (id, data) => api.put(`/users/${id}`, data),
   toggleStatus: (id) => api.patch(`/users/${id}/toggle-status`),
-  updateRole: (id, role) => api.patch(`/users/${id}/role`, { role })
+  updateRole: (id, role) => api.patch(`/users/${id}/role`, { role }),
+  acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement')
 };
 
 export const subscriptionsAPI = {
@@ -52,7 +57,7 @@ export const subscriptionsAPI = {
   getPackageById: (id) => api.get(`/subscriptions/packages/${id}`),
   createPackage: (data) => api.post('/subscriptions/packages', data),
   updatePackage: (id, data) => api.put(`/subscriptions/packages/${id}`, data),
-  requestSubscription: (packageId) => api.post('/subscriptions/request', { packageId }),
+  requestSubscription: (packageId, billingTerm) => api.post('/subscriptions/request', { packageId, billingTerm }),
   getUserSubscriptions: () => api.get('/subscriptions/my'),
   getActiveSubscription: () => api.get('/subscriptions/active'),
   getAll: (status) => api.get('/subscriptions', { params: { status } }),

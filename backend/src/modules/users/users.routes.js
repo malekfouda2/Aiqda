@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get('/', isAdmin, usersController.getAllUsers);
 router.patch('/:id/toggle-status', isAdmin, usersController.toggleUserStatus);
 router.patch('/:id/role', isAdmin, usersController.updateUserRole);
+router.post('/me/platform-notice-acknowledgement', usersController.acknowledgePlatformNotice);
 
 const selfOrAdmin = (req, res, next) => {
   if (req.user.role === 'admin' || req.user.id === req.params.id) {

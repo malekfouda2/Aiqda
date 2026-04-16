@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { coursesAPI } from '../services/api';
+import { coursesAPI, subscriptionsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getPackageCourseIds } from '../utils/subscriptions';
 
 function Courses() {
   const [courses, setCourses] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
@@ -15,8 +17,13 @@ function Courses() {
 
   const fetchCourses = async () => {
     try {
-      const response = await coursesAPI.getPublished();
-      setCourses(response.data);
+      const [coursesResponse, packagesResponse] = await Promise.all([
+        coursesAPI.getPublished(),
+        subscriptionsAPI.getPackages(),
+      ]);
+
+      setCourses(coursesResponse.data || []);
+      setPackages(packagesResponse.data || []);
     } catch (error) {
       console.error('Failed to fetch courses:', error);
     } finally {
@@ -24,9 +31,28 @@ function Courses() {
     }
   };
 
-  const filteredCourses = courses.filter(course => {
+  const publishedCourseIds = new Set(courses.map((course) => course._id));
+  const packageFilters = packages
+    .map((pkg) => {
+      const includedCourseIds = getPackageCourseIds(pkg, packages)
+        .filter((courseId) => publishedCourseIds.has(courseId));
+
+      if (includedCourseIds.length === 0) {
+        return null;
+      }
+
+      return {
+        id: pkg._id,
+        label: pkg.name,
+        courseIds: new Set(includedCourseIds),
+      };
+    })
+    .filter(Boolean);
+
+  const activePackageFilter = packageFilters.find((pkg) => pkg.id === filter);
+  const filteredCourses = courses.filter((course) => {
     if (filter === 'all') return true;
-    return course.level === filter;
+    return activePackageFilter?.courseIds.has(course._id);
   });
 
   if (loading) {
@@ -76,19 +102,19 @@ function Courses() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="flex justify-center gap-3 mb-12"
+          className="flex flex-wrap justify-center gap-3 mb-12"
         >
-          {['all', 'beginner', 'intermediate', 'advanced'].map((level) => (
+          {[{ id: 'all', label: 'All Chapters' }, ...packageFilters].map((option) => (
             <button
-              key={level}
-              onClick={() => setFilter(level)}
+              key={option.id}
+              onClick={() => setFilter(option.id)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${
-                filter === level
+                filter === option.id
                   ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
                   : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-900 border border-gray-200'
               }`}
             >
-              {level.charAt(0).toUpperCase() + level.slice(1)}
+              {option.label}
             </button>
           ))}
         </motion.div>
@@ -102,8 +128,14 @@ function Courses() {
             <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
               <span className="text-5xl">📚</span>
             </div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-3">No chapters available</h3>
-            <p className="text-gray-500 text-lg">Check back soon for new chapters!</p>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+              {filter === 'all' ? 'No chapters available' : 'No chapters in this plan yet'}
+            </h3>
+            <p className="text-gray-500 text-lg">
+              {filter === 'all'
+                ? 'Check back soon for new chapters!'
+                : 'Try another subscription plan or check back soon.'}
+            </p>
           </motion.div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">

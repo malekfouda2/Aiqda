@@ -2,6 +2,7 @@ import Lesson from './lesson.model.js';
 import Course from '../courses/course.model.js';
 import { updateLessonCount } from '../courses/courses.service.js';
 import { LessonProgress } from '../analytics/progress.model.js';
+import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 
 const LESSON_CREATABLE_FIELDS = [
   'course',
@@ -58,6 +59,19 @@ const sanitizeLessonCreate = (updates = {}) => {
   );
 };
 
+const ensureStudentSubscriptionAccess = async (course, userId) => {
+  const courseId = course?._id?.toString?.() || course?.toString?.();
+  const subscriptionAccess = await getSubscriptionAccessContext(userId, courseId);
+
+  if (!subscriptionAccess.hasActiveSubscription) {
+    throw new Error('You need an active subscription to access this chapter');
+  }
+
+  if (!subscriptionAccess.hasCourseAccess) {
+    throw new Error('Your current subscription does not include access to this chapter');
+  }
+};
+
 export const createLesson = async (lessonData, userId = null, userRole = null) => {
   const sanitizedLessonData = sanitizeLessonCreate(lessonData);
   const courseId = sanitizedLessonData.course;
@@ -110,6 +124,10 @@ export const getLessonById = async (lessonId, userId = null, userRole = null) =>
 
   if (!canAccessLesson(lesson, userId, userRole)) {
     throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
   }
 
   if (userId) {
@@ -231,6 +249,10 @@ export const updateWatchProgress = async (lessonId, userId, watchPercentage, use
     throw new Error('Access denied. Insufficient permissions.');
   }
 
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
+  }
+
   const normalizedWatchPercentage = Number(watchPercentage);
   if (!Number.isFinite(normalizedWatchPercentage) || normalizedWatchPercentage < 0 || normalizedWatchPercentage > 100) {
     throw new Error('Watch percentage must be a number between 0 and 100');
@@ -268,6 +290,10 @@ export const getSecureVideoToken = async (lessonId, userId, userRole = null) => 
 
   if (!canAccessLesson(lesson, userId, userRole)) {
     throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
   }
 
   if (!lesson.vimeoVideoId) {

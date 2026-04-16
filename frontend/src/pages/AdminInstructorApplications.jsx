@@ -5,6 +5,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 import { buildUploadUrl } from '../utils/uploads';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function AdminInstructorApplications() {
   const { showSuccess, showError } = useUIStore();
@@ -16,6 +17,8 @@ function AdminInstructorApplications() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [rejectModalId, setRejectModalId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  useBodyScrollLock(Boolean(selectedApp || rejectModalId));
 
   useEffect(() => {
     fetchApplications();
@@ -254,16 +257,16 @@ function AdminInstructorApplications() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="app-modal-shell z-50"
             onClick={() => setSelectedApp(null)}
           >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div className="app-modal-backdrop" />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.99, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative bg-white/90 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden"
+              exit={{ opacity: 0, scale: 0.99, y: 12 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="app-modal-panel max-w-3xl max-h-[85vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {detailLoading ? (
@@ -272,7 +275,7 @@ function AdminInstructorApplications() {
                 </div>
               ) : (
                 <>
-                  <div className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                  <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">{selectedApp.fullName}</h2>
                       <div className="flex items-center gap-2 mt-1">
@@ -295,7 +298,7 @@ function AdminInstructorApplications() {
                     </button>
                   </div>
 
-                  <div className="overflow-y-auto max-h-[calc(85vh-80px)] px-6 py-5 space-y-6">
+                  <div className="app-modal-scroll overflow-y-auto max-h-[calc(85vh-80px)] px-6 py-5 space-y-6">
                     <div>
                       <SectionTitle>Personal Information</SectionTitle>
                       <div className="grid sm:grid-cols-2 gap-x-6">
@@ -406,15 +409,16 @@ function AdminInstructorApplications() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            className="app-modal-shell z-[60]"
             onClick={() => setRejectModalId(null)}
           >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div className="app-modal-backdrop" />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.99, y: 12 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+              exit={{ opacity: 0, scale: 0.99, y: 10 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="app-modal-panel max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Application</h3>

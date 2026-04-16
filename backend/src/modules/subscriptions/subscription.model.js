@@ -1,5 +1,32 @@
 import mongoose from 'mongoose';
 
+const billingOptionSchema = new mongoose.Schema({
+  term: {
+    type: String,
+    enum: ['monthly', 'annual'],
+    required: true,
+  },
+  label: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+  durationDays: {
+    type: Number,
+    required: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+}, {
+  _id: false,
+});
+
 const subscriptionPackageSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -8,7 +35,11 @@ const subscriptionPackageSchema = new mongoose.Schema({
   },
   price: {
     type: Number,
-    required: true
+    default: null
+  },
+  billingOptions: {
+    type: [billingOptionSchema],
+    default: []
   },
   scheduleDuration: {
     type: String,
@@ -17,7 +48,7 @@ const subscriptionPackageSchema = new mongoose.Schema({
   },
   durationDays: {
     type: Number,
-    default: 30
+    default: null
   },
   learningMode: {
     type: String,
@@ -33,6 +64,10 @@ const subscriptionPackageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Course'
   }],
+  includedPackages: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPackage'
+  }],
   softwareExposure: [{
     type: String
   }],
@@ -40,6 +75,11 @@ const subscriptionPackageSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  purchaseMode: {
+    type: String,
+    enum: ['self_serve', 'contact_only'],
+    default: 'self_serve'
   },
   isActive: {
     type: Boolean,
@@ -59,6 +99,24 @@ const subscriptionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SubscriptionPackage',
     required: true
+  },
+  billingTerm: {
+    type: String,
+    enum: ['monthly', 'annual'],
+    default: 'monthly'
+  },
+  priceAtPurchase: {
+    type: Number,
+    default: null
+  },
+  durationDaysSnapshot: {
+    type: Number,
+    default: null
+  },
+  purchaseModeSnapshot: {
+    type: String,
+    enum: ['self_serve', 'contact_only'],
+    default: 'self_serve'
   },
   status: {
     type: String,

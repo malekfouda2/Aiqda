@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import CreatorAgreementModal from '../components/CreatorAgreementModal';
 
 const COUNTRY_CODES = [
   { code: '+1', label: 'US/CA (+1)' },
@@ -47,6 +48,7 @@ function InstructorApplication() {
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showCreatorAgreement, setShowCreatorAgreement] = useState(false);
   const [errors, setErrors] = useState({});
   const cvInputRef = useRef(null);
   const materialsInputRef = useRef(null);
@@ -157,9 +159,7 @@ function InstructorApplication() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(5)) return;
-
+  const submitApplication = async () => {
     setIsSubmitting(true);
     try {
       const data = new FormData();
@@ -185,18 +185,25 @@ function InstructorApplication() {
       data.append('preferredSchedule', formState.preferredSchedule);
       data.append('earliestStartDate', formState.earliestStartDate);
       data.append('additionalComments', formState.additionalComments);
+      data.append('creatorAgreementAccepted', 'true');
       if (formState.cvFile) data.append('cvFile', formState.cvFile);
       if (formState.courseMaterialsFile) data.append('courseMaterialsFile', formState.courseMaterialsFile);
 
       await axios.post('/api/instructor-applications', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      setShowCreatorAgreement(false);
       setIsSubmitted(true);
     } catch (err) {
-      setErrors({ submit: err.response?.data?.message || 'Something went wrong. Please try again.' });
+      setErrors({ submit: err.response?.data?.error || err.response?.data?.message || 'Something went wrong. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = () => {
+    if (!validateStep(5)) return;
+    setShowCreatorAgreement(true);
   };
 
   const renderError = (field) =>
@@ -762,6 +769,13 @@ function InstructorApplication() {
             )}
           </div>
         </div>
+
+        <CreatorAgreementModal
+          open={showCreatorAgreement}
+          onConfirm={submitApplication}
+          onCancel={() => setShowCreatorAgreement(false)}
+          isSubmitting={isSubmitting}
+        />
 
         <p className="text-center text-gray-400 text-sm mt-6">
           Already have an account?{' '}

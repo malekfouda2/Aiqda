@@ -1,9 +1,23 @@
 import 'dotenv/config';
 import Lesson from '../lessons/lesson.model.js';
 import Course from '../courses/course.model.js';
+import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 
 const VIMEO_API_BASE = 'https://api.vimeo.com';
 const getVimeoAccessToken = () => process.env.VIMEO_ACCESS_TOKEN;
+
+const ensureStudentSubscriptionAccess = async (course, userId) => {
+  const courseId = course?._id?.toString?.() || course?.toString?.();
+  const subscriptionAccess = await getSubscriptionAccessContext(userId, courseId);
+
+  if (!subscriptionAccess.hasActiveSubscription) {
+    throw new Error('You need an active subscription to access this chapter');
+  }
+
+  if (!subscriptionAccess.hasCourseAccess) {
+    throw new Error('Your current subscription does not include access to this chapter');
+  }
+};
 
 const vimeoFetch = async (path, options = {}) => {
   const vimeoAccessToken = getVimeoAccessToken();
@@ -107,6 +121,10 @@ export const getVideoEmbedData = async (lessonId, userId, userRole = null) => {
 
   if (!isAdmin && !isEnrolled && !isInstructor) {
     throw new Error('You are not enrolled in this course');
+  }
+
+  if (!isAdmin && !isInstructor) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
   }
 
   let videoDetails = null;

@@ -1,6 +1,7 @@
 import Quiz from './quiz.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { LessonProgress, CourseProgress } from '../analytics/progress.model.js';
+import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 
 const QUIZ_UPDATABLE_FIELDS = ['questions', 'passingScore'];
 
@@ -31,6 +32,19 @@ const sanitizeQuizUpdates = (updates = {}) => {
   return Object.fromEntries(
     Object.entries(updates).filter(([key]) => QUIZ_UPDATABLE_FIELDS.includes(key))
   );
+};
+
+const ensureStudentSubscriptionAccess = async (course, userId) => {
+  const courseId = course?._id?.toString?.() || course?.toString?.();
+  const subscriptionAccess = await getSubscriptionAccessContext(userId, courseId);
+
+  if (!subscriptionAccess.hasActiveSubscription) {
+    throw new Error('You need an active subscription to access this chapter');
+  }
+
+  if (!subscriptionAccess.hasCourseAccess) {
+    throw new Error('Your current subscription does not include access to this chapter');
+  }
 };
 
 export const createQuiz = async (quizData, userId = null, userRole = null) => {
@@ -106,6 +120,10 @@ export const getQuizForStudent = async (lessonId, userId = null, userRole = null
 
   if (!canAccessLessonQuiz(lesson, userId, userRole)) {
     throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
   }
 
   return {
@@ -186,6 +204,10 @@ export const submitQuiz = async (lessonId, userId, answers, userRole = null) => 
 
   if (!canAccessLessonQuiz(lesson, userId, userRole)) {
     throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
   }
 
   if (!Array.isArray(answers) || answers.length !== quiz.questions.length) {

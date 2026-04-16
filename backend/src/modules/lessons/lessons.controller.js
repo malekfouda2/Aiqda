@@ -1,5 +1,11 @@
 import * as lessonsService from './lessons.service.js';
 
+const isForbiddenError = (message = '') => (
+  message === 'Access denied. Insufficient permissions.'
+  || message === 'You need an active subscription to access this chapter'
+  || message === 'Your current subscription does not include access to this chapter'
+);
+
 export const createLesson = async (req, res) => {
   try {
     const lesson = await lessonsService.createLesson(req.body, req.user.id, req.user.role);
@@ -43,7 +49,7 @@ export const getLessonById = async (req, res) => {
     );
     res.json(result);
   } catch (error) {
-    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    const statusCode = isForbiddenError(error.message) ? 403 : 404;
     res.status(statusCode).json({ error: error.message });
   }
 };
@@ -90,7 +96,7 @@ export const updateWatchProgress = async (req, res) => {
     );
     res.json(progress);
   } catch (error) {
-    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 400;
+    const statusCode = isForbiddenError(error.message) ? 403 : 400;
     res.status(statusCode).json({ error: error.message });
   }
 };

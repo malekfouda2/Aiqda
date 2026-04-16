@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ function Login() {
   const { login, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const requestedPath = location.state?.from?.pathname || '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +20,7 @@ function Login() {
       const defaultPath = userData?.role === 'admin' ? '/admin' 
         : userData?.role === 'instructor' ? '/instructor' 
         : '/dashboard';
-      const from = location.state?.from?.pathname || defaultPath;
+      const from = requestedPath || defaultPath;
       navigate(from, { replace: true });
     }
   };
@@ -43,7 +45,7 @@ function Login() {
             <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
           </Link>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome Back</h1>
-          <p className="text-gray-500 text-lg">Sign in to continue your learning journey</p>
+          <p className="text-gray-500 text-lg">Sign in to continue your skills development journey</p>
         </div>
 
         <div className="card">
@@ -102,6 +104,10 @@ function Login() {
               ) : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-7">
+            <SocialAuthButtons redirectPath={requestedPath} />
+          </div>
 
           <div className="divider my-8" />
 

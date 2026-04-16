@@ -3,6 +3,7 @@ import app from './app.js';
 import mongoose from 'mongoose';
 import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
+import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
 
 const PORT = process.env.PORT || 3001;
@@ -14,6 +15,16 @@ mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log('Connected to MongoDB');
     await autoSeedIfEmpty();
+    const subscriptionRoadmapResult = await syncSubscriptionPackageRoadmap();
+    if (
+      subscriptionRoadmapResult.billingBackfills > 0
+      || subscriptionRoadmapResult.roadmapPackagesCreated > 0
+      || subscriptionRoadmapResult.legacyPackagesArchived > 0
+    ) {
+      console.log(
+        `Subscription package sync completed. Billing backfills: ${subscriptionRoadmapResult.billingBackfills}, roadmap packages created: ${subscriptionRoadmapResult.roadmapPackagesCreated}, legacy packages archived: ${subscriptionRoadmapResult.legacyPackagesArchived}.`
+      );
+    }
     const backfillResult = await backfillLegacyLessonPublishState();
     if (backfillResult.updatedLessons > 0) {
       console.log(

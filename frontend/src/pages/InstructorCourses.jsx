@@ -4,6 +4,7 @@ import { coursesAPI, lessonsAPI, quizzesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const INITIAL_LESSON_FORM = {
   title: '',
@@ -30,6 +31,8 @@ function InstructorCourses() {
   const [quizData, setQuizData] = useState(null);
   const fileInputRef = useRef(null);
   const lessonFileRef = useRef(null);
+
+  useBodyScrollLock(Boolean(showQuizEditor && quizData));
 
   useEffect(() => {
     fetchCourses();
@@ -638,8 +641,9 @@ function InstructorCourses() {
 
       <AnimatePresence>
         {showQuizEditor && quizData && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { setShowQuizEditor(null); setQuizData(null); }}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="app-modal-shell z-50" onClick={() => { setShowQuizEditor(null); setQuizData(null); }}>
+            <div className="app-modal-backdrop" />
+            <motion.div initial={{ scale: 0.99, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.99, opacity: 0, y: 10 }} transition={{ duration: 0.16, ease: 'easeOut' }} className="app-modal-panel max-w-2xl max-h-[85vh] overflow-y-auto app-modal-scroll" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-100 p-6 rounded-t-2xl z-10">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-gray-900">{quizData.isNew ? 'Create Quiz' : 'Edit Quiz'}</h3>
