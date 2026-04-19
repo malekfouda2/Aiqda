@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useUIStore from '../store/uiStore';
+import { useLocale } from '../i18n/useLocale';
 
 function Notification() {
   const { notifications, removeNotification } = useUIStore();
+  const { isRTL } = useLocale();
 
   return (
-    <div className="fixed top-20 right-4 z-50 flex flex-col gap-2">
+    <div className={`fixed top-20 z-50 flex flex-col gap-2 ${isRTL ? 'left-4' : 'right-4'}`}>
       <AnimatePresence>
         {notifications.map((notification) => (
           <NotificationItem
@@ -21,6 +23,8 @@ function Notification() {
 }
 
 function NotificationItem({ notification, onClose }) {
+  const { isRTL } = useLocale();
+
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
@@ -34,12 +38,12 @@ function NotificationItem({ notification, onClose }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 100 }}
+      initial={{ opacity: 0, x: isRTL ? -100 : 100 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 100 }}
+      exit={{ opacity: 0, x: isRTL ? -100 : 100 }}
       className={`px-4 py-3 rounded-lg border backdrop-blur-sm ${colors[notification.type] || colors.info}`}
     >
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse text-right' : ''}`}>
         <span className="text-sm">{notification.message}</span>
         <button onClick={onClose} className="text-current opacity-60 hover:opacity-100">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

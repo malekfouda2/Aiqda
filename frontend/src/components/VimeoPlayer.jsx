@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import Player from '@vimeo/player';
+import { useLocale } from '../i18n/useLocale';
 
 function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
+  const { t, isRTL } = useLocale();
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const watchedSegmentsRef = useRef(new Set());
@@ -51,7 +53,7 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
         setPlayerReady(true);
         player.getDuration().then(dur => setDuration(dur));
       }).catch(err => {
-        setPlayerError('Failed to load video player. The video may not be available.');
+        setPlayerError(isRTL ? 'تعذر تحميل مشغل الفيديو. قد لا يكون الفيديو متاحًا.' : 'Failed to load video player. The video may not be available.');
         console.error('Vimeo player error:', err);
       });
 
@@ -75,7 +77,7 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
 
       player.on('error', (err) => {
         console.error('Vimeo player error event:', err);
-        setPlayerError('Video playback error. Please try again.');
+        setPlayerError(isRTL ? 'حدث خطأ أثناء تشغيل الفيديو. يرجى المحاولة مرة أخرى.' : 'Video playback error. Please try again.');
       });
 
       progressIntervalRef.current = setInterval(() => {
@@ -85,7 +87,7 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
         }
       }, 15000);
     } catch (err) {
-      setPlayerError('Failed to initialize video player.');
+      setPlayerError(isRTL ? 'تعذر تهيئة مشغل الفيديو.' : 'Failed to initialize video player.');
       console.error('Player init error:', err);
     }
 
@@ -132,7 +134,7 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center">
               <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-white/60 text-sm">Loading video...</p>
+              <p className="text-white/60 text-sm">{t('loading.video')}</p>
             </div>
           </div>
         )}

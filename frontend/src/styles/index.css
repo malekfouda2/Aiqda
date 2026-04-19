@@ -3,9 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-gray-50 text-gray-800 antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', 'Noto Sans Arabic', system-ui, sans-serif;
+  }
+
+  html[dir='rtl'] body {
+    font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
+  }
+
+  html[dir='rtl'] input,
+  html[dir='rtl'] textarea,
+  html[dir='rtl'] select {
+    text-align: right;
+  }
+
+  html[dir='rtl'] table th,
+  html[dir='rtl'] table td {
+    text-align: right;
   }
 }
 
@@ -120,6 +139,11 @@
     @apply absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-500 to-brand-teal transition-all duration-300 rounded-full;
   }
 
+  html[dir='rtl'] .nav-link::after {
+    left: auto;
+    right: 0;
+  }
+
   .nav-link:hover::after {
     @apply w-full;
   }
@@ -183,6 +207,14 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.flip-in-rtl {
+  transform-origin: center;
+}
+
+html[dir='rtl'] .flip-in-rtl {
+  transform: scaleX(-1);
 }
 
 @keyframes shimmer {

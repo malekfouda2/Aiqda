@@ -4,6 +4,7 @@ import MainLayout from './layouts/MainLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
+import { useLocale } from './i18n/useLocale';
 
 const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
@@ -26,6 +27,7 @@ const LessonView = lazy(() => import('./pages/LessonView'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminContactMessages = lazy(() => import('./pages/AdminContactMessages'));
 const AdminTeamMembers = lazy(() => import('./pages/AdminTeamMembers'));
+const AdminPartners = lazy(() => import('./pages/AdminPartners'));
 const AdminPayments = lazy(() => import('./pages/AdminPayments'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
@@ -44,9 +46,11 @@ const AdminConsultations = lazy(() => import('./pages/AdminConsultations'));
 const AdminConsultationBookings = lazy(() => import('./pages/AdminConsultationBookings'));
 
 function RouteLoadingFallback() {
+  const { t } = useLocale();
+
   return (
     <div className="flex items-center justify-center py-20 min-h-[50vh]">
-      <LoadingSpinner size="lg" text="Loading page..." />
+      <LoadingSpinner size="lg" text={t('loading.page')} />
     </div>
   );
 }
@@ -105,6 +109,7 @@ function App() {
           <Route index element={renderLazyPage(AdminDashboard)} />
           <Route path="contact-messages" element={renderLazyPage(AdminContactMessages)} />
           <Route path="team-members" element={renderLazyPage(AdminTeamMembers)} />
+          <Route path="partners" element={renderLazyPage(AdminPartners)} />
           <Route path="payments" element={renderLazyPage(AdminPayments)} />
           <Route path="users" element={renderLazyPage(AdminUsers)} />
           <Route path="courses" element={renderLazyPage(AdminCourses)} />

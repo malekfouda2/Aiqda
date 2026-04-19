@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { coursesAPI, subscriptionsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getLocalizedField } from '../i18n/translations';
+import { useLocale } from '../i18n/useLocale';
 import { getPackageCourseIds } from '../utils/subscriptions';
 
 function Courses() {
+  const { locale, t, isRTL } = useLocale();
   const [courses, setCourses] = useState([]);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +46,7 @@ function Courses() {
 
       return {
         id: pkg._id,
-        label: pkg.name,
+        label: getLocalizedField(pkg, 'name', locale),
         courseIds: new Set(includedCourseIds),
       };
     })
@@ -58,7 +61,7 @@ function Courses() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading chapters..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل الفصول...' : 'Loading chapters...'} />
       </div>
     );
   }
@@ -86,15 +89,17 @@ function Courses() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"
           >
             <span className="text-lg">✨</span>
-            <span className="text-sm text-gray-600">Premium Chapters</span>
+            <span className="text-sm text-gray-600">{isRTL ? 'فصول مميزة' : 'Premium Chapters'}</span>
           </motion.div>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Explore Our
-            <span className="gradient-text"> Chapters</span>
+            {isRTL ? 'استكشف ' : 'Explore Our'}
+            <span className="gradient-text"> {isRTL ? 'الفصول' : 'Chapters'}</span>
           </h1>
           <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-            Discover chapters designed to help you master new skills and advance your career.
+            {isRTL
+              ? 'اكتشف فصولًا صُممت لتساعدك على إتقان مهارات جديدة والتقدم في مسارك المهني.'
+              : 'Discover chapters designed to help you master new skills and advance your career.'}
           </p>
         </motion.div>
 
@@ -104,7 +109,7 @@ function Courses() {
           transition={{ delay: 0.2 }}
           className="flex flex-wrap justify-center gap-3 mb-12"
         >
-          {[{ id: 'all', label: 'All Chapters' }, ...packageFilters].map((option) => (
+          {[{ id: 'all', label: isRTL ? 'كل الفصول' : 'All Chapters' }, ...packageFilters].map((option) => (
             <button
               key={option.id}
               onClick={() => setFilter(option.id)}
@@ -129,12 +134,14 @@ function Courses() {
               <span className="text-5xl">📚</span>
             </div>
             <h3 className="text-2xl font-semibold text-gray-900 mb-3">
-              {filter === 'all' ? 'No chapters available' : 'No chapters in this plan yet'}
+              {filter === 'all'
+                ? (isRTL ? 'لا توجد فصول متاحة' : 'No chapters available')
+                : (isRTL ? 'لا توجد فصول ضمن هذه الخطة بعد' : 'No chapters in this plan yet')}
             </h3>
             <p className="text-gray-500 text-lg">
               {filter === 'all'
-                ? 'Check back soon for new chapters!'
-                : 'Try another subscription plan or check back soon.'}
+                ? (isRTL ? 'عد قريبًا لاكتشاف فصول جديدة!' : 'Check back soon for new chapters!')
+                : (isRTL ? 'جرّب خطة اشتراك أخرى أو عد لاحقًا.' : 'Try another subscription plan or check back soon.')}
             </p>
           </motion.div>
         ) : (
@@ -159,22 +166,22 @@ function Courses() {
                         course.level === 'intermediate' ? 'tag-intermediate' :
                         'tag-advanced'
                       }`}>
-                        {course.level}
+                        {t(`status.${course.level}`, course.level)}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-3">
                     <span className="px-2.5 py-1 rounded-lg bg-gray-50 text-gray-500 text-xs font-medium">
-                      {course.category}
+                      {getLocalizedField(course, 'category', locale)}
                     </span>
                   </div>
 
                   <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-primary-500 transition-colors line-clamp-2">
-                    {course.title}
+                    {getLocalizedField(course, 'title', locale)}
                   </h3>
                   <p className="text-gray-500 text-sm line-clamp-2 mb-5 leading-relaxed">
-                    {course.description}
+                    {getLocalizedField(course, 'description', locale)}
                   </p>
 
                   <div className="divider mb-4" />
@@ -185,12 +192,12 @@ function Courses() {
                         <span className="text-xs">👤</span>
                       </div>
                       <span className="text-gray-500">
-                        {course.instructor?.name || 'Creator'}
+                        {getLocalizedField(course.instructor, 'name', locale) || (isRTL ? 'صانع المحتوى' : 'Creator')}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-primary-500 font-medium">
                       <span>📹</span>
-                      <span>{course.lessonsCount || 0} contents</span>
+                      <span>{course.lessonsCount || 0} {isRTL ? 'محتوى' : 'contents'}</span>
                     </div>
                   </div>
                 </Link>

@@ -10,6 +10,7 @@ import {
   PLATFORM_NOTICE_PARAGRAPHS,
   PLATFORM_NOTICE_VERSION,
 } from '../content/platformNotice';
+import { useLocale } from '../i18n/useLocale';
 
 function PlatformNoticeModal({
   open,
@@ -23,17 +24,18 @@ function PlatformNoticeModal({
   badgeLabel = 'Mandatory Terms Acceptance',
   confirmSummary = 'By continuing, you confirm that you have read and accepted the Terms & Conditions For Users and the related policies listed below.',
 }) {
+  const { pick, t, isRTL } = useLocale();
   useBodyScrollLock(open);
   const [confirmed, setConfirmed] = useState(false);
 
   const relatedPolicies = useMemo(
     () => [
-      { to: '/privacy-policy', label: 'Privacy Policy' },
-      { to: '/user-content-access-policy', label: 'User Content Access Policy' },
-      { to: '/terms-and-conditions-for-users', label: 'Terms & Conditions For Users' },
-      { to: '/refund-policy', label: 'Refund Policy' },
+      { to: '/privacy-policy', label: t('policies.privacyPolicy') },
+      { to: '/user-content-access-policy', label: t('policies.accessPolicy') },
+      { to: '/terms-and-conditions-for-users', label: t('policies.userTerms') },
+      { to: '/refund-policy', label: t('policies.refundPolicy') },
     ],
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -75,43 +77,47 @@ function PlatformNoticeModal({
               <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
                 <div>
                   <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-                    {title}
+                    {typeof title === 'string' ? title : pick(title)}
                   </h2>
                   <p className="text-gray-500 leading-relaxed max-w-3xl">
-                    {subtitle}
+                    {typeof subtitle === 'string' ? subtitle : pick(subtitle)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 text-sm text-gray-500">
-                  <p><span className="font-semibold text-gray-700">Reference:</span> {PLATFORM_NOTICE_VERSION}</p>
-                  <p><span className="font-semibold text-gray-700">Effective:</span> {PLATFORM_NOTICE_EFFECTIVE_DATE}</p>
+                  <p><span className="font-semibold text-gray-700">{t('common.reference')}:</span> {PLATFORM_NOTICE_VERSION}</p>
+                  <p><span className="font-semibold text-gray-700">{t('common.effectiveDate')}:</span> {pick(PLATFORM_NOTICE_EFFECTIVE_DATE)}</p>
                 </div>
               </div>
             </div>
 
             <div className="shrink-0 border-b border-primary-100/70 bg-primary-50/60 px-5 py-3 sm:px-8">
               <p className="text-sm font-medium text-primary-800">
-                Review the terms below, check the acknowledgement box, then continue.
+                {isRTL
+                  ? 'يرجى مراجعة الشروط أدناه، ثم تحديد مربع الإقرار والمتابعة.'
+                  : 'Review the terms below, check the acknowledgement box, then continue.'}
               </p>
             </div>
 
             <div className="app-modal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8 space-y-8">
               <div className="space-y-4">
-                {PLATFORM_NOTICE_PARAGRAPHS.map((paragraph) => (
-                  <p key={paragraph} className="text-gray-600 leading-8">
-                    {paragraph}
+                {PLATFORM_NOTICE_PARAGRAPHS.map((paragraph, index) => (
+                  <p key={`platform-notice-paragraph-${index}`} className="text-gray-600 leading-8">
+                    {pick(paragraph)}
                   </p>
                 ))}
               </div>
 
               <div className="rounded-3xl border border-primary-100 bg-primary-50/60 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">By proceeding, you expressly acknowledge and agree that:</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  {isRTL ? 'بمتابعتك، فإنك تقر وتوافق صراحة على ما يلي:' : 'By proceeding, you expressly acknowledge and agree that:'}
+                </h3>
                 <div className="space-y-3">
                   {PLATFORM_NOTICE_ACKNOWLEDGEMENTS.map((item, index) => (
-                    <div key={item} className="flex items-start gap-3">
+                    <div key={`platform-notice-item-${index}`} className="flex items-start gap-3">
                       <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-primary-200 text-xs font-semibold text-primary-600">
                         {index + 1}
                       </span>
-                      <p className="text-sm text-gray-600 leading-7">{item}</p>
+                      <p className="text-sm text-gray-600 leading-7">{pick(item)}</p>
                     </div>
                   ))}
                 </div>
@@ -119,7 +125,7 @@ function PlatformNoticeModal({
 
               <div className="rounded-3xl border border-gray-200 bg-gray-50 p-6">
                 <h3 className="text-sm font-semibold tracking-[0.2em] uppercase text-gray-400 mb-4">
-                  Related Policies
+                  {t('common.relatedPolicies')}
                 </h3>
                 <div className="flex flex-wrap gap-3">
                   {relatedPolicies.map((policy) => (
@@ -137,7 +143,7 @@ function PlatformNoticeModal({
 
             <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:px-8 sm:py-6">
               <p className="text-sm text-gray-500 leading-relaxed">
-                {confirmSummary}
+                {typeof confirmSummary === 'string' ? confirmSummary : pick(confirmSummary)}
               </p>
 
               <label className="mt-4 flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 cursor-pointer">
@@ -148,7 +154,7 @@ function PlatformNoticeModal({
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                 />
                 <span className="text-sm leading-7 text-gray-600">
-                  {PLATFORM_NOTICE_ACKNOWLEDGEMENT_LABEL}
+                  {pick(PLATFORM_NOTICE_ACKNOWLEDGEMENT_LABEL)}
                 </span>
               </label>
 
@@ -159,7 +165,7 @@ function PlatformNoticeModal({
                   className="btn-secondary justify-center"
                   disabled={isSubmitting}
                 >
-                  {declineLabel}
+                  {typeof declineLabel === 'string' ? declineLabel : pick(declineLabel)}
                 </button>
                 <button
                   type="button"
@@ -167,7 +173,7 @@ function PlatformNoticeModal({
                   disabled={isSubmitting || !confirmed}
                   className="btn-primary min-w-[180px] justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Saving...' : acceptLabel}
+                  {isSubmitting ? t('common.saving') : (typeof acceptLabel === 'string' ? acceptLabel : pick(acceptLabel))}
                 </button>
               </div>
             </div>

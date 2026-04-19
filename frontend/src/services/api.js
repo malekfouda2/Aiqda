@@ -154,6 +154,19 @@ export const teamMembersAPI = {
   remove: (id) => api.delete(`/team-members/${id}`)
 };
 
+export const partnersAPI = {
+  getPublic: () => api.get('/partners'),
+  getAll: () => api.get('/partners/admin'),
+  getById: (id) => api.get(`/partners/admin/${id}`),
+  create: (formData) => api.post('/partners', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, formData) => api.put(`/partners/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  remove: (id) => api.delete(`/partners/${id}`)
+};
+
 export const instructorApplicationsAPI = {
   submit: (formData) => api.post('/instructor-applications', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import PlatformNoticeModal from './PlatformNoticeModal';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
+import { useLocale } from '../i18n/useLocale';
 
 const EXCLUDED_PATHS = new Set([
   '/login',
@@ -22,6 +23,7 @@ function PlatformNoticeGate() {
   const navigate = useNavigate();
   const { user, logout, acknowledgePlatformNotice, hasAcceptedCurrentPlatformNotice } = useAuthStore();
   const { showError } = useUIStore();
+  const { locale, t } = useLocale();
   const [submitting, setSubmitting] = useState(false);
 
   const shouldShow = useMemo(() => {
@@ -41,7 +43,7 @@ function PlatformNoticeGate() {
     try {
       const result = await acknowledgePlatformNotice();
       if (!result.success) {
-        showError(result.error || 'Failed to save your acknowledgement');
+        showError(result.error || (locale === 'ar' ? 'فشل حفظ الإقرار' : 'Failed to save your acknowledgement'));
       }
     } finally {
       setSubmitting(false);
@@ -59,8 +61,8 @@ function PlatformNoticeGate() {
       onAccept={handleAccept}
       onDecline={handleDecline}
       isSubmitting={submitting}
-      acceptLabel="Continue"
-      declineLabel="Logout"
+      acceptLabel={t('common.continue')}
+      declineLabel={t('common.logout')}
     />
   );
 }

@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import { coursesAPI, subscriptionsAPI, analyticsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useLocale } from '../i18n/useLocale';
 
 function Dashboard() {
+  const { formatDate, isRTL } = useLocale();
   const { user } = useAuthStore();
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [subscription, setSubscription] = useState(null);
@@ -36,10 +38,16 @@ function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading dashboard..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل لوحة التحكم...' : 'Loading dashboard...'} />
       </div>
     );
   }
+
+  const quickLinks = [
+    { to: '/dashboard/subscription', icon: '💳', label: isRTL ? 'الاشتراك' : 'Subscription' },
+    { to: '/dashboard/payments', icon: '📝', label: isRTL ? 'سجل المدفوعات' : 'Payment History' },
+    { to: '/courses', icon: '🔍', label: isRTL ? 'تصفح الفصول' : 'Browse Chapters' },
+  ];
 
   return (
     <motion.div
@@ -55,12 +63,12 @@ function Dashboard() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500">Member Dashboard</span>
+              <span className="text-xs text-gray-500">{isRTL ? 'لوحة العضو' : 'Member Dashboard'}</span>
             </motion.div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Welcome back, <span className="gradient-text">{user?.name}</span>
+              {isRTL ? 'مرحبًا بعودتك، ' : 'Welcome back, '}<span className="gradient-text">{user?.name}</span>
             </h1>
-            <p className="text-gray-500 text-lg">Continue your learning journey</p>
+            <p className="text-gray-500 text-lg">{isRTL ? 'تابع رحلتك التعليمية' : 'Continue your learning journey'}</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6 mb-10">
@@ -76,7 +84,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{enrolledCourses.length}</p>
-                  <p className="text-gray-500 text-sm">Enrolled Chapters</p>
+                  <p className="text-gray-500 text-sm">{isRTL ? 'الفصول المسجلة' : 'Enrolled Chapters'}</p>
                 </div>
               </div>
             </motion.div>
@@ -93,7 +101,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{progress?.stats?.completedCourses || 0}</p>
-                  <p className="text-gray-500 text-sm">Completed Chapters</p>
+                  <p className="text-gray-500 text-sm">{isRTL ? 'الفصول المكتملة' : 'Completed Chapters'}</p>
                 </div>
               </div>
             </motion.div>
@@ -110,7 +118,7 @@ function Dashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">{progress?.stats?.totalLessonsCompleted || 0}</p>
-                  <p className="text-gray-500 text-sm">Contents Completed</p>
+                  <p className="text-gray-500 text-sm">{isRTL ? 'المحتويات المكتملة' : 'Contents Completed'}</p>
                 </div>
               </div>
             </motion.div>
@@ -125,9 +133,9 @@ function Dashboard() {
                 className="card"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">My Chapters</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'فصولي' : 'My Chapters'}</h2>
                   <Link to="/courses" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
-                    Browse More →
+                    {isRTL ? 'تصفح المزيد ←' : 'Browse More →'}
                   </Link>
                 </div>
 
@@ -136,9 +144,9 @@ function Dashboard() {
                     <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-4xl">📖</span>
                     </div>
-                    <p className="text-gray-500 mb-6">You haven't enrolled in any chapters yet</p>
+                    <p className="text-gray-500 mb-6">{isRTL ? 'لم تسجّل في أي فصل بعد' : "You haven't enrolled in any chapters yet"}</p>
                     <Link to="/courses" className="btn-primary">
-                      Explore Chapters
+                      {isRTL ? 'استكشف الفصول' : 'Explore Chapters'}
                     </Link>
                   </div>
                 ) : (
@@ -195,7 +203,7 @@ function Dashboard() {
                   transition={{ delay: 0.6 }}
                   className="card"
                 >
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'النشاط الأخير' : 'Recent Activity'}</h2>
                   <div className="space-y-3">
                     {progress.recentActivity.slice(0, 5).map((activity, index) => (
                       <motion.div
@@ -208,7 +216,7 @@ function Dashboard() {
                         <div className={`w-3 h-3 rounded-full ${activity.isQualified ? 'bg-emerald-400' : 'bg-primary-500'} shadow-lg ${activity.isQualified ? 'shadow-emerald-400/30' : 'shadow-primary-400/30'}`} />
                         <span className="text-gray-600 flex-1">{activity.lesson?.title}</span>
                         <span className="text-gray-400 font-medium">
-                          {activity.watchPercentage}% watched
+                          {activity.watchPercentage}% {isRTL ? 'تمت مشاهدته' : 'watched'}
                         </span>
                       </motion.div>
                     ))}
@@ -224,30 +232,30 @@ function Dashboard() {
                 transition={{ delay: 0.5 }}
                 className="card"
               >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">{isRTL ? 'الاشتراك' : 'Subscription'}</h2>
                 {subscription ? (
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-md shadow-emerald-200 animate-pulse" />
-                      <span className="text-emerald-600 font-medium">Active</span>
+                      <span className="text-emerald-600 font-medium">{isRTL ? 'نشط' : 'Active'}</span>
                     </div>
                     <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-200 mb-4">
                       <p className="text-gray-900 font-medium mb-1">
                         {subscription.package?.name}
                       </p>
                       <p className="text-gray-500 text-sm">
-                        Expires: {new Date(subscription.endDate).toLocaleDateString()}
+                        {isRTL ? 'ينتهي في: ' : 'Expires: '}{formatDate(subscription.endDate)}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div>
                     <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 mb-4">
-                      <p className="text-gray-500 text-sm mb-1">No active subscription</p>
-                      <p className="text-gray-400 text-xs">Get access to premium content</p>
+                      <p className="text-gray-500 text-sm mb-1">{isRTL ? 'لا يوجد اشتراك نشط' : 'No active subscription'}</p>
+                      <p className="text-gray-400 text-xs">{isRTL ? 'احصل على الوصول إلى المحتوى المميز' : 'Get access to premium content'}</p>
                     </div>
                     <Link to="/dashboard/subscription" className="btn-primary w-full text-sm justify-center">
-                      Get Subscription
+                      {isRTL ? 'احصل على اشتراك' : 'Get Subscription'}
                     </Link>
                   </div>
                 )}
@@ -259,7 +267,7 @@ function Dashboard() {
                 transition={{ delay: 0.6 }}
                 className="card"
               >
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Links</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">{isRTL ? 'روابط سريعة' : 'Quick Links'}</h2>
                 <div className="space-y-2">
                   {quickLinks.map((link, index) => (
                     <motion.div
@@ -274,7 +282,7 @@ function Dashboard() {
                       >
                         <span className="text-xl group-hover:scale-110 transition-transform">{link.icon}</span>
                         <span className="text-gray-600 group-hover:text-gray-900 transition-colors">{link.label}</span>
-                        <span className="ml-auto text-gray-400 group-hover:text-primary-500 transition-colors">→</span>
+                        <span className="ml-auto text-gray-400 group-hover:text-primary-500 transition-colors">{isRTL ? '←' : '→'}</span>
                       </Link>
                     </motion.div>
                   ))}
@@ -285,11 +293,5 @@ function Dashboard() {
     </motion.div>
   );
 }
-
-const quickLinks = [
-  { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
-  { to: '/dashboard/payments', icon: '📝', label: 'Payment History' },
-  { to: '/courses', icon: '🔍', label: 'Browse Chapters' }
-];
 
 export default Dashboard;

@@ -8,8 +8,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
 import { pageVariants, fadeInUp } from '../utils/animations';
 import { buildUploadUrl } from '../utils/uploads';
+import { getLocalizedField } from '../i18n/translations';
+import { useLocale } from '../i18n/useLocale';
 
 function LessonView() {
+  const { locale, isRTL, t } = useLocale();
   const { id } = useParams();
   const { hasAcceptedCurrentPlatformNotice } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
@@ -54,7 +57,7 @@ function LessonView() {
       }
     } catch (error) {
       console.error('Failed to fetch lesson:', error);
-      showError('Failed to load content');
+      showError(isRTL ? 'تعذر تحميل المحتوى' : 'Failed to load content');
     } finally {
       setLoading(false);
     }
@@ -71,7 +74,7 @@ function LessonView() {
 
   const handleSubmitQuiz = async () => {
     if (answers.some(a => a === -1)) {
-      showError('Please answer all questions');
+      showError(isRTL ? 'يرجى الإجابة عن جميع الأسئلة' : 'Please answer all questions');
       return;
     }
 
@@ -81,12 +84,12 @@ function LessonView() {
       setQuizResult(response.data);
       setProgress(response.data.progress);
       if (response.data.passed) {
-        showSuccess('Quiz passed! Content completed.');
+        showSuccess(isRTL ? 'تم اجتياز الاختبار! اكتمل المحتوى.' : 'Quiz passed! Content completed.');
       } else {
-        showError('Quiz not passed. Try again!');
+        showError(isRTL ? 'لم يتم اجتياز الاختبار. حاول مرة أخرى!' : 'Quiz not passed. Try again!');
       }
     } catch (error) {
-      showError('Failed to submit quiz');
+      showError(isRTL ? 'تعذر إرسال الاختبار' : 'Failed to submit quiz');
     } finally {
       setSubmitting(false);
     }
@@ -95,7 +98,7 @@ function LessonView() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading content..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل المحتوى...' : 'Loading content...'} />
       </div>
     );
   }
@@ -109,9 +112,9 @@ function LessonView() {
         className="min-h-screen flex items-center justify-center"
       >
         <motion.div variants={fadeInUp} className="card max-w-2xl text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Content Access Requires Acknowledgement</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">{isRTL ? 'الوصول إلى المحتوى يتطلب الإقرار' : 'Content Access Requires Acknowledgement'}</h2>
           <p className="text-gray-500">
-            Please review and accept the Terms & Conditions For Users to continue into this content.
+            {isRTL ? 'يرجى مراجعة الشروط والأحكام الخاصة بالمستخدمين وقبولها للمتابعة إلى هذا المحتوى.' : 'Please review and accept the Terms & Conditions For Users to continue into this content.'}
           </p>
         </motion.div>
       </motion.div>
@@ -122,8 +125,8 @@ function LessonView() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Content not found</h2>
-          <Link to="/dashboard" className="btn-primary">Go to Dashboard</Link>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{isRTL ? 'المحتوى غير موجود' : 'Content not found'}</h2>
+          <Link to="/dashboard" className="btn-primary">{isRTL ? 'الذهاب إلى لوحة التحكم' : 'Go to Dashboard'}</Link>
         </div>
       </div>
     );
@@ -152,10 +155,10 @@ function LessonView() {
             to={`/courses/${lesson.course?._id}`}
             className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors"
           >
-            <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Chapter
+            {isRTL ? 'العودة إلى الفصل' : 'Back to Chapter'}
           </Link>
 
           <div className="mb-6">
@@ -166,11 +169,11 @@ function LessonView() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
             >
               <span className="text-lg">📹</span>
-              <span className="text-xs text-gray-500">Video Content</span>
+              <span className="text-xs text-gray-500">{isRTL ? 'محتوى الفيديو' : 'Video Content'}</span>
             </motion.div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{lesson.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{getLocalizedField(lesson, 'title', locale)}</h1>
             {lesson.description && (
-              <p className="text-gray-500 text-lg">{lesson.description}</p>
+              <p className="text-gray-500 text-lg">{getLocalizedField(lesson, 'description', locale)}</p>
             )}
           </div>
 
@@ -189,8 +192,8 @@ function LessonView() {
                   <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
                     <span className="text-4xl">🎬</span>
                   </div>
-                  <p className="text-gray-500">Video not yet assigned to this content</p>
-                  <p className="text-gray-400 text-sm mt-1">Contact your creator or admin</p>
+                  <p className="text-gray-500">{isRTL ? 'لم يتم ربط فيديو بهذا المحتوى بعد' : 'Video not yet assigned to this content'}</p>
+                  <p className="text-gray-400 text-sm mt-1">{isRTL ? 'تواصل مع صانع المحتوى أو الإدارة' : 'Contact your creator or admin'}</p>
                 </div>
               </div>
             )}
@@ -199,16 +202,16 @@ function LessonView() {
               <div className="flex items-center gap-6">
                 <div className="glass-dark px-4 py-3 rounded-xl">
                   <p className="text-gray-500 text-sm">
-                    Watch progress: <span className={`font-semibold ${watchPct >= minPct ? 'text-emerald-500' : 'text-primary-500'}`}>{watchPct}%</span>
+                    {isRTL ? 'نسبة المشاهدة: ' : 'Watch progress: '}<span className={`font-semibold ${watchPct >= minPct ? 'text-emerald-500' : 'text-primary-500'}`}>{watchPct}%</span>
                   </p>
                   <p className="text-gray-400 text-xs mt-0.5">
-                    Minimum required: {minPct}%
+                    {isRTL ? 'الحد الأدنى المطلوب: ' : 'Minimum required: '}{minPct}%
                   </p>
                 </div>
                 {watchPct >= minPct && (
                   <div className="flex items-center gap-2 text-emerald-500">
                     <span className="text-lg">✅</span>
-                    <span className="text-sm font-medium">Watch requirement met</span>
+                    <span className="text-sm font-medium">{isRTL ? 'تم استيفاء شرط المشاهدة' : 'Watch requirement met'}</span>
                   </div>
                 )}
               </div>
@@ -241,8 +244,8 @@ function LessonView() {
                   <span>📎</span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-900">Supporting Document</h3>
-                  <p className="text-gray-400 text-sm">Download the content material</p>
+                  <h3 className="font-medium text-gray-900">{isRTL ? 'ملف داعم' : 'Supporting Document'}</h3>
+                  <p className="text-gray-400 text-sm">{isRTL ? 'قم بتنزيل المادة المساندة للمحتوى' : 'Download the content material'}</p>
                 </div>
                 <a
                   href={buildUploadUrl(lesson.supportingFile)}
@@ -251,7 +254,7 @@ function LessonView() {
                   download
                   className="btn-secondary text-sm"
                 >
-                  Download
+                  {isRTL ? 'تنزيل' : 'Download'}
                 </a>
               </div>
             </motion.div>
@@ -268,9 +271,9 @@ function LessonView() {
                   <span className="text-2xl">✅</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-emerald-700 text-lg">Content Completed!</h3>
+                  <h3 className="font-semibold text-emerald-700 text-lg">{isRTL ? 'اكتمل المحتوى!' : 'Content Completed!'}</h3>
                   <p className="text-emerald-600/60 text-sm">
-                    You have successfully qualified this content.
+                    {isRTL ? 'لقد اجتزت هذا المحتوى بنجاح.' : 'You have successfully qualified this content.'}
                   </p>
                 </div>
               </div>
@@ -289,7 +292,7 @@ function LessonView() {
                   <div className="icon-box icon-box-accent w-10 h-10 text-lg">
                     <span>📝</span>
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Quiz</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'الاختبار' : 'Quiz'}</h2>
                 </div>
                 {!showQuiz && (
                   <button
@@ -298,8 +301,8 @@ function LessonView() {
                     disabled={watchPct < minPct}
                   >
                     {watchPct >= minPct
-                      ? 'Take Quiz →'
-                      : `Watch ${minPct}% first`}
+                      ? (isRTL ? 'ابدأ الاختبار ←' : 'Take Quiz →')
+                      : (isRTL ? `شاهد ${minPct}% أولًا` : `Watch ${minPct}% first`)}
                   </button>
                 )}
               </div>
@@ -345,7 +348,7 @@ function LessonView() {
                     disabled={submitting}
                     className="btn-primary w-full py-4"
                   >
-                    {submitting ? 'Submitting...' : 'Submit Quiz'}
+                    {submitting ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...') : (isRTL ? 'إرسال الاختبار' : 'Submit Quiz')}
                   </button>
 
                   {quizResult && (
@@ -359,10 +362,12 @@ function LessonView() {
                       }`}
                     >
                       <p className={`font-semibold text-lg ${quizResult.passed ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        Score: {quizResult.score}/{quizResult.totalQuestions}
+                        {isRTL ? 'النتيجة: ' : 'Score: '}{quizResult.score}/{quizResult.totalQuestions}
                       </p>
                       <p className="text-sm mt-1 text-gray-500">
-                        {quizResult.passed ? 'Congratulations! You passed the quiz.' : 'Try again to pass the quiz.'}
+                        {quizResult.passed
+                          ? (isRTL ? 'تهانينا! لقد اجتزت الاختبار.' : 'Congratulations! You passed the quiz.')
+                          : (isRTL ? 'حاول مرة أخرى لاجتياز الاختبار.' : 'Try again to pass the quiz.')}
                       </p>
                     </motion.div>
                   )}

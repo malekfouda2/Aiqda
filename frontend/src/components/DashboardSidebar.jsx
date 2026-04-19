@@ -1,43 +1,45 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
-
-const studentLinks = [
-  { to: '/dashboard', icon: '🏠', label: 'Overview', end: true },
-  { to: '/dashboard/subscription', icon: '💳', label: 'Subscription' },
-  { to: '/dashboard/payments', icon: '📝', label: 'Payments' },
-  { to: '/dashboard/consultations', icon: '🎯', label: 'Consultations' },
-  { to: '/courses', icon: '📚', label: 'Browse Chapters' },
-  { to: '/contact-us', icon: '✉️', label: 'Contact Us' },
-];
-
-const adminLinks = [
-  { to: '/admin', icon: '📊', label: 'Overview', end: true },
-  { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
-  { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },
-  { to: '/admin/payments', icon: '💳', label: 'Payments' },
-  { to: '/admin/subscriptions', icon: '📋', label: 'Subscriptions' },
-  { to: '/admin/users', icon: '👥', label: 'Users' },
-  { to: '/admin/courses', icon: '📚', label: 'Chapters' },
-  { to: '/admin/instructors', icon: '👨‍🏫', label: 'Creators' },
-  { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
-  { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
-  { to: '/admin/consultations', icon: '🎯', label: 'Consultations' },
-  { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
-];
-
-const instructorLinks = [
-  { to: '/instructor', icon: '📊', label: 'Overview', end: true },
-  { to: '/instructor/courses', icon: '📚', label: 'My Chapters' },
-  { to: '/contact-us', icon: '✉️', label: 'Contact Us' },
-];
+import { useLocale } from '../i18n/useLocale';
 
 function DashboardSidebar({ type }) {
   const { user } = useAuthStore();
-  const location = useLocation();
+  const { t, isRTL } = useLocale();
+
+  const studentLinks = [
+    { to: '/dashboard', icon: '🏠', label: t('common.overview'), end: true },
+    { to: '/dashboard/subscription', icon: '💳', label: t('common.subscriptions') },
+    { to: '/dashboard/payments', icon: '📝', label: t('common.payments') },
+    { to: '/dashboard/consultations', icon: '🎯', label: t('common.consultations') },
+    { to: '/courses', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
+    { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
+  ];
+
+  const adminLinks = [
+    { to: '/admin', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
+    { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },
+    { to: '/admin/partners', icon: '🤝', label: t('common.partners') },
+    { to: '/admin/payments', icon: '💳', label: t('common.payments') },
+    { to: '/admin/subscriptions', icon: '📋', label: t('common.subscriptions') },
+    { to: '/admin/users', icon: '👥', label: t('common.users') },
+    { to: '/admin/courses', icon: '📚', label: t('common.chapters') },
+    { to: '/admin/instructors', icon: '👨‍🏫', label: t('common.creators') },
+    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
+    { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
+    { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
+    { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
+  ];
+
+  const instructorLinks = [
+    { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
+    { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
+  ];
 
   const links = type === 'admin' ? adminLinks : type === 'instructor' ? instructorLinks : studentLinks;
-  const title = type === 'admin' ? 'Admin Panel' : type === 'instructor' ? 'Creator' : 'My Dashboard';
+  const title = type === 'admin' ? `${t('common.admin')} Panel` : type === 'instructor' ? t('common.creator') : `My ${t('common.dashboard')}`;
 
   return (
     <motion.aside
@@ -48,7 +50,7 @@ function DashboardSidebar({ type }) {
     >
       <div className="sticky top-24 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse text-right' : ''}`}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
               {user?.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
@@ -87,7 +89,7 @@ function DashboardSidebar({ type }) {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 border border-transparent"
               >
                 <span className="text-lg">🔄</span>
-                <span>Member View</span>
+                <span>{t('common.memberView')}</span>
               </NavLink>
             </div>
           </div>
@@ -98,6 +100,35 @@ function DashboardSidebar({ type }) {
 }
 
 function DashboardMobileNav({ type }) {
+  const { t } = useLocale();
+  const studentLinks = [
+    { to: '/dashboard', icon: '🏠', label: t('common.overview'), end: true },
+    { to: '/dashboard/subscription', icon: '💳', label: t('common.subscriptions') },
+    { to: '/dashboard/payments', icon: '📝', label: t('common.payments') },
+    { to: '/dashboard/consultations', icon: '🎯', label: t('common.consultations') },
+    { to: '/courses', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
+    { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
+  ];
+  const adminLinks = [
+    { to: '/admin', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
+    { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },
+    { to: '/admin/partners', icon: '🤝', label: t('common.partners') },
+    { to: '/admin/payments', icon: '💳', label: t('common.payments') },
+    { to: '/admin/subscriptions', icon: '📋', label: t('common.subscriptions') },
+    { to: '/admin/users', icon: '👥', label: t('common.users') },
+    { to: '/admin/courses', icon: '📚', label: t('common.chapters') },
+    { to: '/admin/instructors', icon: '👨‍🏫', label: t('common.creators') },
+    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
+    { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
+    { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
+    { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
+  ];
+  const instructorLinks = [
+    { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
+    { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
+  ];
   const links = type === 'admin' ? adminLinks : type === 'instructor' ? instructorLinks : studentLinks;
 
   return (

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import CreatorAgreementModal from '../components/CreatorAgreementModal';
+import { useLocale } from '../i18n/useLocale';
 
 const COUNTRY_CODES = [
   { code: '+1', label: 'US/CA (+1)' },
@@ -44,6 +45,7 @@ const slideVariants = {
 };
 
 function InstructorApplication() {
+  const { brandName } = useLocale();
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -613,7 +615,7 @@ function InstructorApplication() {
             </motion.div>
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Application Submitted!</h2>
             <p className="text-gray-500 text-lg mb-8">
-              Thank you for applying to be a creator at Aiqda. We'll review your application and get back to you soon.
+              {`Thank you for applying to be a creator at ${brandName}. We'll review your application and get back to you soon.`}
             </p>
             <Link to="/" className="btn-primary inline-block py-3 px-8 text-base">
               Back to Home
@@ -636,7 +638,7 @@ function InstructorApplication() {
       <div className="relative max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
-            <img src="/logo.png" alt="Aiqda" className="h-14 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-14 w-auto mx-auto" />
           </Link>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Creator Application</h1>
           <p className="text-gray-500 text-lg">Join our team of expert animation creators</p>

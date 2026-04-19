@@ -5,8 +5,10 @@ import { motion } from 'framer-motion';
 import LoadingSpinner from '../components/LoadingSpinner';
 import useAuthStore from '../store/authStore';
 import { pageVariants, fadeInUp } from '../utils/animations';
+import { useLocale } from '../i18n/useLocale';
 
 function SocialAuthCallback() {
+  const { isRTL, brandName } = useLocale();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { completeSocialLogin } = useAuthStore();
@@ -28,7 +30,7 @@ function SocialAuthCallback() {
 
       if (!loginToken) {
         if (!cancelled) {
-          setErrorMessage('Social sign-in could not be completed. Please try again.');
+          setErrorMessage(isRTL ? 'تعذر إكمال تسجيل الدخول الاجتماعي. يرجى المحاولة مرة أخرى.' : 'Social sign-in could not be completed. Please try again.');
         }
         return;
       }
@@ -43,7 +45,7 @@ function SocialAuthCallback() {
         return;
       }
 
-      setErrorMessage(result.error || 'Social sign-in could not be completed. Please try again.');
+      setErrorMessage(result.error || (isRTL ? 'تعذر إكمال تسجيل الدخول الاجتماعي. يرجى المحاولة مرة أخرى.' : 'Social sign-in could not be completed. Please try again.'));
     };
 
     finishSocialLogin();
@@ -76,16 +78,16 @@ function SocialAuthCallback() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-3">Sign-in Couldn&apos;t Finish</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-3">{isRTL ? 'تعذر إكمال تسجيل الدخول' : "Sign-in Couldn't Finish"}</h1>
               <p className="text-gray-500 leading-relaxed">{errorMessage}</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <Link to="/login" className="btn-primary flex-1">
-                Back to Login
+                {isRTL ? 'العودة إلى تسجيل الدخول' : 'Back to Login'}
               </Link>
               <Link to="/register" className="btn-secondary flex-1">
-                Create Account
+                {isRTL ? 'إنشاء حساب' : 'Create Account'}
               </Link>
             </div>
           </div>
@@ -93,9 +95,9 @@ function SocialAuthCallback() {
           <div className="space-y-5">
             <LoadingSpinner size="lg" text="" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Completing Sign-In</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{isRTL ? 'جارٍ استكمال تسجيل الدخول' : 'Completing Sign-In'}</h1>
               <p className="text-gray-500 leading-relaxed">
-                We&apos;re confirming your account and sending you back into Aiqda.
+                {isRTL ? `نحن نؤكد حسابك الآن ونعيدك إلى ${brandName}.` : `We're confirming your account and sending you back into ${brandName}.`}
               </p>
             </div>
           </div>

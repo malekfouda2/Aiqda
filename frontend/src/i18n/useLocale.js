@@ -1,0 +1,2 @@
+export { useLocale } from './LocalizationProvider';
+

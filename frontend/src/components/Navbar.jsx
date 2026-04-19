@@ -2,24 +2,27 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
+import LanguageToggle from './LanguageToggle';
+import { useLocale } from '../i18n/useLocale';
 
 function Navbar() {
   const { user, logout, isAdmin, isInstructor } = useAuthStore();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUIStore();
   const navigate = useNavigate();
+  const { t, isRTL, brandName } = useLocale();
 
   const navLinks = [
-    { to: '/', label: 'Home' },
-    { to: '/courses', label: 'Chapters' },
-    { to: '/consultations', label: 'Consultations' },
-    { to: '/contact-us', label: 'Contact Us' },
-    { to: '/about', label: 'About Us' },
+    { to: '/', label: t('common.home') },
+    { to: '/courses', label: t('navbar.chapters') },
+    { to: '/consultations', label: t('navbar.consultations') },
+    { to: '/contact-us', label: t('common.contactUs') },
+    { to: '/about', label: t('common.aboutUs') },
   ];
 
   if (user) {
-    navLinks.push({ to: '/dashboard', label: 'Dashboard' });
-    if (isAdmin()) navLinks.push({ to: '/admin', label: 'Admin' });
-    if (isInstructor()) navLinks.push({ to: '/instructor', label: 'Creator' });
+    navLinks.push({ to: '/dashboard', label: t('navbar.dashboard') });
+    if (isAdmin()) navLinks.push({ to: '/admin', label: t('navbar.admin') });
+    if (isInstructor()) navLinks.push({ to: '/instructor', label: t('navbar.creator') });
   }
 
   const handleLogout = () => {
@@ -35,13 +38,13 @@ function Navbar() {
       className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/80 shadow-sm"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex items-center gap-8">
+        <div className={`flex items-center justify-between h-20 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <Link to="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt="Aiqda" className="h-14 w-auto" />
+              <img src="/logo.png" alt={brandName} className="h-14 w-auto" />
             </Link>
 
-            <div className="hidden md:flex items-center gap-6">
+            <div className={`hidden md:flex items-center gap-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
               {navLinks.map((link) => (
                 <Link key={link.to} to={link.to} className="text-gray-500 hover:text-gray-900 transition-colors">
                   {link.label}
@@ -50,27 +53,31 @@ function Navbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className="hidden md:block">
+              <LanguageToggle />
+            </div>
+
             {user ? (
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:block text-right">
+              <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`hidden sm:block ${isRTL ? 'text-left' : 'text-right'}`}>
                   <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                  <p className="text-xs text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
                 </div>
                 <button
                   onClick={handleLogout}
                   className="btn-secondary text-sm"
                 >
-                  Logout
+                  {t('common.logout')}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Link to="/login" className="btn-secondary text-sm">
-                  Login
+                  {t('common.login')}
                 </Link>
                 <Link to="/register" className="btn-primary text-sm">
-                  Get Started
+                  {t('navbar.getStarted')}
                 </Link>
               </div>
             )}
@@ -97,12 +104,13 @@ function Navbar() {
           >
             <div className="absolute inset-0 bg-black/20" onClick={closeSidebar} />
             <motion.div
-              initial={{ x: 24, opacity: 0 }}
+              initial={{ x: isRTL ? -24 : 24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 24, opacity: 0 }}
-              className="absolute right-4 top-4 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl p-4"
+              exit={{ x: isRTL ? -24 : 24, opacity: 0 }}
+              className={`absolute top-4 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl p-4 ${isRTL ? 'left-4' : 'right-4'}`}
             >
               <div className="space-y-2">
+                <LanguageToggle className="w-full justify-center" />
                 {navLinks.map((link) => (
                   <Link
                     key={link.to}
@@ -117,17 +125,17 @@ function Navbar() {
                 {user ? (
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left rounded-xl px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+                    className={`w-full rounded-xl px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 ${isRTL ? 'text-right' : 'text-left'}`}
                   >
-                    Logout
+                    {t('common.logout')}
                   </button>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 pt-2">
                     <Link to="/login" onClick={closeSidebar} className="btn-secondary justify-center text-sm">
-                      Login
+                      {t('common.login')}
                     </Link>
                     <Link to="/register" onClick={closeSidebar} className="btn-primary justify-center text-sm">
-                      Get Started
+                      {t('navbar.getStarted')}
                     </Link>
                   </div>
                 )}

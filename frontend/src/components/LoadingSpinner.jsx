@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import { useLocale } from '../i18n/useLocale';
 
 function LoadingSpinner({ size = 'md', text = '' }) {
+  const { isRTL } = useLocale();
   const sizes = {
     sm: 'w-5 h-5',
     md: 'w-8 h-8',
@@ -8,7 +10,7 @@ function LoadingSpinner({ size = 'md', text = '' }) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
+    <div className={`flex flex-col items-center justify-center gap-3 ${isRTL ? 'text-right' : 'text-left'}`}>
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}

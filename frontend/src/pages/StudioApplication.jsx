@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { useLocale } from '../i18n/useLocale';
 import { fadeInUp, staggerContainer, pageVariants } from '../utils/animations';
 
 const STEPS = [
@@ -29,6 +30,7 @@ const slideVariants = {
 };
 
 export default function StudioApplication() {
+  const { brandName } = useLocale();
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -370,7 +372,7 @@ export default function StudioApplication() {
 
   const renderStep4 = () => (
     <div className="space-y-5">
-      <p className="text-sm text-gray-600">What are your primary objectives for partnering with Aiqda? (select all that apply)</p>
+      <p className="text-sm text-gray-600">{`What are your primary objectives for partnering with ${brandName}? (select all that apply)`}</p>
       <div className="grid grid-cols-1 gap-3">
         {OBJECTIVES.map((objective) => (
           <label
@@ -411,7 +413,7 @@ export default function StudioApplication() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Application Submitted!</h2>
           <p className="text-gray-600 mb-8 leading-relaxed">
-            Thank you for applying as a studio partner at Aiqda. We'll review your application and, if approved, send a scheduling email to your contact address.
+            {`Thank you for applying as a studio partner at ${brandName}. We'll review your application and, if approved, send a scheduling email to your contact address.`}
           </p>
           <Link to="/" className="btn-primary w-full py-3 inline-block">
             Return Home
@@ -435,7 +437,7 @@ export default function StudioApplication() {
       >
         <motion.div variants={fadeInUp} className="text-center mb-10">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Studio Application</h1>
-          <p className="text-gray-600">Join Aiqda as an Animation & VFX studio partner</p>
+          <p className="text-gray-600">{`Join ${brandName} as an Animation & VFX studio partner`}</p>
         </motion.div>
 
         {/* Step Progress Bar */}

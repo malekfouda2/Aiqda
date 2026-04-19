@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { authAPI } from '../services/api';
+import { useLocale } from '../i18n/useLocale';
 
-const providerCopy = {
+const providerIcons = {
   google: {
-    label: 'Continue with Google',
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.3 14.7 2.4 12 2.4a9.6 9.6 0 1 0 0 19.2c5.6 0 9.3-4 9.3-9.6 0-.6-.1-1.2-.2-1.8H12Z" />
@@ -15,7 +15,6 @@ const providerCopy = {
     ),
   },
   linkedin: {
-    label: 'Continue with LinkedIn',
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#0A66C2" d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95v5.68H9.33V9h3.42v1.56h.05c.48-.9 1.64-1.86 3.37-1.86 3.6 0 4.27 2.37 4.27 5.45v6.3ZM5.32 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14ZM7.1 20.45H3.53V9H7.1v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.8 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0Z" />
@@ -34,6 +33,7 @@ const buildProviderHref = (startPath, redirectPath) => {
 };
 
 function SocialAuthButtons({ redirectPath = '' }) {
+  const { t } = useLocale();
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +65,7 @@ function SocialAuthButtons({ redirectPath = '' }) {
   }, []);
 
   const socialProviders = useMemo(
-    () => providers.filter((provider) => providerCopy[provider.key]),
+    () => providers.filter((provider) => providerIcons[provider.key]),
     [providers]
   );
 
@@ -80,7 +80,7 @@ function SocialAuthButtons({ redirectPath = '' }) {
           <div className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-4 text-sm font-medium text-gray-400">Or continue with</span>
+          <span className="bg-white px-4 text-sm font-medium text-gray-400">{t('social.continueWith')}</span>
         </div>
       </div>
 
@@ -91,8 +91,8 @@ function SocialAuthButtons({ redirectPath = '' }) {
             href={buildProviderHref(provider.startPath, redirectPath)}
             className="w-full flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-all hover:border-primary-200 hover:bg-primary-50/40 hover:text-gray-900"
           >
-            <span className="shrink-0">{providerCopy[provider.key].icon}</span>
-            <span>{providerCopy[provider.key].label}</span>
+            <span className="shrink-0">{providerIcons[provider.key].icon}</span>
+            <span>{t(`social.${provider.key}`)}</span>
           </a>
         ))}
       </div>

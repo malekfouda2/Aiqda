@@ -5,8 +5,11 @@ import { coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getLocalizedField } from '../i18n/translations';
+import { useLocale } from '../i18n/useLocale';
 
 function CourseDetail() {
+  const { locale, t, isRTL } = useLocale();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -42,7 +45,7 @@ function CourseDetail() {
       }
     } catch (error) {
       console.error('Failed to fetch course:', error);
-      showError('Failed to load chapter');
+      showError(isRTL ? 'تعذر تحميل الفصل' : 'Failed to load chapter');
     } finally {
       setLoading(false);
     }
@@ -55,7 +58,7 @@ function CourseDetail() {
     }
 
     if (!hasSubscription) {
-      showError('You need an active subscription to enroll');
+      showError(isRTL ? 'تحتاج إلى اشتراك نشط للتسجيل' : 'You need an active subscription to enroll');
       navigate('/dashboard/subscription');
       return;
     }
@@ -64,9 +67,9 @@ function CourseDetail() {
     try {
       await coursesAPI.enroll(id);
       setIsEnrolled(true);
-      showSuccess('Successfully enrolled in the chapter!');
+      showSuccess(isRTL ? 'تم التسجيل في الفصل بنجاح!' : 'Successfully enrolled in the chapter!');
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to enroll');
+      showError(error.response?.data?.error || (isRTL ? 'تعذر التسجيل' : 'Failed to enroll'));
     } finally {
       setEnrolling(false);
     }
@@ -75,7 +78,7 @@ function CourseDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading chapter..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل الفصل...' : 'Loading chapter...'} />
       </div>
     );
   }
@@ -84,8 +87,8 @@ function CourseDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Chapter not found</h2>
-          <Link to="/courses" className="btn-primary">Browse Chapters</Link>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{isRTL ? 'الفصل غير موجود' : 'Chapter not found'}</h2>
+          <Link to="/courses" className="btn-primary">{isRTL ? 'تصفح الفصول' : 'Browse Chapters'}</Link>
         </div>
       </div>
     );
@@ -107,10 +110,10 @@ function CourseDetail() {
           transition={{ duration: 0.6 }}
         >
           <Link to="/courses" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-8 group transition-colors">
-            <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Chapters
+            {isRTL ? 'العودة إلى الفصول' : 'Back to Chapters'}
           </Link>
 
           <div className="card mb-8">
@@ -122,28 +125,28 @@ function CourseDetail() {
                     course.level === 'intermediate' ? 'tag-intermediate' :
                     'tag-advanced'
                   }`}>
-                    {course.level}
+                    {t(`status.${course.level}`, course.level)}
                   </span>
-                  <span className="text-gray-400">{course.category}</span>
+                  <span className="text-gray-400">{getLocalizedField(course, 'category', locale)}</span>
                 </div>
                 
-                <h1 className="text-4xl font-bold text-gray-900 mb-4">{course.title}</h1>
-                <p className="text-gray-600 text-lg leading-relaxed mb-6">{course.description}</p>
+                <h1 className="text-4xl font-bold text-gray-900 mb-4">{getLocalizedField(course, 'title', locale)}</h1>
+                <p className="text-gray-600 text-lg leading-relaxed mb-6">{getLocalizedField(course, 'description', locale)}</p>
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-xs">👤</span>
                     </div>
-                    <span>{course.instructor?.name || 'Creator'}</span>
+                    <span>{getLocalizedField(course.instructor, 'name', locale) || (isRTL ? 'صانع المحتوى' : 'Creator')}</span>
                   </div>
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
-                    <span>📹</span> {lessons.length} contents
+                    <span>📹</span> {lessons.length} {isRTL ? 'محتوى' : 'contents'}
                   </span>
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
-                    <span>👥</span> {course.enrolledStudents?.length || 0} members
+                    <span>👥</span> {course.enrolledStudents?.length || 0} {isRTL ? 'عضو' : 'members'}
                   </span>
                 </div>
               </div>
@@ -156,13 +159,13 @@ function CourseDetail() {
                         <span className="text-3xl">✅</span>
                       </div>
                       <p className="text-emerald-600 text-lg font-semibold mb-4">
-                        You're enrolled!
+                        {isRTL ? 'أنت مسجل بالفعل!' : "You're enrolled!"}
                       </p>
                       <Link
                         to={lessons[0] ? `/learn/${lessons[0]._id}` : '#'}
                         className="btn-primary w-full justify-center"
                       >
-                        Continue Learning →
+                        {isRTL ? 'تابع التعلم ←' : 'Continue Learning →'}
                       </Link>
                     </div>
                   ) : (
@@ -171,14 +174,14 @@ function CourseDetail() {
                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-200">
                           <span className="text-3xl">🎓</span>
                         </div>
-                        <p className="text-gray-500 text-sm">Start your learning journey</p>
+                        <p className="text-gray-500 text-sm">{isRTL ? 'ابدأ رحلتك التعليمية' : 'Start your learning journey'}</p>
                       </div>
                       <button
                         onClick={handleEnroll}
                         disabled={enrolling}
                         className="btn-primary w-full justify-center"
                       >
-                        {enrolling ? 'Enrolling...' : 'Enroll Now →'}
+                        {enrolling ? (isRTL ? 'جارٍ التسجيل...' : 'Enrolling...') : (isRTL ? 'سجّل الآن ←' : 'Enroll Now →')}
                       </button>
                     </>
                   )}
@@ -197,7 +200,7 @@ function CourseDetail() {
               <div className="icon-box icon-box-primary w-10 h-10 text-lg">
                 <span>📖</span>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Chapter Content</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'محتوى الفصل' : 'Chapter Content'}</h2>
             </div>
             
             {lessons.length === 0 ? (
@@ -205,7 +208,7 @@ function CourseDetail() {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
                   <span className="text-2xl">📚</span>
                 </div>
-                <p className="text-gray-500">No contents available yet.</p>
+                <p className="text-gray-500">{isRTL ? 'لا توجد محتويات متاحة بعد.' : 'No contents available yet.'}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -222,10 +225,10 @@ function CourseDetail() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors truncate">
-                        {lesson.title}
+                        {getLocalizedField(lesson, 'title', locale)}
                       </h3>
                       {lesson.description && (
-                        <p className="text-sm text-gray-400 truncate">{lesson.description}</p>
+                        <p className="text-sm text-gray-400 truncate">{getLocalizedField(lesson, 'description', locale)}</p>
                       )}
                     </div>
                     {isEnrolled && (
@@ -233,7 +236,7 @@ function CourseDetail() {
                         to={`/learn/${lesson._id}`}
                         className="btn-secondary text-sm opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        Start →
+                        {isRTL ? 'ابدأ ←' : 'Start →'}
                       </Link>
                     )}
                   </motion.div>

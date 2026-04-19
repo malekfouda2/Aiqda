@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
+import PartnersSection from '../components/PartnersSection';
 import { teamMembersAPI } from '../services/api';
+import { getLocalizedField } from '../i18n/translations';
+import { useLocale } from '../i18n/useLocale';
 import { buildUploadUrl } from '../utils/uploads';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, slideInRight } from '../utils/animations';
 
@@ -29,6 +32,7 @@ function TeamMemberAvatar({ member }) {
 }
 
 function About() {
+  const { locale, isRTL, brandName } = useLocale();
   const [teamMembers, setTeamMembers] = useState([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
 
@@ -70,20 +74,31 @@ function About() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"
             >
               <span className="w-2 h-2 bg-brand-teal rounded-full animate-pulse" />
-              <span className="text-sm text-gray-600">Our Story</span>
+              <span className="text-sm text-gray-600">{isRTL ? 'قصتنا' : 'Our Story'}</span>
             </motion.div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
-              One Center,{' '}
-              <span className="gradient-text text-glow">All Things</span>
-              <br />
-              <span className="text-gray-900">Animation</span>
+              {isRTL ? (
+                <>
+                  مركز واحد،{' '}
+                  <span className="gradient-text text-glow">كل ما يخص</span>
+                  <br />
+                  <span className="text-gray-900">التحريك</span>
+                </>
+              ) : (
+                <>
+                  One Center,{' '}
+                  <span className="gradient-text text-glow">All Things</span>
+                  <br />
+                  <span className="text-gray-900">Animation</span>
+                </>
+              )}
             </h1>
 
             <p className="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              Inspiring and nurturing the next generation of visionary animators
-              in Saudi Arabia — blending cultural heritage with innovative
-              storytelling.
+              {isRTL
+                ? 'نلهم وندعم الجيل القادم من رسامي التحريك أصحاب الرؤية في المملكة العربية السعودية، عبر مزج التراث الثقافي بسرد بصري مبتكر.'
+                : 'Inspiring and nurturing the next generation of visionary animators in Saudi Arabia — blending cultural heritage with innovative storytelling.'}
             </p>
           </motion.div>
         </div>
@@ -101,15 +116,17 @@ function About() {
             <motion.div variants={slideInLeft}>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-5">
                 <span className="w-2 h-2 bg-primary-400 rounded-full" />
-                <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">Our Vision</span>
+                <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'رؤيتنا' : 'Our Vision'}</span>
               </div>
               <h2 className="text-4xl font-bold text-gray-900 mb-6 leading-snug">
-                Shaping the{' '}
-                <span className="gradient-text">Future</span>{' '}
-                of Animation
+                {isRTL ? 'نرسم ' : 'Shaping the '}
+                <span className="gradient-text">{isRTL ? 'مستقبل' : 'Future'}</span>{' '}
+                {isRTL ? 'التحريك' : 'of Animation'}
               </h2>
               <p className="text-gray-600 text-lg leading-relaxed">
-                Aiqda, powered by 24 Center, connects artists worldwide and fosters a global community exploring the evolving art of animation.
+                {isRTL
+                  ? `${brandName}، بدعم من 24 Center، تربط الفنانين حول العالم وتبني مجتمعًا عالميًا يستكشف فن التحريك المتطور.`
+                  : `${brandName}, powered by 24 Center, connects artists worldwide and fosters a global community exploring the evolving art of animation.`}
               </p>
             </motion.div>
 
@@ -120,11 +137,13 @@ function About() {
                 <div className="relative">
                   <div className="text-5xl font-black gradient-text text-glow mb-4">"</div>
                   <blockquote className="text-xl font-semibold text-gray-800 leading-relaxed">
-                    Where global creators meet to shape the next chapter of animation
+                    {isRTL
+                      ? 'حيث يلتقي المبدعون من مختلف أنحاء العالم لصناعة الفصل القادم من فن التحريك'
+                      : 'Where global creators meet to shape the next chapter of animation'}
                   </blockquote>
                   <div className="mt-6 flex items-center gap-3">
                     <div className="h-px flex-1 bg-gray-200" />
-                    <span className="text-sm text-gray-400 font-medium uppercase tracking-widest">Our Message</span>
+                    <span className="text-sm text-gray-400 font-medium uppercase tracking-widest">{isRTL ? 'رسالتنا' : 'Our Message'}</span>
                     <div className="h-px flex-1 bg-gray-200" />
                   </div>
                 </div>
@@ -145,14 +164,15 @@ function About() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4">
               <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">Leadership</span>
+              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'الفريق القيادي' : 'Leadership'}</span>
             </div>
             <h2 className="text-4xl font-bold text-gray-900">
-              Meet Our <span className="gradient-text">Team</span>
+              {isRTL ? 'تعرّف إلى ' : 'Meet Our '}<span className="gradient-text">{isRTL ? 'فريقنا' : 'Team'}</span>
             </h2>
             <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
-              Award-winning industry professionals leading Aiqda&apos;s mission to
-              elevate animation education.
+              {isRTL
+                ? `خبراء محترفون حاصلون على جوائز يقودون رسالة ${brandName} للارتقاء بتعليم التحريك.`
+                : `Award-winning industry professionals leading ${brandName}'s mission to elevate animation education.`}
             </p>
           </motion.div>
 
@@ -177,7 +197,7 @@ function About() {
             </div>
           ) : teamMembers.length === 0 ? (
             <div className="bg-gray-50 border border-gray-200 rounded-3xl px-8 py-12 text-center text-gray-500">
-              Team details will appear here soon.
+              {isRTL ? 'ستظهر تفاصيل الفريق هنا قريبًا.' : 'Team details will appear here soon.'}
             </div>
           ) : (
             <motion.div
@@ -199,16 +219,16 @@ function About() {
                       <TeamMemberAvatar member={member} />
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">
-                          {member.name}
+                          {getLocalizedField(member, 'name', locale)}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          {member.title}
+                          {getLocalizedField(member, 'title', locale)}
                         </p>
                       </div>
                     </div>
 
                     <ul className="space-y-3">
-                      {member.achievements.map((item, index) => (
+                      {(member.achievementsAr?.length && locale === 'ar' ? member.achievementsAr : member.achievements).map((item, index) => (
                         <li key={`${member._id}-${index}`} className="flex items-start gap-3">
                           <span className="mt-1.5 w-5 h-5 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
@@ -240,17 +260,17 @@ function About() {
             <motion.div variants={fadeInUp}>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-6">
                 <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">Contact</span>
+                <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'التواصل' : 'Contact'}</span>
               </div>
               <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                Ready to <span className="gradient-text">Elevate</span> Your Skills?
+                {isRTL ? 'هل أنت مستعد لـ ' : 'Ready to '}<span className="gradient-text">{isRTL ? 'الارتقاء' : 'Elevate'}</span>{isRTL ? ' بمهاراتك؟' : ' Your Skills?'}
               </h2>
               <p className="text-gray-500 text-lg mb-2">
-                Get in touch with us and start your animation journey today.
+                {isRTL ? 'تواصل معنا وابدأ رحلتك في عالم التحريك اليوم.' : 'Get in touch with us and start your animation journey today.'}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
                 <Link to="/contact-us" className="btn-primary">
-                  Go to Contact Us
+                  {isRTL ? 'الذهاب إلى صفحة التواصل' : 'Go to Contact Us'}
                 </Link>
                 <a
                   href="mailto:info@24center.edu.sa"
@@ -263,6 +283,8 @@ function About() {
           </motion.div>
         </div>
       </section>
+
+      <PartnersSection />
     </motion.div>
   );
 }

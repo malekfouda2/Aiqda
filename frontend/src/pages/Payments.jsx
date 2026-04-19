@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { paymentsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { useLocale } from '../i18n/useLocale';
 
 function Payments() {
+  const { formatDate, isRTL } = useLocale();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +39,7 @@ function Payments() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading payments..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل المدفوعات...' : 'Loading payments...'} />
       </div>
     );
   }
@@ -49,15 +51,15 @@ function Payments() {
       animate="visible"
     >
       <motion.div variants={fadeInUp}>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment History</h1>
-        <p className="text-gray-500 mb-8">View all your payment submissions</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'سجل المدفوعات' : 'Payment History'}</h1>
+        <p className="text-gray-500 mb-8">{isRTL ? 'اطلع على جميع إثباتات الدفع التي أرسلتها' : 'View all your payment submissions'}</p>
       </motion.div>
 
       {payments.length === 0 ? (
         <motion.div variants={fadeInUp} className="card text-center py-12">
           <div className="text-5xl mb-4">💳</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No payments yet</h3>
-          <p className="text-gray-500">Your payment history will appear here</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">{isRTL ? 'لا توجد مدفوعات بعد' : 'No payments yet'}</h3>
+          <p className="text-gray-500">{isRTL ? 'سيظهر سجل مدفوعاتك هنا' : 'Your payment history will appear here'}</p>
         </motion.div>
       ) : (
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
@@ -70,14 +72,14 @@ function Payments() {
                       {payment.status}
                     </span>
                     <span className="text-gray-400 text-sm">
-                      {new Date(payment.createdAt).toLocaleDateString()}
+                      {formatDate(payment.createdAt)}
                     </span>
                   </div>
                   <p className="text-gray-900 font-medium">
-                    Reference: {payment.paymentReference}
+                    {isRTL ? 'المرجع:' : 'Reference:'} {payment.paymentReference}
                   </p>
                   <p className="text-gray-500 text-sm">
-                    Amount: {payment.amount} SAR
+                    {isRTL ? 'المبلغ:' : 'Amount:'} {payment.amount} SAR
                   </p>
                 </div>
                 <div className="text-right">
@@ -86,7 +88,7 @@ function Payments() {
                   </p>
                   {payment.status === 'rejected' && payment.rejectionReason && (
                     <p className="text-red-600 text-sm mt-1">
-                      Reason: {payment.rejectionReason}
+                      {isRTL ? 'السبب:' : 'Reason:'} {payment.rejectionReason}
                     </p>
                   )}
                 </div>

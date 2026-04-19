@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { authAPI } from '../services/api';
+import { useLocale } from '../i18n/useLocale';
 
 function InstructorSetup() {
+  const { t, isRTL, brandName } = useLocale();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
@@ -18,17 +20,17 @@ function InstructorSetup() {
     setError('');
 
     if (!token) {
-      setError('This setup link is missing a token.');
+      setError(isRTL ? 'رابط الإعداد هذا لا يحتوي على رمز صالح.' : 'This setup link is missing a token.');
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(isRTL ? 'يجب أن تكون كلمة المرور 8 أحرف على الأقل.' : 'Password must be at least 8 characters.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(isRTL ? 'كلمتا المرور غير متطابقتين.' : 'Passwords do not match.');
       return;
     }
 
@@ -38,7 +40,7 @@ function InstructorSetup() {
       setSuccess(response.data.message);
       setTimeout(() => navigate('/login'), 1200);
     } catch (inviteError) {
-      setError(inviteError.response?.data?.error || 'Failed to complete account setup.');
+      setError(inviteError.response?.data?.error || (isRTL ? 'تعذر إكمال إعداد الحساب.' : 'Failed to complete account setup.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -56,10 +58,10 @@ function InstructorSetup() {
       >
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-8">
-            <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-16 w-auto mx-auto" />
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Set Your Password</h1>
-          <p className="text-gray-500 text-lg">Finish activating your instructor account</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">{isRTL ? 'قم بتعيين كلمة المرور' : 'Set Your Password'}</h1>
+          <p className="text-gray-500 text-lg">{isRTL ? 'أكمل تفعيل حساب صانع المحتوى الخاص بك' : 'Finish activating your instructor account'}</p>
         </div>
 
         <div className="card">
@@ -78,28 +80,28 @@ function InstructorSetup() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
+                {isRTL ? 'كلمة المرور الجديدة' : 'New Password'}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-field"
-                placeholder="At least 8 characters"
+                placeholder={isRTL ? '8 أحرف على الأقل' : 'At least 8 characters'}
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
+                {t('common.confirmPassword')}
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input-field"
-                placeholder="Repeat your password"
+                placeholder={isRTL ? 'أعد إدخال كلمة المرور' : 'Repeat your password'}
                 required
               />
             </div>
@@ -109,7 +111,7 @@ function InstructorSetup() {
               disabled={isSubmitting}
               className="btn-primary w-full py-4 text-base"
             >
-              {isSubmitting ? 'Saving...' : 'Activate Account'}
+              {isSubmitting ? t('common.saving') : (isRTL ? 'تفعيل الحساب' : 'Activate Account')}
             </button>
           </form>
         </div>

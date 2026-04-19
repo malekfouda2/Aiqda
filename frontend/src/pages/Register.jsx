@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import PlatformNoticeModal from '../components/PlatformNoticeModal';
+import { useLocale } from '../i18n/useLocale';
 
 function Register() {
+  const { t, isRTL, brandName } = useLocale();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,12 +24,12 @@ function Register() {
     setLocalError('');
 
     if (password !== confirmPassword) {
-      setLocalError('Passwords do not match');
+      setLocalError(isRTL ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match');
       return;
     }
 
     if (password.length < 8) {
-      setLocalError('Password must be at least 8 characters');
+      setLocalError(isRTL ? 'يجب أن تكون كلمة المرور 8 أحرف على الأقل' : 'Password must be at least 8 characters');
       return;
     }
 
@@ -62,10 +64,10 @@ function Register() {
       >
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-8">
-            <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-16 w-auto mx-auto" />
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h1>
-          <p className="text-gray-500 text-lg">Join Aiqda and start learning today</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">{isRTL ? 'أنشئ حسابًا' : 'Create Account'}</h1>
+          <p className="text-gray-500 text-lg">{isRTL ? `انضم إلى ${brandName} وابدأ رحلتك اليوم` : `Join ${brandName} and start learning today`}</p>
         </div>
 
         <div className="card">
@@ -82,21 +84,21 @@ function Register() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
+                {t('common.fullName')}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input-field"
-                placeholder="John Doe"
+                placeholder={isRTL ? 'الاسم الكامل' : 'John Doe'}
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                {t('common.emailAddress')}
               </label>
               <input
                 type="email"
@@ -110,28 +112,28 @@ function Register() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {t('common.password')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-field"
-                placeholder="Min 8 characters"
+                placeholder={isRTL ? '8 أحرف على الأقل' : 'Min 8 characters'}
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
+                {t('common.confirmPassword')}
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input-field"
-                placeholder="Repeat your password"
+                placeholder={isRTL ? 'أعد إدخال كلمة المرور' : 'Repeat your password'}
                 required
               />
             </div>
@@ -147,9 +149,9 @@ function Register() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Creating account...
+                  {isRTL ? 'جارٍ إنشاء الحساب...' : 'Creating account...'}
                 </span>
-              ) : 'Create Account'}
+              ) : (isRTL ? 'إنشاء الحساب' : 'Create Account')}
             </button>
           </form>
 
@@ -161,15 +163,15 @@ function Register() {
 
           <div className="text-center space-y-3">
             <p className="text-gray-500">
-              Already have an account?{' '}
+              {isRTL ? 'لديك حساب بالفعل؟ ' : 'Already have an account? '}
               <Link to="/login" className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
-                Sign in
+                {isRTL ? 'سجّل الدخول' : 'Sign in'}
               </Link>
             </p>
             <p className="text-gray-400 text-sm">
-              Are you a creator?{' '}
+              {isRTL ? 'هل أنت صانع محتوى؟ ' : 'Are you a creator? '}
               <Link to="/apply-instructor" className="text-brand-teal hover:text-teal-600 font-medium transition-colors">
-                Apply here
+                {isRTL ? 'قدّم من هنا' : 'Apply here'}
               </Link>
             </p>
           </div>
@@ -180,12 +182,12 @@ function Register() {
           onAccept={handleRegisterWithTerms}
           onDecline={() => setShowTermsModal(false)}
           isSubmitting={isLoading}
-          acceptLabel="Create Account"
-          declineLabel="Back"
-          title="Please Review These Terms"
-          subtitle="This acknowledgement is required before your account can be created."
-          badgeLabel="Account Creation Terms"
-          confirmSummary="By creating your account, you confirm that you have reviewed and accepted the Terms & Conditions For Users and the related policies listed below."
+          acceptLabel={isRTL ? 'إنشاء الحساب' : 'Create Account'}
+          declineLabel={t('common.back')}
+          title={isRTL ? 'يرجى مراجعة هذه الشروط' : 'Please Review These Terms'}
+          subtitle={isRTL ? 'هذا الإقرار مطلوب قبل إنشاء حسابك.' : 'This acknowledgement is required before your account can be created.'}
+          badgeLabel={isRTL ? 'شروط إنشاء الحساب' : 'Account Creation Terms'}
+          confirmSummary={isRTL ? 'من خلال إنشاء حسابك، فإنك تؤكد أنك راجعت ووافقت على الشروط والأحكام الخاصة بالمستخدمين والسياسات المرتبطة بها والمذكورة أدناه.' : 'By creating your account, you confirm that you have reviewed and accepted the Terms & Conditions For Users and the related policies listed below.'}
         />
       </motion.div>
     </div>

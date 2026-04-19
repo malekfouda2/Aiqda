@@ -6,8 +6,11 @@ import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, cardVariants, staggerContainer } from '../utils/animations';
+import { getLocalizedField } from '../i18n/translations';
+import { useLocale } from '../i18n/useLocale';
 
 function ConsultationDetail() {
+  const { locale, isRTL } = useLocale();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -29,7 +32,7 @@ function ConsultationDetail() {
       setConsultation(response.data);
     } catch (error) {
       console.error('Failed to fetch consultation:', error);
-      showError('Failed to load consultation details');
+      showError(isRTL ? 'تعذر تحميل تفاصيل الاستشارة' : 'Failed to load consultation details');
     } finally {
       setLoading(false);
     }
@@ -43,7 +46,7 @@ function ConsultationDetail() {
     }
 
     if (consultation.priceType === 'fixed' && !paymentReference) {
-      showError('Payment reference is required');
+      showError(isRTL ? 'مرجع الدفع مطلوب' : 'Payment reference is required');
       return;
     }
 
@@ -54,9 +57,9 @@ function ConsultationDetail() {
         paymentReference: consultation.priceType === 'fixed' ? paymentReference : undefined
       });
       setIsSubmitted(true);
-      showSuccess('Your booking has been submitted successfully!');
+      showSuccess(isRTL ? 'تم إرسال طلب الحجز بنجاح!' : 'Your booking has been submitted successfully!');
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to submit booking');
+      showError(error.response?.data?.error || (isRTL ? 'تعذر إرسال طلب الحجز' : 'Failed to submit booking'));
     } finally {
       setSubmitting(false);
     }
@@ -64,13 +67,13 @@ function ConsultationDetail() {
 
   const copyToClipboard = (text, label) => {
     navigator.clipboard.writeText(text);
-    showSuccess(`${label} copied to clipboard!`);
+    showSuccess(isRTL ? `تم نسخ ${label} إلى الحافظة!` : `${label} copied to clipboard!`);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading consultation..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل الاستشارة...' : 'Loading consultation...'} />
       </div>
     );
   }
@@ -79,8 +82,8 @@ function ConsultationDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Consultation not found</h2>
-          <Link to="/consultations" className="btn-primary">Browse Consultations</Link>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{isRTL ? 'الاستشارة غير موجودة' : 'Consultation not found'}</h2>
+          <Link to="/consultations" className="btn-primary">{isRTL ? 'تصفح الاستشارات' : 'Browse Consultations'}</Link>
         </div>
       </div>
     );
@@ -102,10 +105,10 @@ function ConsultationDetail() {
           animate="visible"
         >
           <Link to="/consultations" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-8 group transition-colors">
-            <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Consultations
+            {isRTL ? 'العودة إلى الاستشارات' : 'Back to Consultations'}
           </Link>
 
           <div className="flex flex-col lg:flex-row gap-8">
@@ -114,20 +117,20 @@ function ConsultationDetail() {
               <motion.div variants={fadeInUp} className="card p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <span className={`tag ${consultation.mode === '1 to 1' ? 'tag-beginner' : 'tag-intermediate'}`}>
-                    {consultation.mode}
+                    {consultation.mode === '1 to 1' ? (isRTL ? 'فردي' : consultation.mode) : (isRTL ? 'جماعي' : consultation.mode)}
                   </span>
                   <span className="text-gray-400 font-medium">{consultation.duration}</span>
                 </div>
                 
-                <h1 className="text-4xl font-bold text-gray-900 mb-6">{consultation.title}</h1>
+                <h1 className="text-4xl font-bold text-gray-900 mb-6">{getLocalizedField(consultation, 'title', locale)}</h1>
                 <p className="text-gray-600 text-lg leading-relaxed mb-8">
-                  {consultation.description}
+                  {getLocalizedField(consultation, 'description', locale)}
                 </p>
 
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="text-primary-500">🎯</span> Focus Points
+                      <span className="text-primary-500">🎯</span> {isRTL ? 'نقاط التركيز' : 'Focus Points'}
                     </h3>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {consultation.focusPoints?.map((point, i) => (
@@ -151,11 +154,14 @@ function ConsultationDetail() {
                       🎉
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">Booking Submitted!</h2>
+                    <p className="sr-only">{isRTL ? 'تم إرسال الحجز' : 'Booking Submitted!'}</p>
                     <p className="text-gray-600 mb-8 leading-relaxed">
-                      Your booking has been submitted. Admin will review and confirm your Zoom session.
+                      {isRTL
+                        ? 'تم إرسال طلب الحجز. ستراجع الإدارة الطلب وتؤكد جلسة Zoom الخاصة بك.'
+                        : 'Your booking has been submitted. Admin will review and confirm your Zoom session.'}
                     </p>
                     <Link to="/dashboard/consultations" className="btn-primary w-full justify-center">
-                      View My Bookings
+                      {isRTL ? 'عرض حجوزاتي' : 'View My Bookings'}
                     </Link>
                   </div>
                 ) : (
@@ -165,57 +171,59 @@ function ConsultationDetail() {
                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary-50 flex items-center justify-center text-3xl">
                           🔒
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Login to Book</h3>
-                        <p className="text-gray-500 mb-6">You need to be logged in to book a consultation.</p>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{isRTL ? 'سجّل الدخول للحجز' : 'Login to Book'}</h3>
+                        <p className="text-gray-500 mb-6">{isRTL ? 'يجب تسجيل الدخول لحجز استشارة.' : 'You need to be logged in to book a consultation.'}</p>
                         <Link 
                           to="/login" 
                           state={{ from: { pathname: `/consultations/${id}` } }}
                           className="btn-primary w-full justify-center"
                         >
-                          Login Now
+                          {isRTL ? 'سجّل الدخول الآن' : 'Login Now'}
                         </Link>
                       </div>
                     ) : (
                       <form onSubmit={handleSubmitBooking}>
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                          {consultation.priceType === 'fixed' ? 'Book Session' : 'Submit Inquiry'}
+                          {consultation.priceType === 'fixed'
+                            ? (isRTL ? 'احجز الجلسة' : 'Book Session')
+                            : (isRTL ? 'أرسل استفسارًا' : 'Submit Inquiry')}
                         </h2>
 
                         {consultation.priceType === 'fixed' ? (
                           <div className="space-y-6">
                             <div className="p-4 rounded-2xl bg-primary-50 border border-primary-100">
-                              <p className="text-sm text-primary-700 font-medium mb-1">Price to Transfer</p>
+                              <p className="text-sm text-primary-700 font-medium mb-1">{isRTL ? 'المبلغ المطلوب تحويله' : 'Price to Transfer'}</p>
                               <p className="text-3xl font-bold text-primary-900">
                                 {consultation.price} <span className="text-lg">{consultation.currency}</span>
                               </p>
                             </div>
 
                             <div className="space-y-4">
-                              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">How to Book</h3>
+                              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">{isRTL ? 'طريقة الحجز' : 'How to Book'}</h3>
                               
                               <div className="flex gap-4">
                                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">1</div>
-                                <p className="text-sm text-gray-600 pt-1">Transfer <b>{consultation.price} SAR</b> to Bank Albilad</p>
+                                <p className="text-sm text-gray-600 pt-1">{isRTL ? <>حوّل <b>{consultation.price} SAR</b> إلى بنك البلاد</> : <>Transfer <b>{consultation.price} SAR</b> to Bank Albilad</>}</p>
                               </div>
 
                               <div className="ml-12 p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
                                 <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">Bank Name</p>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'اسم البنك' : 'Bank Name'}</p>
                                   <p className="text-sm font-semibold text-gray-800">Bank Albilad</p>
                                 </div>
                                 <div className="group cursor-pointer" onClick={() => copyToClipboard('SA5915000452146048350009', 'IBAN')}>
                                   <div className="flex justify-between items-center">
                                     <p className="text-[10px] text-gray-400 uppercase font-bold">IBAN</p>
-                                    <span className="text-[10px] text-primary-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">Copy</span>
+                                    <span className="text-[10px] text-primary-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">{isRTL ? 'نسخ' : 'Copy'}</span>
                                   </div>
                                   <p className="text-sm font-mono font-semibold text-gray-800">SA5915000452146048350009</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">Account Number</p>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'رقم الحساب' : 'Account Number'}</p>
                                   <p className="text-sm font-semibold text-gray-800">452146049350009</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">CR Number</p>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'رقم السجل التجاري' : 'CR Number'}</p>
                                   <p className="text-sm font-semibold text-gray-800">7049447043</p>
                                 </div>
                               </div>
@@ -223,11 +231,11 @@ function ConsultationDetail() {
                               <div className="flex gap-4">
                                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">2</div>
                                 <div className="flex-1 pt-1">
-                                  <p className="text-sm text-gray-600 mb-3">Enter your payment reference number below</p>
+                                  <p className="text-sm text-gray-600 mb-3">{isRTL ? 'أدخل رقم مرجع الدفع أدناه' : 'Enter your payment reference number below'}</p>
                                   <input
                                     type="text"
                                     required
-                                    placeholder="Reference Number"
+                                    placeholder={isRTL ? 'رقم المرجع' : 'Reference Number'}
                                     className="input-field"
                                     value={paymentReference}
                                     onChange={(e) => setPaymentReference(e.target.value)}
@@ -237,16 +245,16 @@ function ConsultationDetail() {
 
                               <div className="flex gap-4">
                                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">3</div>
-                                <p className="text-sm text-gray-600 pt-1">Click "Submit Booking"</p>
+                                <p className="text-sm text-gray-600 pt-1">{isRTL ? 'اضغط على "إرسال الحجز"' : 'Click "Submit Booking"'}</p>
                               </div>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-6">
                             <div className="p-4 rounded-2xl bg-cyan-50 border border-cyan-100">
-                              <p className="text-sm text-cyan-700 font-medium">Contract Based</p>
+                              <p className="text-sm text-cyan-700 font-medium">{isRTL ? 'حسب الاتفاق' : 'Contract Based'}</p>
                               <p className="text-sm text-cyan-600 mt-2 italic">
-                                Our team will contact you to discuss pricing and collaboration scope.
+                                {isRTL ? 'سيتواصل معك فريقنا لمناقشة التسعير ونطاق التعاون.' : 'Our team will contact you to discuss pricing and collaboration scope.'}
                               </p>
                             </div>
                           </div>
@@ -257,7 +265,11 @@ function ConsultationDetail() {
                           disabled={submitting}
                           className="btn-primary w-full justify-center mt-8 py-4 text-lg"
                         >
-                          {submitting ? 'Submitting...' : consultation.priceType === 'fixed' ? 'Submit Booking' : 'Submit Inquiry'}
+                          {submitting
+                            ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...')
+                            : consultation.priceType === 'fixed'
+                              ? (isRTL ? 'إرسال الحجز' : 'Submit Booking')
+                              : (isRTL ? 'إرسال الاستفسار' : 'Submit Inquiry')}
                         </button>
                       </form>
                     )}

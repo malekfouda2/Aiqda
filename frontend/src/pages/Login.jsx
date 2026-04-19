@@ -3,8 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import SocialAuthButtons from '../components/SocialAuthButtons';
+import { useLocale } from '../i18n/useLocale';
 
 function Login() {
+  const { t, isRTL, brandName } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, isLoading, error } = useAuthStore();
@@ -42,10 +44,10 @@ function Login() {
       >
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-8">
-            <img src="/logo.png" alt="Aiqda" className="h-16 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-16 w-auto mx-auto" />
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome Back</h1>
-          <p className="text-gray-500 text-lg">Sign in to continue your skills development journey</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">{isRTL ? 'مرحبًا بعودتك' : 'Welcome Back'}</h1>
+          <p className="text-gray-500 text-lg">{isRTL ? 'سجّل الدخول لمتابعة رحلة تطوير مهاراتك' : 'Sign in to continue your skills development journey'}</p>
         </div>
 
         <div className="card">
@@ -62,28 +64,28 @@ function Login() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                {t('common.emailAddress')}
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input-field"
-                placeholder="you@example.com"
+                placeholder={isRTL ? 'you@example.com' : 'you@example.com'}
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {t('common.password')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-field"
-                placeholder="Enter your password"
+                placeholder={isRTL ? 'أدخل كلمة المرور' : 'Enter your password'}
                 required
               />
             </div>
@@ -99,9 +101,9 @@ function Login() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Signing in...
+                  {isRTL ? 'جارٍ تسجيل الدخول...' : 'Signing in...'}
                 </span>
-              ) : 'Sign In'}
+              ) : (isRTL ? 'تسجيل الدخول' : 'Sign In')}
             </button>
           </form>
 
@@ -113,9 +115,9 @@ function Login() {
 
           <div className="text-center">
             <p className="text-gray-500">
-              Don't have an account?{' '}
+              {isRTL ? 'ليس لديك حساب؟ ' : "Don't have an account? "}
               <Link to="/register" className="text-primary-500 hover:text-primary-600 font-medium transition-colors">
-                Sign up
+                {isRTL ? 'أنشئ حسابًا' : 'Sign up'}
               </Link>
             </p>
           </div>

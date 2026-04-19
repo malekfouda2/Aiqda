@@ -10,7 +10,8 @@ import fs from 'fs';
 const uploadsDir = path.join(__dirname, '../../uploads');
 const lessonsDir = path.join(uploadsDir, 'lessons');
 const teamMembersDir = path.join(uploadsDir, 'team-members');
-[uploadsDir, lessonsDir, teamMembersDir].forEach(dir => {
+const partnersDir = path.join(uploadsDir, 'partners');
+[uploadsDir, lessonsDir, teamMembersDir, partnersDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -37,6 +38,16 @@ const lessonStorage = multer.diskStorage({
 const teamMemberStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, teamMembersDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const partnerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, partnersDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -99,6 +110,19 @@ export const uploadTeamMemberPhoto = multer({
       cb(null, true);
     } else {
       cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'), false);
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+export const uploadPartnerLogo = multer({
+  storage: partnerStorage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG images are allowed.'), false);
     }
   },
   limits: { fileSize: 5 * 1024 * 1024 }

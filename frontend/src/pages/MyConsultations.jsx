@@ -5,8 +5,10 @@ import { consultationBookingsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { useLocale } from '../i18n/useLocale';
 
 function MyConsultations() {
+  const { formatDate, isRTL } = useLocale();
   const { showError } = useUIStore();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ function MyConsultations() {
       setBookings(response.data);
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
-      showError('Failed to load your consultation bookings');
+      showError(isRTL ? 'تعذر تحميل حجوزات الاستشارات الخاصة بك' : 'Failed to load your consultation bookings');
     } finally {
       setLoading(false);
     }
@@ -51,7 +53,7 @@ function MyConsultations() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading your bookings..." />
+        <LoadingSpinner size="lg" text={isRTL ? 'جارٍ تحميل حجوزاتك...' : 'Loading your bookings...'} />
       </div>
     );
   }
@@ -63,8 +65,8 @@ function MyConsultations() {
       animate="visible"
     >
       <motion.div variants={fadeInUp} className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Consultations</h1>
-        <p className="text-gray-500 text-lg">Manage your expert sessions and view Zoom links</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'استشاراتي' : 'My Consultations'}</h1>
+        <p className="text-gray-500 text-lg">{isRTL ? 'أدر جلساتك الاستشارية واطلع على روابط Zoom' : 'Manage your expert sessions and view Zoom links'}</p>
       </motion.div>
 
       {bookings.length === 0 ? (
@@ -72,9 +74,9 @@ function MyConsultations() {
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
             <span className="text-4xl">🎯</span>
           </div>
-          <p className="text-gray-500 text-lg mb-6">No consultation bookings yet</p>
+          <p className="text-gray-500 text-lg mb-6">{isRTL ? 'لا توجد حجوزات استشارية بعد' : 'No consultation bookings yet'}</p>
           <Link to="/consultations" className="btn-primary">
-            Browse Consultations
+            {isRTL ? 'تصفح الاستشارات' : 'Browse Consultations'}
           </Link>
         </motion.div>
       ) : (
@@ -97,7 +99,8 @@ function MyConsultations() {
                     <div>
                       <h3 className="text-lg font-bold text-gray-900">{booking.consultation?.title}</h3>
                       <p className="text-sm text-gray-400">
-                        Submitted on {new Date(booking.createdAt).toLocaleDateString()}
+                        {isRTL ? 'تم الإرسال في ' : 'Submitted on '}
+                        {formatDate(booking.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -109,19 +112,19 @@ function MyConsultations() {
                     </span>
                     <span className="text-gray-300">•</span>
                     <span className="text-gray-600 font-medium">
-                      {booking.priceType === 'fixed' ? `${booking.amount} SAR` : 'Contract Based'}
+                      {booking.priceType === 'fixed' ? `${booking.amount} SAR` : (isRTL ? 'حسب الاتفاق' : 'Contract Based')}
                     </span>
                     {booking.paymentReference && (
                       <>
                         <span className="text-gray-300">•</span>
-                        <span className="text-gray-500 text-sm">Ref: {booking.paymentReference}</span>
+                        <span className="text-gray-500 text-sm">{isRTL ? 'المرجع:' : 'Ref:'} {booking.paymentReference}</span>
                       </>
                     )}
                   </div>
 
                   {booking.status === 'rejected' && booking.rejectionReason && (
                     <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm">
-                      <span className="font-semibold">Reason:</span> {booking.rejectionReason}
+                      <span className="font-semibold">{isRTL ? 'السبب:' : 'Reason:'}</span> {booking.rejectionReason}
                     </div>
                   )}
 
@@ -136,20 +139,20 @@ function MyConsultations() {
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
                         </svg>
-                        Join Zoom Session
+                        {isRTL ? 'انضم إلى جلسة Zoom' : 'Join Zoom Session'}
                       </a>
                       <div className="flex items-center text-xs text-emerald-600 font-medium">
                         <span className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse" />
-                        Meeting link is ready
+                        {isRTL ? 'رابط الاجتماع جاهز' : 'Meeting link is ready'}
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div className="lg:text-right">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Duration</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'المدة' : 'Duration'}</p>
                   <p className="font-semibold text-gray-900">{booking.consultation?.duration}</p>
-                  <p className="text-xs text-gray-400 mt-2 uppercase tracking-wider mb-1">Mode</p>
+                  <p className="text-xs text-gray-400 mt-2 uppercase tracking-wider mb-1">{isRTL ? 'النمط' : 'Mode'}</p>
                   <p className="text-sm font-medium text-primary-600">{booking.consultation?.mode}</p>
                 </div>
               </div>

@@ -3,8 +3,11 @@ import { Link } from 'react-router-dom';
 
 import { fadeInUp, pageVariants } from '../utils/animations';
 import { creatorTermsMeta, creatorTermsSections } from '../content/creatorTerms';
+import { useLocale } from '../i18n/useLocale';
 
 function TermsAndConditions() {
+  const { pick, t, isRTL, brandName } = useLocale();
+
   return (
     <motion.div
       variants={pageVariants}
@@ -18,15 +21,25 @@ function TermsAndConditions() {
           <motion.div variants={fadeInUp} className="max-w-3xl">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
               <span className="w-2 h-2 bg-brand-teal rounded-full animate-pulse" />
-              <span className="text-sm text-gray-600">Terms & Conditions For Creators</span>
+              <span className="text-sm text-gray-600">{t('policies.creatorTerms')}</span>
             </div>
 
             <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-6 text-gray-900">
-              Terms & Conditions <span className="gradient-text text-glow">For Creators</span>
+              {isRTL ? (
+                <>
+                  <span className="gradient-text text-glow">لصنّاع المحتوى</span> الشروط والأحكام
+                </>
+              ) : (
+                <>
+                  Terms & Conditions <span className="gradient-text text-glow">For Creators</span>
+                </>
+              )}
             </h1>
 
             <p className="text-lg text-gray-500 leading-relaxed max-w-3xl">
-              These terms govern the relationship between Aiqda and creators who submit content to the platform, alongside the signed content contribution agreement where applicable.
+              {isRTL
+                ? `تنظم هذه الشروط العلاقة بين ${brandName} وصنّاع المحتوى الذين يقدّمون محتوى إلى المنصة، إلى جانب اتفاقية المساهمة في المحتوى الموقعة عند الاقتضاء.`
+                : `These terms govern the relationship between ${brandName} and creators who submit content to the platform, alongside the signed content contribution agreement where applicable.`}
             </p>
           </motion.div>
         </div>
@@ -38,31 +51,31 @@ function TermsAndConditions() {
             <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/80">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="text-sm text-gray-400 uppercase tracking-[0.2em] font-semibold">Reference</p>
+                  <p className="text-sm text-gray-400 uppercase tracking-[0.2em] font-semibold">{t('common.reference')}</p>
                   <p className="text-lg font-semibold text-gray-900">{creatorTermsMeta.reference}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400 uppercase tracking-[0.2em] font-semibold">Effective Date</p>
-                  <p className="text-lg font-semibold text-gray-900">{creatorTermsMeta.effectiveDate}</p>
+                  <p className="text-sm text-gray-400 uppercase tracking-[0.2em] font-semibold">{t('common.effectiveDate')}</p>
+                  <p className="text-lg font-semibold text-gray-900">{pick(creatorTermsMeta.effectiveDate)}</p>
                 </div>
               </div>
             </div>
 
             <div className="px-8 py-10 space-y-10">
               {creatorTermsSections.map((section) => (
-                <div key={section.title} className="space-y-4">
-                  <h2 className="text-2xl font-bold text-gray-900">{section.title}</h2>
-                  {section.paragraphs?.map((paragraph) => (
-                    <p key={paragraph} className="text-gray-600 leading-8">
-                      {paragraph}
+                <div key={pick(section.title)} className="space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-900">{pick(section.title)}</h2>
+                  {section.paragraphs?.map((paragraph, index) => (
+                    <p key={`${pick(section.title)}-paragraph-${index}`} className="text-gray-600 leading-8">
+                      {pick(paragraph)}
                     </p>
                   ))}
                   {section.bullets?.length ? (
                     <div className="space-y-3">
-                      {section.bullets.map((item) => (
-                        <div key={item} className="flex items-start gap-3">
+                      {section.bullets.map((item, index) => (
+                        <div key={`${pick(section.title)}-bullet-${index}`} className="flex items-start gap-3">
                           <span className="mt-2 h-2.5 w-2.5 rounded-full bg-primary-500 shrink-0" />
-                          <p className="text-gray-600 leading-7">{item}</p>
+                          <p className="text-gray-600 leading-7">{pick(item)}</p>
                         </div>
                       ))}
                     </div>
@@ -72,11 +85,13 @@ function TermsAndConditions() {
 
               <div className="rounded-3xl border border-primary-100 bg-primary-50/60 px-6 py-5">
                 <p className="text-sm text-gray-600 leading-7">
-                  For creator onboarding questions or agreement clarifications, please contact us through the{' '}
+                  {isRTL
+                    ? 'للاستفسارات المتعلقة بانضمام صنّاع المحتوى أو توضيحات الاتفاقيات، يرجى التواصل معنا عبر صفحة '
+                    : 'For creator onboarding questions or agreement clarifications, please contact us through the '}
                   <Link to="/contact-us" className="text-primary-600 font-medium hover:text-primary-700">
-                    Contact Us
+                    {t('common.contactUs')}
                   </Link>{' '}
-                  page so the team can review your inquiry.
+                  {isRTL ? 'ليتمكن الفريق من مراجعة استفسارك.' : 'page so the team can review your inquiry.'}
                 </p>
               </div>
             </div>

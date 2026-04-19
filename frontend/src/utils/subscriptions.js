@@ -1,6 +1,16 @@
+import { getLocalizedValue, text } from '../i18n/translations';
+
 export const BILLING_TERM_LABELS = {
-  monthly: 'Monthly',
-  annual: 'Annual',
+  monthly: text('Monthly', 'شهري'),
+  annual: text('Annual', 'سنوي'),
+};
+
+export const getBillingTermLabel = (term, locale = 'en') => {
+  if (!term) {
+    return '';
+  }
+
+  return getLocalizedValue(BILLING_TERM_LABELS[term] || term, locale);
 };
 
 export const getActiveBillingOptions = (pkg = {}) => {
@@ -33,13 +43,13 @@ export const getBillingOption = (pkg = {}, billingTerm = null) => {
   return activeOptions.find((option) => option.term === billingTerm) || null;
 };
 
-export const formatMoney = (value) => {
+export const formatMoney = (value, locale = 'en') => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
     return '';
   }
 
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
     minimumFractionDigits: Number.isInteger(numericValue) ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(numericValue);

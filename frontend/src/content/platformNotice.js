@@ -5,7 +5,11 @@ import {
   userTermsAcceptanceParagraphs as PLATFORM_NOTICE_PARAGRAPHS,
   USER_TERMS_ACCEPTANCE_VERSION as PLATFORM_NOTICE_VERSION,
 } from './userTerms';
+import { text } from '../i18n/translations';
 
 export { PLATFORM_NOTICE_ACKNOWLEDGEMENTS, PLATFORM_NOTICE_EFFECTIVE_DATE, PLATFORM_NOTICE_ACKNOWLEDGEMENT_LABEL, PLATFORM_NOTICE_PARAGRAPHS, PLATFORM_NOTICE_VERSION };
 
-export const PLATFORM_NOTICE_ERROR_MESSAGE = 'Please accept the Terms & Conditions For Users before continuing.';
+export const PLATFORM_NOTICE_ERROR_MESSAGE = text(
+  'Please accept the Terms & Conditions For Users before continuing.',
+  'يرجى قبول الشروط والأحكام الخاصة بالمستخدمين قبل المتابعة.'
+);
