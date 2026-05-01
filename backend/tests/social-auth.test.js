@@ -127,7 +127,8 @@ test('google social sign-in can create a new student account and complete login'
   const completionToken = frontendRedirectUrl.searchParams.get('token');
   assert.ok(completionToken);
 
-  const completeResponse = await request(suite.app)
+  const agent = request.agent(suite.app);
+  const completeResponse = await agent
     .post('/api/auth/social/complete')
     .send({ token: completionToken });
 
@@ -137,8 +138,13 @@ test('google social sign-in can create a new student account and complete login'
   assert.equal(completeResponse.body.user.role, 'student');
   assert.equal(completeResponse.body.user.avatar, 'https://example.com/avatar.png');
   assert.equal(completeResponse.body.redirectPath, '/courses/welcome');
-  assert.equal(typeof completeResponse.body.token, 'string');
-  assert.ok(completeResponse.body.token.length > 10);
+  assert.equal(completeResponse.body.token, undefined);
+  assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+
+  const profileResponse = await agent
+    .get('/api/auth/profile');
+  assert.equal(profileResponse.status, 200);
+  assert.equal(profileResponse.body.email, 'social.student@example.com');
 
   const storedUser = await User.findOne({ email: 'social.student@example.com' }).lean();
   assert.equal(storedUser.password, null);
@@ -199,7 +205,8 @@ test('linkedin social sign-in links an existing account and preserves its role',
   const completionToken = frontendRedirectUrl.searchParams.get('token');
   assert.ok(completionToken);
 
-  const completeResponse = await request(suite.app)
+  const agent = request.agent(suite.app);
+  const completeResponse = await agent
     .post('/api/auth/social/complete')
     .send({ token: completionToken });
 
@@ -207,6 +214,7 @@ test('linkedin social sign-in links an existing account and preserves its role',
   assert.equal(completeResponse.body.user.email, 'creator@example.com');
   assert.equal(completeResponse.body.user.role, 'instructor');
   assert.equal(completeResponse.body.redirectPath, '/instructor');
+  assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
 
   const linkedUser = await User.findById(existingInstructor.user._id).lean();
   assert.equal(linkedUser.authProviders.linkedin.subject, 'linkedin-user-789');

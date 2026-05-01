@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../services/api';
+import api, { instructorApplicationsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
-import { buildUploadUrl } from '../utils/uploads';
+import { downloadBlobResponse } from '../utils/download';
+import { getSafeExternalHref } from '../utils/url';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function AdminInstructorApplications() {
@@ -125,25 +126,40 @@ function AdminInstructorApplications() {
 
   const FileLink = ({ url, label }) => {
     if (!url) return <InfoRow label={label} value="Not provided" />;
-    const fullUrl = buildUploadUrl(url);
+
+    const handleDownload = async () => {
+      if (!selectedApp?._id) {
+        return;
+      }
+
+      const field = label === 'CV / Resume' ? 'cvFile' : 'courseMaterialsFile';
+
+      try {
+        const response = await instructorApplicationsAPI.downloadFile(selectedApp._id, field);
+        downloadBlobResponse(response, field === 'cvFile' ? 'instructor-cv' : 'course-materials');
+      } catch (error) {
+        showError(error.response?.data?.error || 'Failed to download file');
+      }
+    };
+
     return (
       <div className="py-2">
         <p className="text-gray-500 text-sm">{label}</p>
-        <a
-          href={fullUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          download
+        <button
+          type="button"
+          onClick={handleDownload}
           className="inline-flex items-center gap-2 mt-1 text-primary-600 hover:text-primary-700 font-medium text-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           Download
-        </a>
+        </button>
       </div>
     );
   };
+
+  const safePortfolioHref = getSafeExternalHref(selectedApp?.websiteOrPortfolio);
 
   return (
     <motion.div
@@ -334,9 +350,9 @@ function AdminInstructorApplications() {
                       </div>
                       <InfoRow label="Notable Works" value={selectedApp.notableWorks} />
                       <InfoRow label="Portfolio / Website" value={
-                        selectedApp.websiteOrPortfolio ? (
-                          <a href={selectedApp.websiteOrPortfolio} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 underline">
-                            {selectedApp.websiteOrPortfolio}
+                        safePortfolioHref ? (
+                          <a href={safePortfolioHref} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 underline">
+                            {safePortfolioHref}
                           </a>
                         ) : null
                       } />

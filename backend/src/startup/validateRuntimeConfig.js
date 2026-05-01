@@ -46,6 +46,10 @@ export const validateRuntimeConfig = (env = process.env) => {
     errors.push('MONGODB_URI is required.');
   }
 
+  if (isProduction(env) && !env.REDIS_URL) {
+    errors.push('REDIS_URL is required in production for distributed rate limiting.');
+  }
+
   if (!env.JWT_SECRET && isProduction(env)) {
     errors.push('JWT_SECRET is required in production.');
   }

@@ -435,7 +435,7 @@ export const completeSocialLogin = async ({ token }) => {
 
   return {
     user,
-    token: appToken,
+    sessionToken: appToken,
     redirectPath: normalizeRedirectPath(decoded.redirectPath) || getDefaultRedirectPathForRole(user.role),
   };
 };

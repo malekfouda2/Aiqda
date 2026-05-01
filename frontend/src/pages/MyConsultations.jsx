@@ -6,6 +6,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 import { useLocale } from '../i18n/useLocale';
+import { getSafeExternalHref } from '../utils/url';
 
 function MyConsultations() {
   const { formatDate, isRTL } = useLocale();
@@ -84,12 +85,15 @@ function MyConsultations() {
           variants={staggerContainer}
           className="space-y-4"
         >
-          {bookings.map((booking) => (
-            <motion.div
-              key={booking._id}
-              variants={cardVariants}
-              className="card group hover:border-primary-200 hover:shadow-md transition-all duration-300"
-            >
+          {bookings.map((booking) => {
+            const safeZoomLink = getSafeExternalHref(booking.zoomLink);
+
+            return (
+              <motion.div
+                key={booking._id}
+                variants={cardVariants}
+                className="card group hover:border-primary-200 hover:shadow-md transition-all duration-300"
+              >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex-1">
                   <div className="flex items-center gap-4 mb-3">
@@ -128,10 +132,10 @@ function MyConsultations() {
                     </div>
                   )}
 
-                  {booking.status === 'confirmed' && booking.zoomLink && (
+                  {booking.status === 'confirmed' && safeZoomLink && (
                     <div className="mt-4 flex flex-col sm:flex-row gap-3">
                       <a
-                        href={booking.zoomLink}
+                        href={safeZoomLink}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-primary inline-flex items-center justify-center gap-2 py-2 px-4 text-sm"
@@ -156,8 +160,9 @@ function MyConsultations() {
                   <p className="text-sm font-medium text-primary-600">{booking.consultation?.mode}</p>
                 </div>
               </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </motion.div>
       )}
     </motion.div>

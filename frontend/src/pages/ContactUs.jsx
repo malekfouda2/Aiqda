@@ -26,17 +26,17 @@ const contactHighlights = [
   {
     title: 'Response Window',
     value: 'Within 1 Business Day',
-    description: 'We review every message personally and route it to the right team quickly.'
+    description: 'Every inquiry is reviewed and routed to the appropriate team to ensure a precise and relevant response.'
   },
   {
     title: 'Email',
     value: 'info@24center.edu.sa',
-    description: 'Use the form below or contact us directly for partnerships, support, and learning questions.'
+    description: 'Use the form below or contact us directly for partnerships, platform access, creator contributions, and general support.'
   },
   {
     title: 'Best For',
-    value: 'Courses, Studios, Partnerships',
-    description: 'We can help with enrollment, creator applications, studio collaborations, and platform support.'
+    value: 'Creators, Studios, Collaborations',
+    description: 'We support creator onboarding, studio collaborations, and platform-related inquiries.'
   }
 ];
 
@@ -81,17 +81,17 @@ function ContactUs() {
     {
       title: isRTL ? 'زمن الرد' : 'Response Window',
       value: isRTL ? 'خلال يوم عمل واحد' : 'Within 1 Business Day',
-      description: isRTL ? 'نراجع كل رسالة بعناية ونوصلها سريعًا إلى الفريق المناسب.' : 'We review every message personally and route it to the right team quickly.',
+      description: isRTL ? 'نراجع كل رسالة بعناية ونوصلها سريعًا إلى الفريق المناسب.' : 'Every inquiry is reviewed and routed to the appropriate team to ensure a precise and relevant response.',
     },
     {
       title: isRTL ? 'البريد الإلكتروني' : 'Email',
       value: 'info@24center.edu.sa',
-      description: isRTL ? 'استخدم النموذج أدناه أو تواصل معنا مباشرة للشراكات والدعم والاستفسارات التعليمية.' : 'Use the form below or contact us directly for partnerships, support, and learning questions.',
+      description: isRTL ? 'استخدم النموذج أدناه أو تواصل معنا مباشرة للشراكات والدعم والاستفسارات التعليمية.' : 'Use the form below or contact us directly for partnerships, platform access, creator contributions, and general support.',
     },
     {
       title: isRTL ? 'الأفضل لـ' : 'Best For',
-      value: isRTL ? 'الفصول، الاستوديوهات، الشراكات' : 'Courses, Studios, Partnerships',
-      description: isRTL ? 'نستطيع مساعدتك في التسجيل وطلبات صنّاع المحتوى والتعاون مع الاستوديوهات ودعم المنصة.' : 'We can help with enrollment, creator applications, studio collaborations, and platform support.',
+      value: isRTL ? 'الفصول، الاستوديوهات، الشراكات' : 'Creators, Studios, Collaborations',
+      description: isRTL ? 'نستطيع مساعدتك في التسجيل وطلبات صنّاع المحتوى والتعاون مع الاستوديوهات ودعم المنصة.' : 'We support creator onboarding, studio collaborations, and platform-related inquiries.',
     },
   ];
 
@@ -105,9 +105,8 @@ function ContactUs() {
       <section className="relative overflow-hidden pt-32 pb-20">
         <div className="absolute inset-0 mesh-gradient" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="floating-orb w-[520px] h-[520px] bg-primary-100/40 top-[-180px] left-[-100px] animate-float" />
-          <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/35 bottom-[-110px] right-[-80px] animate-float-slow" />
-          <div className="floating-orb w-[260px] h-[260px] bg-orange-100/25 top-1/3 right-1/4 animate-glow-pulse" />
+          <div className="floating-orb w-[360px] h-[360px] bg-primary-100/35 top-[-120px] left-[-70px] animate-float" />
+          <div className="floating-orb w-[280px] h-[280px] bg-cyan-100/30 bottom-[-90px] right-[-60px] animate-float-slow" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -150,7 +149,7 @@ function ContactUs() {
         </div>
       </section>
 
-      <section className="pb-24">
+      <section className="content-auto pb-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             variants={staggerContainer}
@@ -167,7 +166,7 @@ function ContactUs() {
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 mb-3">{isRTL ? 'أرسل لنا رسالة' : 'Send Us a Message'}</h2>
                 <p className="text-gray-500 leading-relaxed">
-                  {isRTL ? 'أخبرنا بما تحتاجه وسيتابعك الشخص المناسب من فريقنا.' : 'Tell us what you need and the right team member will follow up with you.'}
+                  {isRTL ? 'أخبرنا بما تحتاجه وسيتابعك الشخص المناسب من فريقنا.' : 'Share your request and our team will respond with the appropriate direction and support.'}
                 </p>
               </div>
 
@@ -215,7 +214,7 @@ function ContactUs() {
                       value={formData.subject}
                       onChange={handleChange('subject')}
                       className="input-field"
-                      placeholder={isRTL ? 'كيف يمكننا مساعدتك؟' : 'How can we help?'}
+                      placeholder={isRTL ? 'كيف يمكننا مساعدتك؟' : 'How can we assist you?'}
                       required
                     />
                   </div>
@@ -227,7 +226,7 @@ function ContactUs() {
                     value={formData.message}
                     onChange={handleChange('message')}
                     className="input-field min-h-[180px] resize-none"
-                    placeholder={isRTL ? 'شاركنا بعض التفاصيل حتى نساعدك بسرعة أكبر.' : 'Share a little context so we can help you faster.'}
+                    placeholder={isRTL ? 'شاركنا بعض التفاصيل حتى نساعدك بسرعة أكبر.' : 'Provide a brief overview so we can direct your request efficiently.'}
                     required
                   />
                 </div>
@@ -253,16 +252,16 @@ function ContactUs() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">{isRTL ? 'إليك أسرع طريقة للوصول إلينا' : 'Here’s the Fastest Way to Reach Us'}</h3>
                 <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
                   <div className="bg-white/80 rounded-2xl border border-white px-4 py-4">
-                    <p className="font-semibold text-gray-900 mb-1">{isRTL ? 'التعلم والتسجيل' : 'Learning & Enrollment'}</p>
-                    <p>{isRTL ? 'أسئلة حول الفصول أو الاشتراكات أو المسار الأنسب لأهدافك.' : 'Questions about chapters, subscriptions, or the right learning path for your goals.'}</p>
+                    <p className="font-semibold text-gray-900 mb-1">{isRTL ? 'التعلم والتسجيل' : 'Platform Access & Subscriptions'}</p>
+                    <p>{isRTL ? 'أسئلة حول الفصول أو الاشتراكات أو المسار الأنسب لأهدافك.' : 'Questions about content access, subscriptions, or navigating the platform.'}</p>
                   </div>
                   <div className="bg-white/80 rounded-2xl border border-white px-4 py-4">
                     <p className="font-semibold text-gray-900 mb-1">{isRTL ? 'طلبات الاستوديوهات والشراكات' : 'Studio & Partnership Requests'}</p>
-                    <p>{isRTL ? 'تواصل معنا بخصوص التعاونات والبرامج المؤسسية وفرص العمل مع الاستوديوهات.' : 'Reach out for collaborations, institutional programs, and studio-level opportunities.'}</p>
+                    <p>{isRTL ? 'تواصل معنا بخصوص التعاونات والبرامج المؤسسية وفرص العمل مع الاستوديوهات.' : 'For studio collaborations, content contributions, and institutional opportunities.'}</p>
                   </div>
                   <div className="bg-white/80 rounded-2xl border border-white px-4 py-4">
                     <p className="font-semibold text-gray-900 mb-1">{isRTL ? 'دعم صنّاع المحتوى' : 'Creator Support'}</p>
-                    <p>{isRTL ? 'اسأل عن الانضمام كصانع محتوى أو نشر المحتوى أو دعم المنصة.' : 'Ask about creator onboarding, content publishing, or platform support.'}</p>
+                    <p>{isRTL ? 'اسأل عن الانضمام كصانع محتوى أو نشر المحتوى أو دعم المنصة.' : 'Guidance on joining as a creator, publishing content, and platform requirements.'}</p>
                   </div>
                 </div>
               </div>

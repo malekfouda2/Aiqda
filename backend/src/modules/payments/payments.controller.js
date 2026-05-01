@@ -44,6 +44,19 @@ export const getPaymentById = async (req, res) => {
   }
 };
 
+export const downloadProof = async (req, res) => {
+  try {
+    const { absolutePath, downloadName } = await paymentsService.getPaymentProofDownload(
+      req.params.id,
+      req.user
+    );
+    res.download(absolutePath, downloadName);
+  } catch (error) {
+    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    res.status(statusCode).json({ error: error.message });
+  }
+};
+
 export const approvePayment = async (req, res) => {
   try {
     const payment = await paymentsService.approvePayment(req.params.id, req.user.id);

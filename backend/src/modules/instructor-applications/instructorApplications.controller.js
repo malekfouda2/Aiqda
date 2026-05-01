@@ -50,6 +50,19 @@ export const getApplicationById = async (req, res) => {
   }
 };
 
+export const downloadApplicationFile = async (req, res) => {
+  try {
+    const { absolutePath, downloadName } = await instructorApplicationsService.getApplicationFileDownload(
+      req.params.id,
+      req.params.field
+    );
+    res.download(absolutePath, downloadName);
+  } catch (error) {
+    const statusCode = error.message === 'Application not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};
+
 export const approveApplication = async (req, res) => {
   try {
     const result = await instructorApplicationsService.approve(req.params.id, req.user.id);

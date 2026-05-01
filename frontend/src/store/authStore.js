@@ -3,23 +3,56 @@ import { authAPI, usersAPI } from '../services/api';
 import { PLATFORM_NOTICE_VERSION } from '../content/platformNotice';
 
 const useAuthStore = create((set, get) => ({
-  user: JSON.parse(localStorage.getItem('user')) || null,
-  token: localStorage.getItem('token') || null,
+  user: null,
   isLoading: false,
+  isHydrating: false,
+  hasHydrated: false,
   error: null,
+
+  initializeAuth: async () => {
+    if (get().isHydrating || get().hasHydrated) {
+      return;
+    }
+
+    set({ isHydrating: true, error: null });
+    try {
+      const response = await authAPI.getProfile();
+      set({
+        user: response.data,
+        isHydrating: false,
+        hasHydrated: true,
+      });
+    } catch {
+      if (get().user) {
+        set({
+          isHydrating: false,
+          hasHydrated: true,
+        });
+        return;
+      }
+
+      set({
+        user: null,
+        isHydrating: false,
+        hasHydrated: true,
+      });
+    }
+  },
 
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.login({ email, password });
-      const { user, token } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user, token, isLoading: false });
+      set({
+        user: response.data.user,
+        isLoading: false,
+        isHydrating: false,
+        hasHydrated: true,
+      });
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Login failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, isLoading: false, isHydrating: false });
       return { success: false, error: message };
     }
   },
@@ -28,14 +61,16 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.register({ name, email, password, role, platformNoticeAccepted });
-      const { user, token } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user, token, isLoading: false });
+      set({
+        user: response.data.user,
+        isLoading: false,
+        isHydrating: false,
+        hasHydrated: true,
+      });
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Registration failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, isLoading: false, isHydrating: false });
       return { success: false, error: message };
     }
   },
@@ -44,41 +79,45 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.completeSocialLogin({ token: loginToken });
-      const { user, token, redirectPath } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user, token, isLoading: false });
-      return { success: true, redirectPath };
+      set({
+        user: response.data.user,
+        isLoading: false,
+        isHydrating: false,
+        hasHydrated: true,
+      });
+      return { success: true, redirectPath: response.data.redirectPath };
     } catch (error) {
       const message = error.response?.data?.error || 'Social login failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, isLoading: false, isHydrating: false });
       return { success: false, error: message };
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    set({ user: null, token: null });
+  logout: async () => {
+    set({ user: null, error: null, isHydrating: false, hasHydrated: true });
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Failed to clear the server session:', error);
+    }
   },
 
   refreshProfile: async () => {
     try {
       const response = await authAPI.getProfile();
-      const user = response.data;
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user });
+      set({ user: response.data, hasHydrated: true });
     } catch (error) {
       console.error('Failed to refresh profile:', error);
+      if (error.response?.status === 401) {
+        set({ user: null, hasHydrated: true });
+      }
     }
   },
 
   acknowledgePlatformNotice: async () => {
     try {
       const response = await usersAPI.acknowledgePlatformNotice();
-      const user = response.data;
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user });
+      set({ user: response.data });
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to save acknowledgement';
@@ -86,7 +125,7 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  isAuthenticated: () => !!get().token,
+  isAuthenticated: () => !!get().user,
   isAdmin: () => get().user?.role === 'admin',
   isInstructor: () => ['instructor', 'admin'].includes(get().user?.role),
   isStudent: () => get().user?.role === 'student',

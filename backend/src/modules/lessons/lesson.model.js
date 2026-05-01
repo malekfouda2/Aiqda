@@ -23,6 +23,10 @@ const lessonSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  vimeoEmbedUrl: {
+    type: String,
+    default: null
+  },
   minimumWatchPercentage: {
     type: Number,
     default: 80,

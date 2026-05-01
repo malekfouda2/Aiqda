@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import useUIStore from '../store/uiStore';
 import { partnersAPI } from '../services/api';
 import { buildUploadUrl } from '../utils/uploads';
+import { getSafeExternalHref } from '../utils/url';
 import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
@@ -228,6 +229,7 @@ function AdminPartners() {
         <div className="grid xl:grid-cols-2 gap-5">
           {filteredPartners.map((partner, index) => {
             const imageUrl = buildUploadUrl(partner.image);
+            const safeWebsiteHref = getSafeExternalHref(partner.website);
 
             return (
               <motion.div
@@ -258,14 +260,14 @@ function AdminPartners() {
                         <span className="text-xs text-gray-400">Order {partner.order ?? 0}</span>
                       </div>
                       <h2 className="text-xl font-semibold text-gray-900 truncate">{partner.name}</h2>
-                      {partner.website ? (
+                      {safeWebsiteHref ? (
                         <a
-                          href={partner.website}
+                          href={safeWebsiteHref}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="text-sm text-primary-500 hover:text-primary-600 break-all"
                         >
-                          {partner.website}
+                          {safeWebsiteHref}
                         </a>
                       ) : (
                         <p className="text-sm text-gray-400 mt-1">No external website linked</p>

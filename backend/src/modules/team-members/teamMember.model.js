@@ -6,9 +6,19 @@ const teamMemberSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  nameAr: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   title: {
     type: String,
     required: true,
+    trim: true,
+  },
+  titleAr: {
+    type: String,
+    default: '',
     trim: true,
   },
   image: {
@@ -17,6 +27,10 @@ const teamMemberSchema = new mongoose.Schema({
     trim: true,
   },
   achievements: {
+    type: [String],
+    default: [],
+  },
+  achievementsAr: {
     type: [String],
     default: [],
   },

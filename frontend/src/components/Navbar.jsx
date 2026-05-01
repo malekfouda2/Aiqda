@@ -32,19 +32,15 @@ function Navbar() {
   };
 
   return (
-    <motion.nav 
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/80 shadow-sm"
-    >
+    <nav dir={isRTL ? 'rtl' : 'ltr'} className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className={`flex items-center justify-between h-20 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className="flex items-center justify-between h-20">
+          <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2">
               <img src="/logo.png" alt={brandName} className="h-14 w-auto" />
             </Link>
 
-            <div className={`hidden md:flex items-center gap-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className="hidden md:flex items-center gap-6">
               {navLinks.map((link) => (
                 <Link key={link.to} to={link.to} className="text-gray-500 hover:text-gray-900 transition-colors">
                   {link.label}
@@ -53,13 +49,13 @@ function Navbar() {
             </div>
           </div>
 
-          <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className="flex items-center gap-4">
             <div className="hidden md:block">
               <LanguageToggle />
             </div>
 
             {user ? (
-              <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="flex items-center gap-4">
                 <div className={`hidden sm:block ${isRTL ? 'text-left' : 'text-right'}`}>
                   <p className="text-sm font-medium text-gray-900">{user.name}</p>
                   <p className="text-xs text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
@@ -72,7 +68,7 @@ function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="flex items-center gap-3">
                 <Link to="/login" className="btn-secondary text-sm">
                   {t('common.login')}
                 </Link>
@@ -107,6 +103,7 @@ function Navbar() {
               initial={{ x: isRTL ? -24 : 24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: isRTL ? -24 : 24, opacity: 0 }}
+              dir={isRTL ? 'rtl' : 'ltr'}
               className={`absolute top-4 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl p-4 ${isRTL ? 'left-4' : 'right-4'}`}
             >
               <div className="space-y-2">
@@ -116,7 +113,7 @@ function Navbar() {
                     key={link.to}
                     to={link.to}
                     onClick={closeSidebar}
-                    className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className={`block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 ${isRTL ? 'text-right' : 'text-left'}`}
                   >
                     {link.label}
                   </Link>
@@ -144,7 +141,7 @@ function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.nav>
+    </nav>
   );
 }
 

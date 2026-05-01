@@ -4,7 +4,7 @@ import { paymentsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn } from '../utils/animations';
-import { buildUploadUrl } from '../utils/uploads';
+import { downloadBlobResponse } from '../utils/download';
 
 function AdminPayments() {
   const { showSuccess, showError } = useUIStore();
@@ -55,6 +55,15 @@ function AdminPayments() {
       showError(error.response?.data?.error || 'Failed to reject payment');
     } finally {
       setProcessing(null);
+    }
+  };
+
+  const handleViewProof = async (paymentId) => {
+    try {
+      const response = await paymentsAPI.downloadProof(paymentId);
+      downloadBlobResponse(response, `payment-proof-${paymentId}`, { openInNewTab: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to load payment proof');
     }
   };
 
@@ -146,14 +155,13 @@ function AdminPayments() {
                       </p>
                     )}
                     {payment.proofFile && (
-                      <a
-                        href={buildUploadUrl(payment.proofFile)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleViewProof(payment._id)}
                         className="inline-flex items-center gap-2 mt-3 text-primary-600 hover:text-primary-700 text-sm font-medium"
                       >
                         View payment proof
-                      </a>
+                      </button>
                     )}
                   </div>
 

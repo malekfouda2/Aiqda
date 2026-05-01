@@ -1,4 +1,4 @@
-const rateLimitStore = new Map();
+import Redis from 'ioredis';
 
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -14,20 +14,128 @@ const getClientKey = (req) => {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 };
 
-const cleanupExpiredEntries = () => {
-  const now = Date.now();
-  for (const [key, record] of rateLimitStore.entries()) {
-    if (record.resetAt <= now) {
-      rateLimitStore.delete(key);
+const createMemoryRateLimitStore = () => {
+  const records = new Map();
+
+  const cleanupExpiredEntries = () => {
+    const now = Date.now();
+    for (const [key, record] of records.entries()) {
+      if (record.resetAt <= now) {
+        records.delete(key);
+      }
     }
-  }
+  };
+
+  const cleanupTimer = setInterval(cleanupExpiredEntries, 60 * 1000);
+  cleanupTimer.unref?.();
+
+  return {
+    async increment(namespace, clientKey, windowMs) {
+      const now = Date.now();
+      const key = `${namespace}:${clientKey}`;
+      const existingRecord = records.get(key);
+      const record = !existingRecord || existingRecord.resetAt <= now
+        ? { count: 0, resetAt: now + windowMs }
+        : existingRecord;
+
+      record.count += 1;
+      records.set(key, record);
+
+      return {
+        count: record.count,
+        resetAt: record.resetAt,
+      };
+    },
+
+    async clear() {
+      records.clear();
+    },
+  };
 };
 
-const cleanupTimer = setInterval(cleanupExpiredEntries, 60 * 1000);
-cleanupTimer.unref?.();
+let redisClientPromise = null;
 
-export const clearRateLimitStore = () => {
-  rateLimitStore.clear();
+const getRedisClient = async () => {
+  if (redisClientPromise) {
+    return redisClientPromise;
+  }
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    throw new Error('REDIS_URL is required for the Redis-backed rate limiter.');
+  }
+
+  const client = new Redis(redisUrl, {
+    lazyConnect: true,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+  });
+
+  client.defineCommand('incrementRateLimitWindow', {
+    numberOfKeys: 1,
+    lua: `
+      local current = redis.call('INCR', KEYS[1])
+      if current == 1 then
+        redis.call('PEXPIRE', KEYS[1], ARGV[1])
+      end
+      local ttl = redis.call('PTTL', KEYS[1])
+      if ttl < 0 then
+        redis.call('PEXPIRE', KEYS[1], ARGV[1])
+        ttl = tonumber(ARGV[1])
+      end
+      return { current, ttl }
+    `,
+  });
+
+  redisClientPromise = client.connect().then(() => client).catch((error) => {
+    redisClientPromise = null;
+    client.disconnect();
+    throw error;
+  });
+
+  return redisClientPromise;
+};
+
+const createRedisRateLimitStore = () => ({
+  async increment(namespace, clientKey, windowMs) {
+    const client = await getRedisClient();
+    const key = `aiqda:rate-limit:${namespace}:${clientKey}`;
+    const [count, ttlMs] = await client.incrementRateLimitWindow(key, String(windowMs));
+    const normalizedTtlMs = Number(ttlMs);
+    const resetAt = Date.now() + (Number.isFinite(normalizedTtlMs) && normalizedTtlMs > 0 ? normalizedTtlMs : windowMs);
+
+    return {
+      count: Number(count),
+      resetAt,
+    };
+  },
+
+  async clear() {
+    // Tests use the in-memory store. Redis-backed environments should expire keys naturally.
+  },
+});
+
+const shouldUseRedisRateLimitStore = () => {
+  if (process.env.RATE_LIMIT_STORE === 'memory') {
+    return false;
+  }
+
+  if (process.env.NODE_ENV === 'test') {
+    return false;
+  }
+
+  return Boolean(process.env.REDIS_URL);
+};
+
+const memoryRateLimitStore = createMemoryRateLimitStore();
+const redisRateLimitStore = createRedisRateLimitStore();
+
+const getRateLimitStore = () => (
+  shouldUseRedisRateLimitStore() ? redisRateLimitStore : memoryRateLimitStore
+);
+
+export const clearRateLimitStore = async () => {
+  await getRateLimitStore().clear();
 };
 
 export const createIpRateLimiter = ({
@@ -35,28 +143,26 @@ export const createIpRateLimiter = ({
   windowMs,
   max,
   message,
-}) => (req, res, next) => {
-  const now = Date.now();
-  const key = `${namespace}:${getClientKey(req)}`;
-  const existingRecord = rateLimitStore.get(key);
-  const record = !existingRecord || existingRecord.resetAt <= now
-    ? { count: 0, resetAt: now + windowMs }
-    : existingRecord;
+}) => async (req, res, next) => {
+  try {
+    const now = Date.now();
+    const record = await getRateLimitStore().increment(namespace, getClientKey(req), windowMs);
+    const remaining = Math.max(max - record.count, 0);
 
-  record.count += 1;
-  rateLimitStore.set(key, record);
+    res.setHeader('X-RateLimit-Limit', String(max));
+    res.setHeader('X-RateLimit-Remaining', String(remaining));
+    res.setHeader('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)));
 
-  const remaining = Math.max(max - record.count, 0);
-  res.setHeader('X-RateLimit-Limit', String(max));
-  res.setHeader('X-RateLimit-Remaining', String(remaining));
-  res.setHeader('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)));
+    if (record.count > max) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((record.resetAt - now) / 1000))));
+      return res.status(429).json({ error: message });
+    }
 
-  if (record.count > max) {
-    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((record.resetAt - now) / 1000))));
-    return res.status(429).json({ error: message });
+    next();
+  } catch (error) {
+    console.error('[rate-limit] Failed to process request limit:', error);
+    res.status(503).json({ error: 'Rate limit service is temporarily unavailable.' });
   }
-
-  next();
 };
 
 export const authRegisterRateLimit = createIpRateLimiter({

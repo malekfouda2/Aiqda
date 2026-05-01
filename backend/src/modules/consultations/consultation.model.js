@@ -5,8 +5,16 @@ const consultationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  titleAr: {
+    type: String,
+    default: ''
+  },
   description: {
     type: String
+  },
+  descriptionAr: {
+    type: String,
+    default: ''
   },
   priceType: {
     type: String,
@@ -25,12 +33,25 @@ const consultationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  durationAr: {
+    type: String,
+    default: ''
+  },
   mode: {
     type: String,
     required: true
   },
+  modeAr: {
+    type: String,
+    default: ''
+  },
   focusPoints: {
-    type: [String]
+    type: [String],
+    default: []
+  },
+  focusPointsAr: {
+    type: [String],
+    default: []
   },
   zoomSchedulerLink: {
     type: String

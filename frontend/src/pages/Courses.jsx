@@ -93,12 +93,12 @@ function Courses() {
           </motion.div>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            {isRTL ? 'استكشف ' : 'Explore Our'}
-            <span className="gradient-text"> {isRTL ? 'الفصول' : 'Chapters'}</span>
+            {isRTL ? 'استكشف ما يلهم ' : 'Explore Our'}
+            <span className="gradient-text"> {isRTL ? 'إبداعك' : 'Chapters'}</span>
           </h1>
           <p className="text-gray-500 max-w-2xl mx-auto text-lg">
             {isRTL
-              ? 'اكتشف فصولًا صُممت لتساعدك على إتقان مهارات جديدة والتقدم في مسارك المهني.'
+              ? ' فصول منتقاة بعناية من قلب الصناعة لتجارب ورؤى تستحق الاستكشاف.'
               : 'Discover chapters designed to help you master new skills and advance your career.'}
           </p>
         </motion.div>

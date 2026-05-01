@@ -7,7 +7,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
 import { pageVariants, fadeInUp } from '../utils/animations';
-import { buildUploadUrl } from '../utils/uploads';
+import { downloadBlobResponse } from '../utils/download';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 
@@ -92,6 +92,19 @@ function LessonView() {
       showError(isRTL ? 'تعذر إرسال الاختبار' : 'Failed to submit quiz');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDownloadSupportingFile = async () => {
+    try {
+      const response = await lessonsAPI.downloadFile(id);
+      downloadBlobResponse(
+        response,
+        lesson?.supportingFileName || 'lesson-supporting-file'
+      );
+    } catch (error) {
+      console.error('Failed to download supporting file:', error);
+      showError(isRTL ? 'تعذر تنزيل الملف الداعم' : 'Failed to download supporting file');
     }
   };
 
@@ -182,6 +195,7 @@ function LessonView() {
               <div className="mb-6">
                 <VimeoPlayer
                   vimeoVideoId={videoData.vimeoVideoId}
+                  embedUrl={videoData.embedUrl}
                   onProgressUpdate={handleProgressUpdate}
                   initialProgress={watchPct}
                 />
@@ -247,15 +261,13 @@ function LessonView() {
                   <h3 className="font-medium text-gray-900">{isRTL ? 'ملف داعم' : 'Supporting Document'}</h3>
                   <p className="text-gray-400 text-sm">{isRTL ? 'قم بتنزيل المادة المساندة للمحتوى' : 'Download the content material'}</p>
                 </div>
-                <a
-                  href={buildUploadUrl(lesson.supportingFile)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
+                <button
+                  type="button"
+                  onClick={handleDownloadSupportingFile}
                   className="btn-secondary text-sm"
                 >
                   {isRTL ? 'تنزيل' : 'Download'}
-                </a>
+                </button>
               </div>
             </motion.div>
           )}

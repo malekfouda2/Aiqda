@@ -1,3 +1,5 @@
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -5,125 +7,285 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import fs from 'fs';
-
 const uploadsDir = path.join(__dirname, '../../uploads');
 const lessonsDir = path.join(uploadsDir, 'lessons');
 const teamMembersDir = path.join(uploadsDir, 'team-members');
 const partnersDir = path.join(uploadsDir, 'partners');
-[uploadsDir, lessonsDir, teamMembersDir, partnersDir].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+[uploadsDir, lessonsDir, teamMembersDir, partnersDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 });
 
-const storage = multer.diskStorage({
+const createStorage = (destination) => multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadsDir);
+    cb(null, destination);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-const lessonStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, lessonsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const defaultStorage = createStorage(uploadsDir);
+const lessonStorage = createStorage(lessonsDir);
+const teamMemberStorage = createStorage(teamMembersDir);
+const partnerStorage = createStorage(partnersDir);
 
-const teamMemberStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, teamMembersDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const MAX_SIGNATURE_SAMPLE_BYTES = 256 * 1024;
 
-const partnerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, partnersDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const FILE_KIND_MESSAGES = {
+  jpeg: 'JPEG',
+  png: 'PNG',
+  gif: 'GIF',
+  webp: 'WebP',
+  pdf: 'PDF',
+  doc: 'DOC',
+  docx: 'DOCX',
+  txt: 'TXT',
+  svg: 'SVG',
+};
 
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and PDF are allowed.'), false);
+const FILE_KIND_EXTENSIONS = {
+  jpeg: ['.jpg', '.jpeg'],
+  png: ['.png'],
+  gif: ['.gif'],
+  webp: ['.webp'],
+  pdf: ['.pdf'],
+  doc: ['.doc'],
+  docx: ['.docx'],
+  txt: ['.txt'],
+  svg: ['.svg'],
+};
+
+const readFileSample = async (filePath, maxBytes = MAX_SIGNATURE_SAMPLE_BYTES) => {
+  const handle = await fsPromises.open(filePath, 'r');
+  try {
+    const stats = await handle.stat();
+    const length = Math.min(stats.size, maxBytes);
+    const buffer = Buffer.alloc(length);
+    await handle.read(buffer, 0, length, 0);
+    return buffer;
+  } finally {
+    await handle.close();
   }
 };
 
-export const uploadPaymentProof = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+const deleteUploadedFile = async (filePath) => {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await fsPromises.unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn('[uploads] Failed to remove rejected upload:', filePath, error.message);
+    }
+  }
+};
+
+const hasSignature = (buffer, signature) => (
+  buffer.length >= signature.length
+  && signature.every((byte, index) => buffer[index] === byte)
+);
+
+const bufferContainsText = (buffer, text) => buffer.toString('latin1').includes(text);
+
+const isLikelyText = (buffer) => {
+  if (buffer.length === 0) {
+    return true;
+  }
+
+  let disallowedControlBytes = 0;
+  for (const byte of buffer) {
+    if (byte === 0x00) {
+      return false;
+    }
+
+    const isAsciiControl = byte < 0x20 && ![0x09, 0x0a, 0x0d].includes(byte);
+    if (isAsciiControl) {
+      disallowedControlBytes += 1;
+    }
+  }
+
+  return disallowedControlBytes / buffer.length < 0.02;
+};
+
+const isSvgMarkup = (buffer) => {
+  const content = buffer.toString('utf8').trimStart();
+  if (!/<svg[\s>]/i.test(content)) {
+    return false;
+  }
+
+  return !/(<script\b|onload\s*=|onerror\s*=|<foreignobject\b|javascript:)/i.test(content);
+};
+
+const detectFileKinds = (buffer) => {
+  const detectedKinds = new Set();
+
+  if (hasSignature(buffer, [0xff, 0xd8, 0xff])) {
+    detectedKinds.add('jpeg');
+  }
+
+  if (hasSignature(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    detectedKinds.add('png');
+  }
+
+  if (buffer.length >= 6) {
+    const gifHeader = buffer.slice(0, 6).toString('ascii');
+    if (gifHeader === 'GIF87a' || gifHeader === 'GIF89a') {
+      detectedKinds.add('gif');
+    }
+  }
+
+  if (buffer.length >= 12) {
+    const riffHeader = buffer.slice(0, 4).toString('ascii');
+    const webpHeader = buffer.slice(8, 12).toString('ascii');
+    if (riffHeader === 'RIFF' && webpHeader === 'WEBP') {
+      detectedKinds.add('webp');
+    }
+  }
+
+  if (buffer.slice(0, 5).toString('ascii') === '%PDF-') {
+    detectedKinds.add('pdf');
+  }
+
+  if (hasSignature(buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) {
+    detectedKinds.add('doc');
+  }
+
+  const isZipContainer = hasSignature(buffer, [0x50, 0x4b, 0x03, 0x04])
+    || hasSignature(buffer, [0x50, 0x4b, 0x05, 0x06])
+    || hasSignature(buffer, [0x50, 0x4b, 0x07, 0x08]);
+  if (isZipContainer && bufferContainsText(buffer, '[Content_Types].xml') && bufferContainsText(buffer, 'word/')) {
+    detectedKinds.add('docx');
+  }
+
+  if (isLikelyText(buffer)) {
+    detectedKinds.add('txt');
+    if (isSvgMarkup(buffer)) {
+      detectedKinds.add('svg');
+    }
+  }
+
+  return detectedKinds;
+};
+
+const ensureExtensionMatchesAllowedKinds = (file, allowedKinds, errorMessage) => {
+  const extension = path.extname(file.originalname || '').toLowerCase();
+  const allowedExtensions = allowedKinds.flatMap((kind) => FILE_KIND_EXTENSIONS[kind] || []);
+
+  if (!allowedExtensions.includes(extension)) {
+    throw new Error(errorMessage);
+  }
+};
+
+const ensureFileSignatureMatches = async (file, allowedKinds, errorMessage) => {
+  const sample = await readFileSample(file.path);
+  const detectedKinds = detectFileKinds(sample);
+  const hasValidKind = allowedKinds.some((kind) => detectedKinds.has(kind));
+
+  if (!hasValidKind) {
+    throw new Error(errorMessage);
+  }
+};
+
+const collectUploadedFiles = (req) => {
+  if (req.file) {
+    return [req.file];
+  }
+
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+
+  if (req.files && typeof req.files === 'object') {
+    return Object.values(req.files).flat();
+  }
+
+  return [];
+};
+
+const buildInvalidTypeMessage = (allowedKinds) => (
+  `Invalid file type. Uploaded content must be a valid ${allowedKinds.map((kind) => FILE_KIND_MESSAGES[kind]).join(', ')} file.`
+);
+
+const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) => {
+  const multerInstance = multer({ storage, limits });
+  let uploadMiddleware;
+
+  if (mode === 'fields') {
+    uploadMiddleware = multerInstance.fields(fields);
+  } else if (mode === 'single') {
+    uploadMiddleware = multerInstance.single(fields[0].name);
+  } else {
+    throw new Error(`Unsupported upload mode: ${mode}`);
+  }
+
+  const errorMessage = buildInvalidTypeMessage(allowedKinds);
+
+  return (req, res, next) => {
+    uploadMiddleware(req, res, async (error) => {
+      if (error) {
+        return next(error);
+      }
+
+      const files = collectUploadedFiles(req);
+      try {
+        await Promise.all(files.map(async (file) => {
+          ensureExtensionMatchesAllowedKinds(file, allowedKinds, errorMessage);
+          await ensureFileSignatureMatches(file, allowedKinds, errorMessage);
+        }));
+        next();
+      } catch (validationError) {
+        await Promise.all(files.map((file) => deleteUploadedFile(file.path)));
+        next(validationError);
+      }
+    });
+  };
+};
+
+export const uploadPaymentProof = createValidatedUpload({
+  storage: defaultStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  allowedKinds: ['jpeg', 'png', 'gif', 'pdf'],
+  mode: 'single',
+  fields: [{ name: 'proofFile' }],
 });
 
-export const uploadLessonFile = multer({
+export const uploadLessonFile = createValidatedUpload({
   storage: lessonStorage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain'
-    ];
-
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed.'), false);
-    }
-  },
-  limits: { fileSize: 50 * 1024 * 1024 }
+  limits: { fileSize: 50 * 1024 * 1024 },
+  allowedKinds: ['pdf', 'doc', 'docx', 'txt'],
+  mode: 'single',
+  fields: [{ name: 'file' }],
 });
 
-export const uploadInstructorDocs = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPEG, and PNG are allowed.'), false);
-    }
-  },
-  limits: { fileSize: 10 * 1024 * 1024 }
+export const uploadInstructorDocs = createValidatedUpload({
+  storage: defaultStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  allowedKinds: ['pdf', 'doc', 'docx', 'jpeg', 'png'],
+  mode: 'fields',
+  fields: [
+    { name: 'cvFile', maxCount: 1 },
+    { name: 'courseMaterialsFile', maxCount: 1 },
+  ],
 });
 
-export const uploadTeamMemberPhoto = multer({
+export const uploadTeamMemberPhoto = createValidatedUpload({
   storage: teamMemberStorage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'), false);
-    }
-  },
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 },
+  allowedKinds: ['jpeg', 'png', 'gif', 'webp'],
+  mode: 'single',
+  fields: [{ name: 'image' }],
 });
 
-export const uploadPartnerLogo = multer({
+export const uploadPartnerLogo = createValidatedUpload({
   storage: partnerStorage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG images are allowed.'), false);
-    }
-  },
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 },
+  allowedKinds: ['jpeg', 'png', 'gif', 'webp', 'svg'],
+  mode: 'single',
+  fields: [{ name: 'image' }],
 });

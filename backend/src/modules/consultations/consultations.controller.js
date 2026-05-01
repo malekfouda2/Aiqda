@@ -1,5 +1,14 @@
 import * as consultationsService from './consultations.service.js';
 
+export const getAll = async (req, res) => {
+  try {
+    const consultations = await consultationsService.getAll();
+    res.json(consultations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getActive = async (req, res) => {
   try {
     const consultations = await consultationsService.getActive();

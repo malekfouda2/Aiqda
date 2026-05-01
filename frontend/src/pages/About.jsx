@@ -4,19 +4,22 @@ import { motion } from 'framer-motion';
 
 import PartnersSection from '../components/PartnersSection';
 import { teamMembersAPI } from '../services/api';
-import { getLocalizedField } from '../i18n/translations';
+import { getLocalizedArrayField, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import { buildUploadUrl } from '../utils/uploads';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, slideInRight } from '../utils/animations';
 
-function TeamMemberAvatar({ member }) {
+function TeamMemberAvatar({ member, locale }) {
   const imageUrl = buildUploadUrl(member.image);
+  const localizedName = getLocalizedField(member, 'name', locale);
 
   if (imageUrl) {
     return (
       <img
         src={imageUrl}
-        alt={member.name}
+        alt={localizedName}
+        loading="lazy"
+        decoding="async"
         className="w-16 h-16 rounded-2xl object-cover shrink-0 shadow-lg border border-white/80"
       />
     );
@@ -62,9 +65,8 @@ function About() {
       <section className="relative overflow-hidden pt-32 pb-24">
         <div className="absolute inset-0 mesh-gradient" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="floating-orb w-[500px] h-[500px] bg-primary-100/40 top-[-150px] left-[-100px] animate-float" />
-          <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/35 bottom-[-100px] right-[-80px] animate-float-slow" />
-          <div className="floating-orb w-[250px] h-[250px] bg-orange-100/25 top-1/3 right-1/4 animate-glow-pulse" />
+          <div className="floating-orb w-[360px] h-[360px] bg-primary-100/35 top-[-110px] left-[-60px] animate-float" />
+          <div className="floating-orb w-[280px] h-[280px] bg-cyan-100/30 bottom-[-80px] right-[-50px] animate-float-slow" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -104,7 +106,7 @@ function About() {
         </div>
       </section>
 
-      <section className="py-20 bg-gray-50/50">
+      <section className="content-auto py-20 bg-gray-50/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             variants={staggerContainer}
@@ -138,7 +140,7 @@ function About() {
                   <div className="text-5xl font-black gradient-text text-glow mb-4">"</div>
                   <blockquote className="text-xl font-semibold text-gray-800 leading-relaxed">
                     {isRTL
-                      ? 'حيث يلتقي المبدعون من مختلف أنحاء العالم لصناعة الفصل القادم من فن التحريك'
+                      ? 'حيث يلتقي المبدعون من مختلف أنحاء العالم لصناعة الفصل القادم من فن التحريك و المؤثرات البصرية'
                       : 'Where global creators meet to shape the next chapter of animation'}
                   </blockquote>
                   <div className="mt-6 flex items-center gap-3">
@@ -153,7 +155,7 @@ function About() {
         </div>
       </section>
 
-      <section className="py-24">
+      <section className="content-auto py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             variants={fadeInUp}
@@ -164,10 +166,10 @@ function About() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4">
               <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'الفريق القيادي' : 'Leadership'}</span>
+              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'فريق' : 'Leadership'}</span>
             </div>
             <h2 className="text-4xl font-bold text-gray-900">
-              {isRTL ? 'تعرّف إلى ' : 'Meet Our '}<span className="gradient-text">{isRTL ? 'فريقنا' : 'Team'}</span>
+              {isRTL ? 'تعرّف إلى ' : 'Meet Our '}<span className="gradient-text">{isRTL ? 'العمل' : 'Team'}</span>
             </h2>
             <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
               {isRTL
@@ -181,7 +183,7 @@ function About() {
               {[0, 1].map((item) => (
                 <div key={item} className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8 animate-pulse">
                   <div className="flex items-start gap-5 mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gray-100 shrink-0" />
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 shrink-0" /> 
                     <div className="flex-1 space-y-3">
                       <div className="h-5 bg-gray-100 rounded-full w-2/3" />
                       <div className="h-4 bg-gray-100 rounded-full w-1/2" />
@@ -216,7 +218,7 @@ function About() {
                 >
                   <div className="p-8">
                     <div className="flex items-start gap-5 mb-6">
-                      <TeamMemberAvatar member={member} />
+                      <TeamMemberAvatar member={member} locale={locale} />
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">
                           {getLocalizedField(member, 'name', locale)}
@@ -228,7 +230,7 @@ function About() {
                     </div>
 
                     <ul className="space-y-3">
-                      {(member.achievementsAr?.length && locale === 'ar' ? member.achievementsAr : member.achievements).map((item, index) => (
+                      {getLocalizedArrayField(member, 'achievements', locale).map((item, index) => (
                         <li key={`${member._id}-${index}`} className="flex items-start gap-3">
                           <span className="mt-1.5 w-5 h-5 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
@@ -249,35 +251,76 @@ function About() {
         </div>
       </section>
 
-      <section className="py-20 bg-gradient-to-br from-primary-50 to-cyan-50 border-t border-gray-100">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="content-auto relative overflow-hidden border-t border-gray-100 bg-gradient-to-br from-primary-50 via-white to-cyan-50 py-14 sm:py-16">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="floating-orb w-[240px] h-[240px] bg-primary-100/25 -top-16 -left-8 animate-float-slow" />
+          <div className="floating-orb w-[180px] h-[180px] bg-cyan-100/25 top-1/3 -right-8 animate-float" />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-60px' }}
           >
-            <motion.div variants={fadeInUp}>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-6">
-                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'التواصل' : 'Contact'}</span>
-              </div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                {isRTL ? 'هل أنت مستعد لـ ' : 'Ready to '}<span className="gradient-text">{isRTL ? 'الارتقاء' : 'Elevate'}</span>{isRTL ? ' بمهاراتك؟' : ' Your Skills?'}
-              </h2>
-              <p className="text-gray-500 text-lg mb-2">
-                {isRTL ? 'تواصل معنا وابدأ رحلتك في عالم التحريك اليوم.' : 'Get in touch with us and start your animation journey today.'}
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
-                <Link to="/contact-us" className="btn-primary">
-                  {isRTL ? 'الذهاب إلى صفحة التواصل' : 'Go to Contact Us'}
-                </Link>
-                <a
-                  href="mailto:info@24center.edu.sa"
-                  className="text-primary-500 hover:text-primary-600 font-semibold text-lg transition-colors"
-                >
-                  info@24center.edu.sa
-                </a>
+            <motion.div
+              variants={fadeInUp}
+              className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.12),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_34%)]" />
+              <div className="absolute top-0 left-0 h-full w-2 bg-gradient-to-b from-primary-400 via-brand-teal to-brand-blue" />
+              <div className="absolute -top-16 right-12 h-40 w-40 rounded-full border border-primary-100/80 bg-white/40" />
+              <div className="absolute bottom-6 right-6 h-24 w-24 rounded-[2rem] border border-cyan-100/80 bg-cyan-50/60 rotate-12" />
+
+              <div className="relative grid gap-8 px-6 py-8 sm:px-8 sm:py-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:px-12 lg:py-12">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/85 px-4 py-2 shadow-sm mb-6">
+                    <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" />
+                    <span className="text-xs text-gray-500 uppercase tracking-[0.28em] font-semibold">
+                      {isRTL ? 'التواصل' : 'Contact'}
+                    </span>
+                  </div>
+
+                  <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.05] mb-5">
+                    {isRTL ? 'هل أنت مستعد لـ ' : 'Ready to '}
+                    <span className="gradient-text">{isRTL ? 'الارتقاء' : 'Elevate'}</span>
+                    {isRTL ? ' بمهاراتك؟' : ' Your Skills?'}
+                  </h2>
+
+                  <p className="text-lg sm:text-xl text-gray-600 leading-relaxed max-w-xl">
+                    {isRTL ? 'تواصل معنا وابدأ رحلتك في عالم التحريك اليوم.' : 'Get in touch with us and start your animation journey today.'}
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-[1.75rem] border border-gray-200/80 bg-white/90 p-5 sm:p-6 shadow-[0_18px_45px_rgba(236,72,153,0.10)]">
+                    <div className="flex flex-col gap-4">
+                      <Link to="/contact-us" className="btn-primary w-full justify-center text-base sm:text-lg py-4">
+                        {isRTL ? 'الذهاب إلى صفحة التواصل' : 'Go to Contact Us'}
+                      </Link>
+
+                      <a
+                        href="mailto:info@24center.edu.sa"
+                        className="group flex items-center justify-between gap-4 rounded-2xl border border-primary-100 bg-gradient-to-r from-primary-50 via-white to-cyan-50 px-5 py-4 transition-all duration-300 hover:border-primary-200 hover:shadow-md"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[11px] uppercase tracking-[0.24em] text-gray-400 font-semibold mb-1">
+                            {isRTL ? 'البريد الإلكتروني' : 'Email'}
+                          </p>
+                          <p className="text-base sm:text-lg font-semibold text-primary-500 break-all">
+                            info@24center.edu.sa
+                          </p>
+                        </div>
+                        <span className={`shrink-0 text-primary-400 transition-transform duration-300 ${isRTL ? 'group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`}>
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={isRTL ? 'M8 12h8m0 0l-3-3m3 3l-3 3' : 'M5 12h14m0 0l-3-3m3 3l-3 3'} />
+                          </svg>
+                        </span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>

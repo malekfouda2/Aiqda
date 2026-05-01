@@ -1,4 +1,5 @@
 import InstructorApplication from './instructorApplication.model.js';
+import path from 'path';
 import User from '../users/user.model.js';
 import { hashPassword } from '../../utils/password.js';
 import { generateToken } from '../../utils/jwt.js';
@@ -15,6 +16,8 @@ import {
   buildInstructorRejectionEmail
 } from '../../utils/emailTemplates.js';
 import crypto from 'crypto';
+import { normalizeExternalUrl } from '../../utils/url.js';
+import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
 
 const getInstructorSetupBaseUrl = () => {
   const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5000';
@@ -32,6 +35,10 @@ export const create = async (data) => {
 
   const normalizedData = {
     ...data,
+    websiteOrPortfolio: normalizeExternalUrl(data.websiteOrPortfolio, {
+      fieldLabel: 'Website or portfolio link',
+      required: false,
+    }),
     creatorTermsVersion: CREATOR_TERMS_VERSION,
     creatorTermsAcceptedAt: new Date(),
   };
@@ -76,6 +83,31 @@ export const getById = async (id) => {
     throw new Error('Application not found');
   }
   return application;
+};
+
+export const getApplicationFileDownload = async (id, field) => {
+  if (!['cvFile', 'courseMaterialsFile'].includes(field)) {
+    throw new Error('Invalid application file field');
+  }
+
+  const application = await InstructorApplication.findById(id).select(`${field} fullName`);
+  if (!application) {
+    throw new Error('Application not found');
+  }
+
+  const storedPath = application[field];
+  if (!storedPath) {
+    throw new Error('Application file not found');
+  }
+
+  const extension = path.extname(storedPath) || '';
+
+  return {
+    absolutePath: await ensureUploadPathExists(storedPath),
+    downloadName: field === 'cvFile'
+      ? `instructor-cv-${application._id}${extension}`
+      : `course-materials-${application._id}${extension}`,
+  };
 };
 
 export const approve = async (id, adminId) => {

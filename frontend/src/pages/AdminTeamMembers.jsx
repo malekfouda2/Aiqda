@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import LoadingSpinner from '../components/LoadingSpinner';
-import useUIStore from '../store/uiStore';
 import { teamMembersAPI } from '../services/api';
+import useUIStore from '../store/uiStore';
 import { buildUploadUrl } from '../utils/uploads';
-import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
+import { cardVariants, fadeInUp, pageVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const buildInitialFormState = () => ({
   _id: null,
   name: '',
+  nameAr: '',
   title: '',
+  titleAr: '',
   achievements: [''],
+  achievementsAr: [''],
   order: 0,
   isActive: true,
   removeImage: false,
@@ -55,7 +58,14 @@ function AdminTeamMembers() {
     }
 
     return teamMembers.filter((member) => (
-      [member.name, member.title, ...(member.achievements || [])]
+      [
+        member.name,
+        member.nameAr,
+        member.title,
+        member.titleAr,
+        ...(member.achievements || []),
+        ...(member.achievementsAr || []),
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -94,8 +104,11 @@ function AdminTeamMembers() {
     setFormData({
       _id: member._id,
       name: member.name,
+      nameAr: member.nameAr || '',
       title: member.title,
+      titleAr: member.titleAr || '',
       achievements: member.achievements?.length ? member.achievements : [''],
+      achievementsAr: member.achievementsAr?.length ? member.achievementsAr : [''],
       order: member.order ?? 0,
       isActive: member.isActive,
       removeImage: false,
@@ -114,30 +127,30 @@ function AdminTeamMembers() {
     setFormData(buildInitialFormState());
   };
 
-  const updateAchievement = (index, value) => {
+  const updateAchievement = (field, index, value) => {
     setFormData((current) => {
-      const nextAchievements = [...current.achievements];
+      const nextAchievements = [...current[field]];
       nextAchievements[index] = value;
       return {
         ...current,
-        achievements: nextAchievements,
+        [field]: nextAchievements,
       };
     });
   };
 
-  const addAchievement = () => {
+  const addAchievement = (field) => {
     setFormData((current) => ({
       ...current,
-      achievements: [...current.achievements, ''],
+      [field]: [...current[field], ''],
     }));
   };
 
-  const removeAchievement = (index) => {
+  const removeAchievement = (field, index) => {
     setFormData((current) => {
-      const nextAchievements = current.achievements.filter((_, itemIndex) => itemIndex !== index);
+      const nextAchievements = current[field].filter((_, itemIndex) => itemIndex !== index);
       return {
         ...current,
-        achievements: nextAchievements.length ? nextAchievements : [''],
+        [field]: nextAchievements.length ? nextAchievements : [''],
       };
     });
   };
@@ -158,13 +171,19 @@ function AdminTeamMembers() {
     try {
       const payload = new FormData();
       payload.append('name', formData.name);
+      payload.append('nameAr', formData.nameAr);
       payload.append('title', formData.title);
+      payload.append('titleAr', formData.titleAr);
       payload.append('order', String(formData.order));
       payload.append('isActive', String(formData.isActive));
       payload.append('removeImage', String(formData.removeImage));
       payload.append(
         'achievements',
         JSON.stringify(formData.achievements.map((item) => item.trim()).filter(Boolean))
+      );
+      payload.append(
+        'achievementsAr',
+        JSON.stringify(formData.achievementsAr.map((item) => item.trim()).filter(Boolean))
       );
 
       if (formData.image) {
@@ -218,7 +237,7 @@ function AdminTeamMembers() {
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by name, title, or achievement..."
+              placeholder="Search by English or Arabic content..."
               className="input-field pl-10 w-full sm:w-80"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +311,13 @@ function AdminTeamMembers() {
                         <span className="text-xs text-gray-400">Order {member.order ?? 0}</span>
                       </div>
                       <h2 className="text-xl font-semibold text-gray-900 truncate">{member.name}</h2>
-                      <p className="text-sm text-gray-500">{member.title}</p>
+                      {member.nameAr && (
+                        <p className="text-sm text-gray-500 truncate" dir="rtl">{member.nameAr}</p>
+                      )}
+                      <p className="text-sm text-gray-500 mt-1">{member.title}</p>
+                      {member.titleAr && (
+                        <p className="text-sm text-gray-400" dir="rtl">{member.titleAr}</p>
+                      )}
                       <p className="text-sm text-gray-400 mt-3">
                         {member.achievements?.length || 0} achievement{member.achievements?.length === 1 ? '' : 's'}
                       </p>
@@ -346,7 +371,7 @@ function AdminTeamMembers() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: 12 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="app-modal-panel max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+              className="app-modal-panel max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
             >
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
@@ -360,11 +385,15 @@ function AdminTeamMembers() {
               </div>
 
               <form onSubmit={handleSubmit} className="app-modal-scroll overflow-y-auto p-6 space-y-6 flex-1">
+                <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-700">
+                  English fields remain the default site copy. Arabic fields are optional and power the localized About page.
+                </div>
+
                 <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
                   <div className="space-y-6">
                     <div className="grid sm:grid-cols-2 gap-6">
-                      <div className="sm:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name (English)</label>
                         <input
                           type="text"
                           value={formData.name}
@@ -374,8 +403,19 @@ function AdminTeamMembers() {
                           placeholder="e.g. Abdulwahed Alabdlee"
                         />
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name (Arabic)</label>
+                        <input
+                          type="text"
+                          dir="rtl"
+                          value={formData.nameAr}
+                          onChange={(event) => setFormData((current) => ({ ...current, nameAr: event.target.value }))}
+                          className="input-field"
+                          placeholder="مثال: عبد الواحد العبدلي"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Title (English)</label>
                         <input
                           type="text"
                           value={formData.title}
@@ -383,6 +423,17 @@ function AdminTeamMembers() {
                           required
                           className="input-field"
                           placeholder="e.g. Managing Partner & Trainer Consultant"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Title (Arabic)</label>
+                        <input
+                          type="text"
+                          dir="rtl"
+                          value={formData.titleAr}
+                          onChange={(event) => setFormData((current) => ({ ...current, titleAr: event.target.value }))}
+                          className="input-field"
+                          placeholder="مثال: شريك إداري ومستشار تدريب"
                         />
                       </div>
                       <div>
@@ -410,8 +461,8 @@ function AdminTeamMembers() {
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-700">Achievements</label>
-                        <button type="button" onClick={addAchievement} className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                        <label className="block text-sm font-medium text-gray-700">Achievements (English)</label>
+                        <button type="button" onClick={() => addAchievement('achievements')} className="text-sm font-medium text-primary-600 hover:text-primary-700">
                           + Add achievement
                         </button>
                       </div>
@@ -420,14 +471,46 @@ function AdminTeamMembers() {
                           <div key={`achievement-${index}`} className="flex gap-2">
                             <textarea
                               value={achievement}
-                              onChange={(event) => updateAchievement(index, event.target.value)}
+                              onChange={(event) => updateAchievement('achievements', index, event.target.value)}
                               rows={2}
                               className="input-field min-h-[88px] resize-none"
                               placeholder="Add a short achievement or credential..."
                             />
                             <button
                               type="button"
-                              onClick={() => removeAchievement(index)}
+                              onClick={() => removeAchievement('achievements', index)}
+                              className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-gray-200 self-start"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">Achievements (Arabic)</label>
+                        <button type="button" onClick={() => addAchievement('achievementsAr')} className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                          + Add achievement
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {formData.achievementsAr.map((achievement, index) => (
+                          <div key={`achievement-ar-${index}`} className="flex gap-2">
+                            <textarea
+                              dir="rtl"
+                              value={achievement}
+                              onChange={(event) => updateAchievement('achievementsAr', index, event.target.value)}
+                              rows={2}
+                              className="input-field min-h-[88px] resize-none"
+                              placeholder="أضف إنجازًا أو مؤهلًا مختصرًا..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeAchievement('achievementsAr', index)}
                               className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-gray-200 self-start"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

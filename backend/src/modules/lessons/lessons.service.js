@@ -3,6 +3,7 @@ import Course from '../courses/course.model.js';
 import { updateLessonCount } from '../courses/courses.service.js';
 import { LessonProgress } from '../analytics/progress.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
+import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
 
 const LESSON_CREATABLE_FIELDS = [
   'course',
@@ -304,5 +305,29 @@ export const getSecureVideoToken = async (lessonId, userId, userRole = null) => 
     videoId: lesson.vimeoVideoId,
     lessonId: lesson._id,
     minimumWatchPercentage: lesson.minimumWatchPercentage
+  };
+};
+
+export const getLessonFileDownload = async (lessonId, userId, userRole = null) => {
+  const lesson = await Lesson.findById(lessonId).populate('course');
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  if (!canAccessLesson(lesson, userId, userRole)) {
+    throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    await ensureStudentSubscriptionAccess(lesson.course, userId);
+  }
+
+  if (!lesson.supportingFile) {
+    throw new Error('No supporting file available for this lesson');
+  }
+
+  return {
+    absolutePath: await ensureUploadPathExists(lesson.supportingFile),
+    downloadName: lesson.supportingFileName || 'lesson-supporting-file',
   };
 };

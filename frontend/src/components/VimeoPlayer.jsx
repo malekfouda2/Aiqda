@@ -2,10 +2,27 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import Player from '@vimeo/player';
 import { useLocale } from '../i18n/useLocale';
 
-function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
+const PROGRESS_SYNC_INTERVAL_MS = 5000;
+
+function buildFallbackEmbedUrl(vimeoVideoId) {
+  if (!vimeoVideoId) {
+    return '';
+  }
+
+  const url = new URL(`https://player.vimeo.com/video/${vimeoVideoId}`);
+  url.searchParams.set('title', '0');
+  url.searchParams.set('byline', '0');
+  url.searchParams.set('portrait', '0');
+  url.searchParams.set('badge', '0');
+  url.searchParams.set('dnt', '1');
+  return url.toString();
+}
+
+function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress = 0 }) {
   const { t, isRTL } = useLocale();
   const containerRef = useRef(null);
   const playerRef = useRef(null);
+  const playerInstanceIdRef = useRef(0);
   const watchedSegmentsRef = useRef(new Set());
   const lastSentProgressRef = useRef(initialProgress);
   const progressIntervalRef = useRef(null);
@@ -14,6 +31,7 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [watchedPercentage, setWatchedPercentage] = useState(initialProgress);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const [playerError, setPlayerError] = useState(null);
 
   useEffect(() => {
@@ -23,6 +41,8 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
     setWatchedPercentage(initialProgress);
     lastSentProgressRef.current = initialProgress;
   }, [initialProgress]);
+
+  const activeEmbedUrl = embedUrl || buildFallbackEmbedUrl(vimeoVideoId);
 
   const calculateWatchedPercentage = useCallback(() => {
     return Math.min(watchedSegmentsRef.current.size, 100);
@@ -36,36 +56,89 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
   }, [onProgressUpdate]);
 
   useEffect(() => {
-    if (!containerRef.current || !vimeoVideoId) return;
+    if (!containerRef.current || !activeEmbedUrl) return;
+
+    const instanceId = playerInstanceIdRef.current + 1;
+    playerInstanceIdRef.current = instanceId;
+    let isActive = true;
+    let player = null;
+    setPlayerReady(false);
+    setIframeLoaded(false);
+    setPlayerError(null);
+
+    const isCurrentInstance = () => isActive && playerInstanceIdRef.current === instanceId;
+    const shouldIgnoreError = (error) => (
+      error?.message?.includes('Unknown player. Probably unloaded.')
+      || error?.message?.includes('The player element passed isn’t a Vimeo embed.')
+    );
 
     try {
-      const player = new Player(containerRef.current, {
-        id: parseInt(vimeoVideoId),
-        width: '100%',
-        responsive: true,
-        autopause: true,
-        dnt: true,
-      });
+      const container = containerRef.current;
+      container.innerHTML = '';
+
+      const iframe = document.createElement('iframe');
+      iframe.src = activeEmbedUrl;
+      iframe.title = isRTL ? 'مشغل فيديو Vimeo' : 'Vimeo video player';
+      iframe.className = 'w-full h-full';
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share');
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      iframe.onload = () => {
+        if (isCurrentInstance()) {
+          setIframeLoaded(true);
+        }
+      };
+      container.appendChild(iframe);
+
+      player = new Player(iframe);
 
       playerRef.current = player;
 
       player.ready().then(() => {
+        if (!isCurrentInstance()) {
+          return;
+        }
         setPlayerReady(true);
-        player.getDuration().then(dur => setDuration(dur));
+        player.getDuration().then(dur => {
+          if (!isCurrentInstance()) {
+            return;
+          }
+          setDuration(dur);
+        });
       }).catch(err => {
-        setPlayerError(isRTL ? 'تعذر تحميل مشغل الفيديو. قد لا يكون الفيديو متاحًا.' : 'Failed to load video player. The video may not be available.');
+        if (!isCurrentInstance() || shouldIgnoreError(err)) {
+          return;
+        }
+        setPlayerError(isRTL ? 'تعذر تفعيل تتبع الفيديو المباشر، لكن قد يظل التشغيل متاحًا.' : 'Live video tracking could not be enabled, but playback may still be available.');
         console.error('Vimeo player error:', err);
       });
 
-      player.on('play', () => setIsPlaying(true));
-      player.on('pause', () => setIsPlaying(false));
+      player.on('play', () => {
+        if (isCurrentInstance()) {
+          setIsPlaying(true);
+        }
+      });
+      player.on('pause', () => {
+        if (isCurrentInstance()) {
+          setIsPlaying(false);
+          const pct = calculateWatchedPercentage();
+          sendProgress(pct);
+        }
+      });
       player.on('ended', () => {
+        if (!isCurrentInstance()) {
+          return;
+        }
         setIsPlaying(false);
         const pct = calculateWatchedPercentage();
         sendProgress(pct);
       });
 
       player.on('timeupdate', (data) => {
+        if (!isCurrentInstance()) {
+          return;
+        }
         setCurrentTime(data.seconds);
         const segment = Math.floor(data.percent * 100);
         if (segment >= 0 && segment <= 100) {
@@ -76,8 +149,11 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
       });
 
       player.on('error', (err) => {
+        if (!isCurrentInstance() || shouldIgnoreError(err)) {
+          return;
+        }
         console.error('Vimeo player error event:', err);
-        setPlayerError(isRTL ? 'حدث خطأ أثناء تشغيل الفيديو. يرجى المحاولة مرة أخرى.' : 'Video playback error. Please try again.');
+        setPlayerError(isRTL ? 'حدث خطأ في تتبع فيديو Vimeo. إذا ظهر المشغل، يمكنك المتابعة بالمشاهدة.' : 'A Vimeo tracking error occurred. If the player is visible, you can continue watching.');
       });
 
       progressIntervalRef.current = setInterval(() => {
@@ -85,26 +161,34 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
         if (pct > lastSentProgressRef.current) {
           sendProgress(pct);
         }
-      }, 15000);
+      }, PROGRESS_SYNC_INTERVAL_MS);
     } catch (err) {
       setPlayerError(isRTL ? 'تعذر تهيئة مشغل الفيديو.' : 'Failed to initialize video player.');
       console.error('Player init error:', err);
     }
 
     return () => {
+      isActive = false;
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
       }
       const pct = calculateWatchedPercentage();
       if (pct > lastSentProgressRef.current && onProgressUpdate) {
         onProgressUpdate(pct);
       }
-      if (playerRef.current) {
-        playerRef.current.destroy().catch(() => {});
-        playerRef.current = null;
+      const activePlayer = player;
+      if (activePlayer) {
+        activePlayer.destroy().catch(() => {});
+        if (playerRef.current === activePlayer) {
+          playerRef.current = null;
+        }
+      }
+      if (containerRef.current && playerInstanceIdRef.current === instanceId) {
+        containerRef.current.innerHTML = '';
       }
     };
-  }, [vimeoVideoId]);
+  }, [activeEmbedUrl, vimeoVideoId, calculateWatchedPercentage, isRTL, onProgressUpdate, sendProgress]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -112,25 +196,11 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (playerError) {
-    return (
-      <div className="aspect-video bg-white rounded-xl flex items-center justify-center border border-gray-200">
-        <div className="text-center px-6">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center border border-red-100">
-            <span className="text-4xl">⚠️</span>
-          </div>
-          <p className="text-gray-500 mb-2">{playerError}</p>
-          <p className="text-gray-400 text-sm">Video ID: {vimeoVideoId}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden border border-gray-200 relative">
         <div ref={containerRef} className="w-full h-full" />
-        {!playerReady && (
+        {!playerReady && !iframeLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center">
               <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-3" />
@@ -139,6 +209,13 @@ function VimeoPlayer({ vimeoVideoId, onProgressUpdate, initialProgress = 0 }) {
           </div>
         )}
       </div>
+
+      {playerError && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <p>{playerError}</p>
+          <p className="mt-1 text-xs text-amber-600">Video ID: {vimeoVideoId}</p>
+        </div>
+      )}
 
       {playerReady && (
         <div className="mt-3 flex items-center justify-between gap-4">

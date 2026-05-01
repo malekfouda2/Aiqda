@@ -9,11 +9,12 @@ router.get('/bank-details', paymentsController.getBankDetails);
 
 router.use(authenticate);
 
-router.post('/', uploadPaymentProof.single('proofFile'), paymentsController.submitPayment);
+router.post('/', uploadPaymentProof, paymentsController.submitPayment);
 router.get('/my', paymentsController.getUserPayments);
 
 router.get('/', isAdmin, paymentsController.getAllPayments);
 router.get('/:id', paymentsController.getPaymentById);
+router.get('/:id/proof', paymentsController.downloadProof);
 router.patch('/:id/approve', isAdmin, paymentsController.approvePayment);
 router.patch('/:id/reject', isAdmin, paymentsController.rejectPayment);
 

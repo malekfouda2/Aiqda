@@ -62,25 +62,25 @@ function Home() {
     {
       icon: "🎯",
       iconClass: "icon-box-primary",
-      title: isRTL ? "صنّاع خبراء" : "Expert Creators",
+      title: isRTL ? "خبرات من أهل المجالء" : "Expert Creators",
       description: isRTL
-        ? "طوّر مهاراتك مع محترفين من المجال لديهم سنوات من الخبرة العملية."
+        ? "استكشف كيف يشتغل المحترفون فعلًا."
         : "Improve your skills from industry professionals with years of experience in their fields.",
     },
     {
       icon: "📚",
       iconClass: "icon-box-success",
-      title: isRTL ? "فصول قائمة على المشاريع" : "Project Based Chapters",
+      title: isRTL ? "محتوى مبني على الممارسة" : "Project Based Chapters",
       description: isRTL
-        ? "فصول منتقاة بعناية تتضمن فيديوهات واختبارات وموارد داعمة."
+        ? "فيديوهات وموارد وأمثلة من قلب الإنتاج.."
         : "Carefully curated chapters with video contents, quizzes, and resources.",
     },
-    {
-      icon: "📊",
-      iconClass: "icon-box-accent",
-      title: isRTL ? "شاهد تطورك" : "See How You Improve",
-      description: isRTL
-        ? "تابع رحلة تطويرك من خلال تحليلات ورؤى واضحة."
+{
+  icon: "📊",
+  iconClass: "icon-box-accent",
+  title: isRTL ? "تفاعل أذكى مع المحتوى" : "See How You Improve",
+  description: isRTL
+        ? "اكتشف المحتوى بطريقة تمنحك رؤية أوسع وتجربة أغنى."
         : "Monitor your skills improvement journey with detailed analytics and insights.",
     },
   ];
@@ -91,19 +91,9 @@ function Home() {
         <div className="absolute inset-0 mesh-gradient" />
 
         <div className="absolute inset-0 overflow-hidden">
-          <div className="floating-orb w-[600px] h-[600px] bg-primary-100/40 top-[-200px] left-[-100px] animate-float" />
-          <div className="floating-orb w-[500px] h-[500px] bg-cyan-100/40 bottom-[-150px] right-[-100px] animate-float-slow" />
-          <div className="floating-orb w-[300px] h-[300px] bg-blue-100/30 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-glow-pulse" />
-          <div className="floating-orb w-[200px] h-[200px] bg-orange-100/30 top-[20%] right-[15%] animate-float" />
+          <div className="floating-orb w-[420px] h-[420px] bg-primary-100/35 top-[-120px] left-[-60px] animate-float" />
+          <div className="floating-orb w-[340px] h-[340px] bg-cyan-100/35 bottom-[-120px] right-[-80px] animate-float-slow" />
         </div>
-
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px)`,
-            backgroundSize: "50px 50px",
-          }}
-        />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <motion.div
@@ -221,7 +211,7 @@ function Home() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
       </section>
 
-      <section className="relative py-32 overflow-hidden">
+      <section className="content-auto relative py-32 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -235,12 +225,12 @@ function Home() {
               {isRTL ? "لماذا نحن" : "Why Choose Us"}
             </span>
             <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-              {isRTL ? "مصممة من أجل" : "Designed for"}
-              <span className="gradient-text"> {isRTL ? "التميّز" : "Excellence"}</span>
+              {isRTL ? "مصممة للمبدعين اللي يبغون" : "Designed for"}
+              <span className="gradient-text"> {isRTL ? "أكثر" : "Excellence"}</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-lg">
               {isRTL
-                ? "طوّر مهاراتك بأسلوب غير مسبوق مع فصولنا المنتقاة بعناية وصنّاع المحتوى الخبراء."
+                ? "ادخل تجربة محتوى مختلفة تجمع الإلهام، التطبيق، ورؤى من محترفين في الصناعة."
                 : "Improve your skills like never before with our curated chapters and expert creators."}
             </p>
           </motion.div>
@@ -273,7 +263,7 @@ function Home() {
       </section>
 
       {packages.length > 0 && (
-        <section className="relative py-32 overflow-hidden">
+        <section className="content-auto relative py-32 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" />
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
@@ -283,17 +273,17 @@ function Home() {
               className="text-center mb-16"
             >
               <span className="text-primary-500 text-sm font-medium tracking-widest uppercase mb-4 block">
-                {isRTL ? "خطط الاشتراك" : "Subscription Plans"}
+                {isRTL ? "خطط اشتراك تناسب طموحك " : "Subscription Plans"}
               </span>
-              <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-                {isRTL ? "اختر" : "Choose Your"}
-                <span className="gradient-text"> {isRTL ? "مسارك المناسب" : "Workthrough Path"}</span>
-              </h2>
-              <p className="text-gray-500 max-w-xl mx-auto text-lg">
-                {isRTL
-                  ? "اختر الباقة التي تناسب أهدافك وابدأ رحلتك الإبداعية اليوم."
-                  : "Pick the package that fits your goals and start your creative journey today."}
-              </p>
+<h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
+  {isRTL ? "اختر" : "Choose Your"}
+  <span className="gradient-text"> {isRTL ? "المسار اللي يشبهك" : "Workthrough Path"}</span>
+</h2>
+<p className="text-gray-500 max-w-xl mx-auto text-lg">
+  {isRTL
+    ? "اختر الباقة المناسبة لأهدافك، وابدأ رحلتك الإبداعية بطريقتك. استكشف الخيارات، وابدأ من المستوى اللي يناسبك اليوم."
+    : "Pick the package that fits your goals and start your creative journey today."}
+</p>
 
               <div className="mt-6 mx-auto max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4 text-left">
                 <div className="flex items-start gap-3">
@@ -529,7 +519,7 @@ function Home() {
         </section>
       )}
 
-      <section className="relative py-32">
+      <section className="content-auto relative py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -541,25 +531,25 @@ function Home() {
             <div className="absolute inset-0 mesh-gradient opacity-30" />
 
             <div className="relative py-20 px-8 text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 mb-8"
-              >
-                <span className="text-2xl">✨</span>
-                <span className="text-sm text-white/90">
-                  {isRTL ? "انضم إلى مجتمعنا" : "Join Our Community"}
-                </span>
-              </motion.div>
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true }}
+  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 mb-8"
+>
+  <span className="text-2xl">✨</span>
+  <span className="text-sm text-white/90">
+    {isRTL ? "انضم إلى مجتمع المبدعين" : "Join Our Community"}
+  </span>
+</motion.div>
 
               <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
-                {isRTL ? "هل أنت مستعد لبدء" : "Ready to Begin Your"}
+                {isRTL ? "جاهز تدخل المرحلة الجاية؟" : "Ready to Begin Your"}
                 <span className="block text-white/90">{isRTL ? "رحلة التحول؟" : "Transformation?"}</span>
               </h2>
               <p className="text-white/70 max-w-xl mx-auto mb-10 text-lg">
                 {isRTL
-                  ? `انضم إلى آلاف الأعضاء الذين ارتقوا بمهاراتهم مع ${brandName}.`
+                  ? `ابدأ رحلتك الإبداعية مع مجتمع من المبدعين يكتشف، يصنع، ويوسّع آفاقه مع أقدع. ${brandName}.`
                   : `Join thousands of members who have elevated their skills with ${brandName}.`}
               </p>
               <Link
@@ -574,7 +564,7 @@ function Home() {
         </div>
       </section>
 
-      <section className="relative py-24 overflow-hidden">
+      <section className="content-auto relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -593,15 +583,17 @@ function Home() {
               </h2>
               <p className="text-gray-500 text-lg mb-6 leading-relaxed">
                 {isRTL
-                  ? `هل أنت متخصص في التحريك أو محترف إبداعي؟ انضم إلى ${brandName} كصانع محتوى وألهم الجيل القادم من الفنانين. نحن نبحث عن خبرات شغوفة في التحريك ثنائي الأبعاد وثلاثي الأبعاد والستوري بورد والستوب موشن وغيرها.`
+                  ? ` إذا كنت صانع محتوى في عالم التحريك والإبداع، انضم إلى أقدع وكن جزءًا من مجتمع يشارك المعرفة ويصنع أثرًا.
+نبحث عن مبدعين في:
+`
                   : `Are you a skilled animator or creative professional? Join ${brandName} as a creator and inspire the next generation of artists. We're looking for passionate educators in 2D, 3D, Storyboarding, Stop Motion, and more.`}
               </p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  isRTL ? "الوصول إلى أعضاء حول العالم" : "Reach members worldwide",
-                  isRTL ? "منصة احترافية ودعم متكامل" : "Professional platform & support",
-                  isRTL ? "شارك رؤيتك الإبداعية الخاصة" : "Share your unique creative vision",
-                ].map((item, i) => (
+<ul className="space-y-3 mb-8">
+  {[
+    isRTL ? "التحريك ثنائي وثلاثي الأبعاد" : "Reach members worldwide",
+    isRTL ? "الستوري بورد والتطوير البصري" : "Professional platform & support",
+    isRTL ? "  خطوط الإنتاج وسير العمل" : "Share your unique creative vision",
+  ].map((item, i) => (
                   <motion.li
                     key={item}
                     initial={{ opacity: 0, x: -20 }}
@@ -649,26 +641,26 @@ function Home() {
                 <div className="absolute -top-4 -right-4 w-24 h-24 bg-brand-teal/10 rounded-full blur-2xl" />
                 <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary-100/40 rounded-full blur-2xl" />
                 <div className="relative space-y-6">
-                  {[
-                    {
-                      icon: "🎬",
-                      title: isRTL ? "خبراء التحريك" : "Animation Experts",
-                      desc: isRTL ? "ثنائي وثلاثي الأبعاد وستوب موشن وأكثر" : "2D, 3D, Stop Motion & more",
-                    },
-                    {
-                      icon: "🎨",
-                      title: isRTL ? "محترفون إبداعيون" : "Creative Professionals",
-                      desc: isRTL ? "الستوري بورد والفنون البصرية" : "Storyboarding & visual arts",
-                    },
-                    {
-                      icon: "📐",
-                      title: isRTL ? "فنانون تقنيون" : "Technical Artists",
-                      desc: isRTL ? "متخصصو البرامج وخطوط الإنتاج" : "Software & pipeline specialists",
-                    },
+{[
+  {
+    icon: "🎬",
+    title: isRTL ? "صُنّاع التحريك" : "Animation Experts",
+    desc: isRTL ? "ثنائي وثلاثي الأبعاد وستوب موشن وأكثر" : "2D, 3D, Stop Motion & more",
+  },
+  {
+    icon: "🎨",
+    title: isRTL ? "مبدعون بصريون" : "Creative Professionals",
+    desc: isRTL ? "ستوري بورد، تصميم بصري، وفنون إنتاج" : "Storyboarding & visual arts",
+  },
+  {
+    icon: "📐",
+    title: isRTL ? "مختصو سير العمل" : "Technical Artists",
+    desc: isRTL ? "تقنيات الإنتاج ومختصو خطوط الإنتاج" : "Software & pipeline specialists",
+  },
                     {
                       icon: "🌟",
-                      title: isRTL ? "خبرات عريقة" : "Industry Veterans",
-                      desc: isRTL ? "خبرة في الاستوديوهات والإنتاج" : "Studio & production experience",
+                      title: isRTL ? "خبرات من الصناعة" : "Industry Veterans",
+                      desc: isRTL ? " رؤى وتجارب من بيئات إنتاج حقيقية" : "Studio & production experience",
                     },
                   ].map((item, i) => (
                     <motion.div
@@ -695,7 +687,7 @@ function Home() {
         </div>
       </section>
 
-      <section className="relative py-24 overflow-hidden">
+      <section className="content-auto relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -720,8 +712,8 @@ function Home() {
               <ul className="space-y-3 mb-8">
                 {[
                   isRTL ? "الوصول إلى جمهور مهني عالمي" : "Reach a global professional audience",
-                  isRTL ? "تعزيز الظهور المؤسسي والعلامة التجارية" : "Brand visibility and institutional exposure",
-                  isRTL ? "استعراض خبرات التحريك والمؤثرات البصرية" : "Showcase Animation & VFX expertise",
+                  isRTL ? " تعزيز حضور الاستوديو والهوية المؤسسية" : "Brand visibility and institutional exposure",
+                  isRTL ? " استعراض خبراتك ومشاريعك أمام مجتمع متخصص" : "Showcase Animation & VFX expertise",
                 ].map((item, i) => (
                   <motion.li
                     key={item}
@@ -770,26 +762,26 @@ function Home() {
                 <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary-500/10 rounded-full blur-2xl" />
                 <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-cyan-100/40 rounded-full blur-2xl" />
                 <div className="relative space-y-6">
-                  {[
-                    {
-                      icon: "🏢",
-                      title: isRTL ? "استوديوهات التحريك" : "Animation Studios",
-                      desc: isRTL ? "بيوت إنتاج ثنائية وثلاثية الأبعاد" : "2D & 3D production houses",
-                    },
-                    {
-                      icon: "✨",
-                      title: isRTL ? "استوديوهات المؤثرات البصرية" : "VFX Houses",
-                      desc: isRTL ? "المؤثرات البصرية والتركيب" : "Visual effects & compositing",
-                    },
-                    {
-                      icon: "🌍",
-                      title: isRTL ? "وصول عالمي" : "Global Reach",
-                      desc: isRTL ? "تواصل مع المواهب الدولية" : "Connect with international talent",
-                    },
+              {[
+{
+  icon: "🏢",
+  title: isRTL ? "استوديوهات تقود الإبداع" : "Animation Studios",
+  desc: isRTL ? "خبرات في التحريك ثنائي وثلاثي الأبعاد" : "2D & 3D production houses",
+},
+{
+  icon: "✨",
+  title: isRTL ? "ابتكار في المؤثرات البصرية" : "VFX Houses",
+  desc: isRTL ? "تجارب إنتاج متقدمة ورؤى بصرية متميزة." : "Visual effects & compositing",
+},
+{
+  icon: "🌍",
+  title: isRTL ? "وصول يتجاوز الحدود" : "Global Reach",
+  desc: isRTL ? "عرّف أعمالك أمام مجتمع إبداعي عالمي." : "Connect with international talent",
+},
                     {
                       icon: "🤝",
-                      title: isRTL ? "شراكة استراتيجية" : "Strategic Partnership",
-                      desc: isRTL ? "فرص تعاون طويلة الأمد" : "Long-term collaboration opportunities",
+                      title: isRTL ? "شراكات تنمو معك " : "Strategic Partnership",
+                      desc: isRTL ? " فرص تعاون استراتيجية تمتد أبعد من المشاريع." : "Long-term collaboration opportunities",
                     },
                   ].map((item, i) => (
                     <motion.div

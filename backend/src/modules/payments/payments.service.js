@@ -1,4 +1,5 @@
 import Payment from './payment.model.js';
+import path from 'path';
 import { Subscription } from '../subscriptions/subscription.model.js';
 import {
   CHECKOUT_DISCLAIMER_ERROR_MESSAGE,
@@ -11,6 +12,7 @@ import {
   buildPaymentApprovedEmail,
   buildPaymentRejectedEmail
 } from '../../utils/emailTemplates.js';
+import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
 
 export const submitPayment = async (userId, paymentData) => {
   const { subscriptionId, amount, paymentReference, proofFile, checkoutDisclaimerAccepted } = paymentData;
@@ -123,6 +125,20 @@ export const getPaymentById = async (paymentId, requester) => {
   }
 
   return payment;
+};
+
+export const getPaymentProofDownload = async (paymentId, requester) => {
+  const payment = await getPaymentById(paymentId, requester);
+  if (!payment.proofFile) {
+    throw new Error('Payment proof file not found');
+  }
+
+  const extension = path.extname(payment.proofFile) || '';
+
+  return {
+    absolutePath: await ensureUploadPathExists(payment.proofFile),
+    downloadName: `payment-proof-${payment._id}${extension}`,
+  };
 };
 
 export const approvePayment = async (paymentId, adminId) => {

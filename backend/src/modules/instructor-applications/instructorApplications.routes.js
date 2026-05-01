@@ -9,15 +9,13 @@ const router = express.Router();
 router.post(
   '/',
   instructorApplicationRateLimit,
-  uploadInstructorDocs.fields([
-    { name: 'cvFile', maxCount: 1 },
-    { name: 'courseMaterialsFile', maxCount: 1 }
-  ]),
+  uploadInstructorDocs,
   instructorApplicationsController.submitApplication
 );
 
 router.get('/', authenticate, isAdmin, instructorApplicationsController.getAllApplications);
 router.get('/:id', authenticate, isAdmin, instructorApplicationsController.getApplicationById);
+router.get('/:id/files/:field', authenticate, isAdmin, instructorApplicationsController.downloadApplicationFile);
 router.patch('/:id/approve', authenticate, isAdmin, instructorApplicationsController.approveApplication);
 router.patch('/:id/reject', authenticate, isAdmin, instructorApplicationsController.rejectApplication);
 

@@ -1,5 +1,6 @@
 import * as authService from './auth.service.js';
 import * as socialAuthService from './socialAuth.service.js';
+import { clearAuthCookie, setAuthCookie } from '../../utils/authCookie.js';
 
 const isAuthValidationError = (message) => [
   'Name is required',
@@ -24,7 +25,8 @@ export const register = async (req, res) => {
   try {
     const { email, password, name, role, platformNoticeAccepted } = req.body;
     const result = await authService.register({ email, password, name, role, platformNoticeAccepted });
-    res.status(201).json(result);
+    setAuthCookie(req, res, result.sessionToken);
+    res.status(201).json({ user: result.user });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -34,10 +36,16 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const result = await authService.login({ email, password });
-    res.json(result);
+    setAuthCookie(req, res, result.sessionToken);
+    res.json({ user: result.user });
   } catch (error) {
     res.status(isAuthValidationError(error.message) ? 400 : 401).json({ error: error.message });
   }
+};
+
+export const logout = async (req, res) => {
+  clearAuthCookie(req, res);
+  res.status(204).send();
 };
 
 export const getProfile = async (req, res) => {
@@ -101,7 +109,11 @@ export const handleSocialCallback = async (req, res) => {
 export const completeSocialLogin = async (req, res) => {
   try {
     const result = await socialAuthService.completeSocialLogin(req.body);
-    res.json(result);
+    setAuthCookie(req, res, result.sessionToken);
+    res.json({
+      user: result.user,
+      redirectPath: result.redirectPath,
+    });
   } catch (error) {
     res.status(isAuthValidationError(error.message) ? 400 : 401).json({ error: error.message });
   }

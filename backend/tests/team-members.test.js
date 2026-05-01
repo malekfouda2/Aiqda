@@ -6,6 +6,10 @@ import TeamMember from '../src/modules/team-members/teamMember.model.js';
 import { authHeader, createUser, setupIntegrationSuite } from './helpers/integration.js';
 
 const suite = setupIntegrationSuite();
+const VALID_PNG_BUFFER = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZL2sAAAAASUVORK5CYII=',
+  'base64'
+);
 
 test('public team members endpoint seeds and returns active default members', async () => {
   const response = await request(suite.app)
@@ -33,7 +37,7 @@ test('admins can create, update, and delete team members with photos', async () 
     .field('order', '3')
     .field('isActive', 'true')
     .field('achievements', JSON.stringify(['Built the member community.', 'Leads partnerships.']))
-    .attach('image', Buffer.from('fake-image-data'), {
+    .attach('image', VALID_PNG_BUFFER, {
       filename: 'team-photo.png',
       contentType: 'image/png',
     });

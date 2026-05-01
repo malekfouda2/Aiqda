@@ -5,6 +5,7 @@ import {
   buildStudioApprovalEmail,
   buildStudioRejectionEmail
 } from '../../utils/emailTemplates.js';
+import { normalizeExternalUrl } from '../../utils/url.js';
 
 const getStudioMeetingUrl = () => {
   const meetingUrl = process.env.STUDIO_APPLICATION_MEETING_URL;
@@ -15,7 +16,13 @@ const getStudioMeetingUrl = () => {
 };
 
 export const create = async (data) => {
-  const application = new StudioApplication(data);
+  const application = new StudioApplication({
+    ...data,
+    websitePortfolio: normalizeExternalUrl(data.websitePortfolio, {
+      fieldLabel: 'Website or portfolio link',
+      required: true,
+    }),
+  });
   await application.save();
 
   const receivedEmail = buildStudioApplicationReceivedEmail({

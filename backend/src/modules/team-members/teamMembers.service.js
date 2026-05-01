@@ -8,13 +8,15 @@ import TeamMemberContentState from './teamMemberContentState.model.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsRoot = path.join(__dirname, '../../uploads');
-const TEAM_MEMBER_CONTENT_STATE_KEY = 'team-members-defaults-v1';
+const TEAM_MEMBER_CONTENT_STATE_KEY = 'team-members-defaults-v2';
 let initializationPromise = null;
 
 const DEFAULT_TEAM_MEMBERS = [
   {
     name: 'Abdulwahed Alabdlee',
+    nameAr: 'عبد الواحد العبدلي',
     title: 'Managing Partner & Trainer Consultant',
+    titleAr: 'شريك إداري ومستشار تدريب',
     order: 1,
     isActive: true,
     achievements: [
@@ -23,16 +25,29 @@ const DEFAULT_TEAM_MEMBERS = [
       'Received international awards for outstanding contributions in the film industry.',
       'Co-director of Captain Munch which won several awards: Animatex, Animex Awards, 11th Showreel: Effat International Student Film Festival, Rassam International Short Film Festival.',
     ],
+    achievementsAr: [
+      'يشغل حاليًا منصب رئيس جمعية الرسوم المتحركة في المملكة العربية السعودية منذ عام 2021.',
+      'كرّمته سفارة الولايات المتحدة في السعودية لمساهمته في ورشة تطوير الألعاب.',
+      'حصل على جوائز دولية تقديرًا لإسهاماته المتميزة في صناعة الأفلام.',
+      'شارك في إخراج Captain Munch الذي حصد عدة جوائز، منها Animatex وAnimex Awards و11th Showreel وRassam International Short Film Festival.',
+    ],
   },
   {
     name: 'Michael Murengezi',
+    nameAr: 'مايكل مورينغيزي',
     title: 'Education Partner & Trainer',
+    titleAr: 'شريك تعليمي ومدرب',
     order: 2,
     isActive: true,
     achievements: [
       'Worked as a Story Artist at Triggerfish Studios, Netflix.',
       'Honored by the Animation Society in Saudi Arabia with a trophy for participation.',
       'Director of Captain Munch which won several awards: Animatex, Animex Awards, 11th Showreel: Effat International Student Film Festival, Rassam International Short Film Festival.',
+    ],
+    achievementsAr: [
+      'عمل كفنان قصصي في Triggerfish Studios وNetflix.',
+      'كرّمته جمعية الرسوم المتحركة في السعودية بدرع تقدير للمشاركة.',
+      'مخرج Captain Munch الذي حصد عدة جوائز، منها Animatex وAnimex Awards و11th Showreel وRassam International Short Film Festival.',
     ],
   },
 ];
@@ -115,8 +130,11 @@ const deleteImageIfPresent = async (storedPath) => {
 
 const validateTeamMemberPayload = (data = {}, { fallbackOrder = 0 } = {}) => {
   const name = normalizeString(data.name);
+  const nameAr = normalizeString(data.nameAr);
   const title = normalizeString(data.title);
+  const titleAr = normalizeString(data.titleAr);
   const achievements = normalizeAchievements(data.achievements);
+  const achievementsAr = normalizeAchievements(data.achievementsAr);
   const order = normalizeOrder(data.order, fallbackOrder);
   const isActive = parseBoolean(data.isActive, true);
   const removeImage = parseBoolean(data.removeImage, false);
@@ -137,18 +155,37 @@ const validateTeamMemberPayload = (data = {}, { fallbackOrder = 0 } = {}) => {
     throw new Error('Title is too long');
   }
 
+  if (nameAr.length > 120) {
+    throw new Error('Arabic name is too long');
+  }
+
+  if (titleAr.length > 160) {
+    throw new Error('Arabic title is too long');
+  }
+
   if (achievements.length > 8) {
     throw new Error('A maximum of 8 achievements is allowed');
+  }
+
+  if (achievementsAr.length > 8) {
+    throw new Error('A maximum of 8 Arabic achievements is allowed');
   }
 
   if (achievements.some((item) => item.length > 500)) {
     throw new Error('Each achievement must be 500 characters or less');
   }
 
+  if (achievementsAr.some((item) => item.length > 500)) {
+    throw new Error('Each Arabic achievement must be 500 characters or less');
+  }
+
   return {
     name,
+    nameAr,
     title,
+    titleAr,
     achievements,
+    achievementsAr,
     order,
     isActive,
     removeImage,
@@ -188,6 +225,31 @@ const ensureDefaultTeamMembersInternal = async () => {
     await markTeamMembersInitialized({ seededDefaults: true });
     return;
   }
+
+  await Promise.all(DEFAULT_TEAM_MEMBERS.map(async (defaultMember) => {
+    const existingMember = await TeamMember.findOne({ name: defaultMember.name });
+    if (!existingMember) {
+      return;
+    }
+
+    const updates = {};
+
+    if (!normalizeString(existingMember.nameAr)) {
+      updates.nameAr = defaultMember.nameAr;
+    }
+
+    if (!normalizeString(existingMember.titleAr)) {
+      updates.titleAr = defaultMember.titleAr;
+    }
+
+    if (!Array.isArray(existingMember.achievementsAr) || existingMember.achievementsAr.length === 0) {
+      updates.achievementsAr = defaultMember.achievementsAr;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await TeamMember.updateOne({ _id: existingMember._id }, { $set: updates });
+    }
+  }));
 
   await markTeamMembersInitialized({ seededDefaults: false });
 };
@@ -234,8 +296,11 @@ export const create = async (data, imageFile) => {
 
   const teamMember = await TeamMember.create({
     name: payload.name,
+    nameAr: payload.nameAr,
     title: payload.title,
+    titleAr: payload.titleAr,
     achievements: payload.achievements,
+    achievementsAr: payload.achievementsAr,
     order: payload.order,
     isActive: payload.isActive,
     image: toStoredImagePath(imageFile),
@@ -258,8 +323,11 @@ export const update = async (id, data, imageFile) => {
   }
 
   teamMember.name = payload.name;
+  teamMember.nameAr = payload.nameAr;
   teamMember.title = payload.title;
+  teamMember.titleAr = payload.titleAr;
   teamMember.achievements = payload.achievements;
+  teamMember.achievementsAr = payload.achievementsAr;
   teamMember.order = payload.order;
   teamMember.isActive = payload.isActive;
 

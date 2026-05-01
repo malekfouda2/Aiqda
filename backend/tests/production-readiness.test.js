@@ -210,3 +210,53 @@ test('payment rejection leaves the subscription pending while recording the revi
   assert.equal(updatedSubscription.startDate, null);
   assert.equal(updatedSubscription.endDate, null);
 });
+
+test('public application endpoints reject non-http external links', async () => {
+  const studioResponse = await request(suite.app)
+    .post('/api/studio-applications')
+    .send(createStudioApplicationPayload({
+      contactEmail: 'unsafe-studio@example.com',
+      websitePortfolio: 'javascript:alert(1)'
+    }));
+  assert.equal(studioResponse.status, 400);
+  assert.equal(
+    studioResponse.body.error,
+    'Website or portfolio link must use http or https'
+  );
+
+  const instructorPayload = createInstructorApplicationPayload({
+    email: 'unsafe-instructor@example.com',
+    websiteOrPortfolio: 'javascript:alert(1)'
+  });
+
+  const instructorResponse = await request(suite.app)
+    .post('/api/instructor-applications')
+    .field('email', instructorPayload.email)
+    .field('fullName', instructorPayload.fullName)
+    .field('nationality', instructorPayload.nationality)
+    .field('country', instructorPayload.country)
+    .field('city', instructorPayload.city)
+    .field('phoneCode', instructorPayload.phoneCode)
+    .field('phoneNumber', instructorPayload.phoneNumber)
+    .field('educationLevel', instructorPayload.educationLevel)
+    .field('fieldOfStudy', instructorPayload.fieldOfStudy)
+    .field('yearsOfExperience', instructorPayload.yearsOfExperience)
+    .field('specialization', instructorPayload.specialization[0])
+    .field('previousTeachingExperience', instructorPayload.previousTeachingExperience)
+    .field('softwareProficiency', instructorPayload.softwareProficiency)
+    .field('institutionsOrStudios', instructorPayload.institutionsOrStudios)
+    .field('notableWorks', instructorPayload.notableWorks)
+    .field('websiteOrPortfolio', instructorPayload.websiteOrPortfolio)
+    .field('teachingStyle', instructorPayload.teachingStyle)
+    .field('studentGuidance', instructorPayload.studentGuidance)
+    .field('existingCourseMaterials', instructorPayload.existingCourseMaterials)
+    .field('preferredSchedule', instructorPayload.preferredSchedule)
+    .field('earliestStartDate', instructorPayload.earliestStartDate)
+    .field('additionalComments', instructorPayload.additionalComments)
+    .field('creatorAgreementAccepted', 'true');
+  assert.equal(instructorResponse.status, 400);
+  assert.equal(
+    instructorResponse.body.error,
+    'Website or portfolio link must use http or https'
+  );
+});

@@ -4,9 +4,22 @@ import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
 import Payment from '../payments/payment.model.js';
 import { Subscription, SubscriptionPackage } from '../subscriptions/subscription.model.js';
+import { getVimeoAccountInfo, getVimeoVideoDetails } from '../video/video.service.js';
 
 const roundCurrency = (value) => Math.round(value * 100) / 100;
 const toIdString = (value) => value?.toString();
+const LIVE_ACTIVITY_WINDOW_MS = 2 * 60 * 1000;
+const LIVE_ACTIVITY_WINDOW_MINUTES = LIVE_ACTIVITY_WINDOW_MS / (60 * 1000);
+const VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS = [
+  'impressions',
+  'finishes',
+  'downloads',
+  'unique_viewers',
+  'unique_impressions',
+  'average_percent_watched',
+  'average_time_watched',
+  'total_time_watched',
+];
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -20,6 +33,23 @@ const createEmptyCourseMetrics = () => ({
   quizPassCount: 0,
   estimatedRevenue: 0,
 });
+
+const isRecentlyActive = (dateValue, windowMs = LIVE_ACTIVITY_WINDOW_MS) => {
+  if (!dateValue) {
+    return false;
+  }
+
+  const timestamp = new Date(dateValue).getTime();
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
+
+  return Date.now() - timestamp <= windowMs;
+};
+
+const toPercentage = (value, total) => (
+  total > 0 ? Math.round((value / total) * 100) : 0
+);
 
 const countUniqueStudents = (courses = []) => {
   const uniqueStudents = new Set();
@@ -158,7 +188,7 @@ const buildCourseAnalyticsSnapshot = async (courses = []) => {
 
   const [lessons, lessonProgress, revenueByCourse] = await Promise.all([
     Lesson.find({ course: { $in: courseIds } })
-      .select('course title vimeoVideoId order supportingFile supportingFileName')
+      .select('course title vimeoVideoId order supportingFile supportingFileName minimumWatchPercentage')
       .sort({ course: 1, order: 1 })
       .lean(),
     LessonProgress.find({ course: { $in: courseIds } })
@@ -333,13 +363,15 @@ export const getInstructorAnalytics = async (instructorId) => {
 };
 
 export const getAdminAnalytics = async () => {
+  const activeSince = new Date(Date.now() - LIVE_ACTIVITY_WINDOW_MS);
   const [
     totalCourses,
     publishedCourses,
     totalLessons,
     courseProgress,
     qualifiedLessons,
-    recentActivity
+    recentActivity,
+    lessonProgress
   ] = await Promise.all([
     Course.countDocuments(),
     Course.countDocuments({ isPublished: true }),
@@ -351,10 +383,19 @@ export const getAdminAnalytics = async () => {
       .populate('lesson', 'title')
       .populate('course', 'title')
       .sort({ updatedAt: -1 })
-      .limit(20)
+      .limit(20),
+    LessonProgress.find()
+      .select('user lesson watchPercentage lastWatchedAt')
+      .lean()
   ]);
   const totalEnrollments = courseProgress.length;
   const completedCourses = courseProgress.filter((progressEntry) => progressEntry.isCompleted).length;
+  const activeProgressEntries = lessonProgress.filter((progressEntry) => isRecentlyActive(progressEntry.lastWatchedAt));
+  const activeStudentsNow = new Set(activeProgressEntries.map((progressEntry) => toIdString(progressEntry.user))).size;
+  const activeLessonsNow = new Set(activeProgressEntries.map((progressEntry) => toIdString(progressEntry.lesson))).size;
+  const averageWatchPercentage = lessonProgress.length > 0
+    ? Math.round(lessonProgress.reduce((sum, progressEntry) => sum + Number(progressEntry.watchPercentage || 0), 0) / lessonProgress.length)
+    : 0;
 
   return {
     overview: {
@@ -363,7 +404,11 @@ export const getAdminAnalytics = async () => {
       totalLessons,
       totalEnrollments,
       completedCourses,
-      qualifiedLessons
+      qualifiedLessons,
+      averageWatchPercentage,
+      activeStudentsNow,
+      activeLessonsNow,
+      activeWindowMinutes: LIVE_ACTIVITY_WINDOW_MINUTES,
     },
     recentActivity
   };
@@ -398,6 +443,7 @@ export const getAdminCoursesByInstructor = async () => {
           _id: lesson._id,
           title: lesson.title,
           order: lesson.order,
+          minimumWatchPercentage: lesson.minimumWatchPercentage,
           hasVideo: !!lesson.vimeoVideoId,
           vimeoVideoId: lesson.vimeoVideoId,
         })),
@@ -576,15 +622,155 @@ export const getAdminAllInstructors = async () => {
 };
 
 export const getLessonAnalytics = async (lessonId) => {
-  const progress = await LessonProgress.find({ lesson: lessonId })
-    .populate('user', 'name email');
+  const lesson = await Lesson.findById(lessonId)
+    .populate('course', 'title enrolledStudents')
+    .lean();
 
-  const stats = {
-    totalViews: progress.length,
-    averageWatchPercentage: progress.reduce((acc, p) => acc + p.watchPercentage, 0) / (progress.length || 1),
-    quizPassRate: (progress.filter(p => p.quizPassed).length / (progress.length || 1)) * 100,
-    qualificationRate: (progress.filter(p => p.isQualified).length / (progress.length || 1)) * 100
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  const progress = await LessonProgress.find({ lesson: lessonId })
+    .populate('user', 'name email avatar')
+    .sort({ lastWatchedAt: -1, updatedAt: -1 })
+    .lean();
+
+  const totalEnrolledStudents = lesson.course?.enrolledStudents?.length || 0;
+  const activeStudentsNow = progress.filter((progressEntry) => isRecentlyActive(progressEntry.lastWatchedAt)).length;
+  const watchRequirementMetCount = progress.filter(
+    (progressEntry) => Number(progressEntry.watchPercentage || 0) >= Number(lesson.minimumWatchPercentage || 0)
+  ).length;
+  const qualifiedCount = progress.filter((progressEntry) => progressEntry.isQualified).length;
+  const quizPassCount = progress.filter((progressEntry) => progressEntry.quizPassed).length;
+  const completedCount = progress.filter((progressEntry) => Boolean(progressEntry.completedAt)).length;
+  const averageWatchPercentage = progress.length > 0
+    ? Math.round(progress.reduce((sum, progressEntry) => sum + Number(progressEntry.watchPercentage || 0), 0) / progress.length)
+    : 0;
+
+  let vimeo = {
+    available: false,
+    accountType: null,
+    advancedAnalyticsAvailable: false,
+    unsupportedAdvancedMetrics: VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+    note: 'No Vimeo video is currently assigned to this lesson.',
   };
 
-  return { stats, progress };
+  if (lesson.vimeoVideoId) {
+    try {
+      const [accountInfo, videoDetails] = await Promise.all([
+        getVimeoAccountInfo(),
+        getVimeoVideoDetails(lesson.vimeoVideoId),
+      ]);
+
+      const accountType = accountInfo?.type || null;
+      const advancedAnalyticsAvailable = accountType === 'enterprise';
+
+      vimeo = {
+        available: true,
+        accountType,
+        advancedAnalyticsAvailable,
+        unsupportedAdvancedMetrics: advancedAnalyticsAvailable ? [] : VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+        note: advancedAnalyticsAvailable
+          ? null
+          : 'Advanced Vimeo analytics such as impressions, unique viewers, and average percent watched require Vimeo Enterprise Analytics API access.',
+        video: {
+          vimeoId: videoDetails.vimeoId,
+          title: videoDetails.title,
+          duration: videoDetails.duration,
+          width: videoDetails.width,
+          height: videoDetails.height,
+          thumbnail: videoDetails.thumbnail,
+          link: videoDetails.link,
+          status: videoDetails.status,
+          createdAt: videoDetails.createdAt,
+          modifiedAt: videoDetails.modifiedAt,
+          lastUserActionAt: videoDetails.lastUserActionAt,
+          isPlayable: videoDetails.isPlayable,
+          hasAudio: videoDetails.hasAudio,
+        },
+        metrics: videoDetails.metrics,
+        privacy: videoDetails.privacy,
+        security: videoDetails.security,
+      };
+    } catch (error) {
+      vimeo = {
+        available: false,
+        accountType: null,
+        advancedAnalyticsAvailable: false,
+        unsupportedAdvancedMetrics: VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+        note: error.message,
+      };
+    }
+  }
+
+  const studentProgress = progress
+    .map((progressEntry) => ({
+      progressId: progressEntry._id,
+      userId: progressEntry.user?._id || null,
+      name: progressEntry.user?.name || 'Unknown student',
+      email: progressEntry.user?.email || null,
+      avatar: progressEntry.user?.avatar || null,
+      watchPercentage: Number(progressEntry.watchPercentage || 0),
+      hasMetWatchRequirement: Number(progressEntry.watchPercentage || 0) >= Number(lesson.minimumWatchPercentage || 0),
+      quizPassed: Boolean(progressEntry.quizPassed),
+      quizScore: Number(progressEntry.quizScore || 0),
+      quizAttempts: Number(progressEntry.quizAttempts || 0),
+      isQualified: Boolean(progressEntry.isQualified),
+      completedAt: progressEntry.completedAt || null,
+      lastWatchedAt: progressEntry.lastWatchedAt || null,
+      updatedAt: progressEntry.updatedAt || null,
+      isActiveNow: isRecentlyActive(progressEntry.lastWatchedAt),
+    }))
+    .sort((a, b) => {
+      if (a.isActiveNow !== b.isActiveNow) {
+        return a.isActiveNow ? -1 : 1;
+      }
+
+      const aLastWatchedAt = a.lastWatchedAt ? new Date(a.lastWatchedAt).getTime() : 0;
+      const bLastWatchedAt = b.lastWatchedAt ? new Date(b.lastWatchedAt).getTime() : 0;
+
+      if (aLastWatchedAt !== bLastWatchedAt) {
+        return bLastWatchedAt - aLastWatchedAt;
+      }
+
+      if (a.watchPercentage !== b.watchPercentage) {
+        return b.watchPercentage - a.watchPercentage;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+
+  return {
+    refreshedAt: new Date().toISOString(),
+    lesson: {
+      _id: lesson._id,
+      title: lesson.title,
+      description: lesson.description,
+      minimumWatchPercentage: lesson.minimumWatchPercentage,
+      vimeoVideoId: lesson.vimeoVideoId,
+      duration: lesson.duration,
+      course: {
+        _id: lesson.course?._id || null,
+        title: lesson.course?.title || null,
+      },
+    },
+    appAnalytics: {
+      activeWindowMinutes: LIVE_ACTIVITY_WINDOW_MINUTES,
+      totalEnrolledStudents,
+      studentsWithActivity: progress.length,
+      studentsNotStarted: Math.max(totalEnrolledStudents - progress.length, 0),
+      activeStudentsNow,
+      averageWatchPercentage,
+      watchRequirementMetCount,
+      watchRequirementMetRate: toPercentage(watchRequirementMetCount, totalEnrolledStudents),
+      qualifiedCount,
+      qualificationRate: toPercentage(qualifiedCount, totalEnrolledStudents),
+      quizPassCount,
+      quizPassRate: toPercentage(quizPassCount, totalEnrolledStudents),
+      completedCount,
+      completionRate: toPercentage(completedCount, totalEnrolledStudents),
+    },
+    studentProgress,
+    vimeo,
+  };
 };

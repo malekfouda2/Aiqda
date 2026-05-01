@@ -6,8 +6,26 @@ import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, cardVariants, staggerContainer } from '../utils/animations';
-import { getLocalizedField } from '../i18n/translations';
+import { getLocalizedArrayField, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+
+const getConsultationModeLabel = (consultation, locale) => {
+  if (locale === 'ar') {
+    if (typeof consultation.modeAr === 'string' && consultation.modeAr.trim()) {
+      return consultation.modeAr;
+    }
+
+    if (consultation.mode === '1 to 1') {
+      return 'فردي';
+    }
+
+    if (consultation.mode === '1 to many') {
+      return 'جماعي';
+    }
+  }
+
+  return consultation.mode;
+};
 
 function ConsultationDetail() {
   const { locale, isRTL } = useLocale();
@@ -89,6 +107,10 @@ function ConsultationDetail() {
     );
   }
 
+  const localizedFocusPoints = getLocalizedArrayField(consultation, 'focusPoints', locale);
+  const localizedMode = getConsultationModeLabel(consultation, locale);
+  const localizedDuration = getLocalizedField(consultation, 'duration', locale);
+
   return (
     <div className="min-h-screen py-12 relative overflow-hidden">
       <div className="absolute inset-0 mesh-gradient opacity-30" />
@@ -117,9 +139,9 @@ function ConsultationDetail() {
               <motion.div variants={fadeInUp} className="card p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <span className={`tag ${consultation.mode === '1 to 1' ? 'tag-beginner' : 'tag-intermediate'}`}>
-                    {consultation.mode === '1 to 1' ? (isRTL ? 'فردي' : consultation.mode) : (isRTL ? 'جماعي' : consultation.mode)}
+                    {localizedMode}
                   </span>
-                  <span className="text-gray-400 font-medium">{consultation.duration}</span>
+                  <span className="text-gray-400 font-medium">{localizedDuration}</span>
                 </div>
                 
                 <h1 className="text-4xl font-bold text-gray-900 mb-6">{getLocalizedField(consultation, 'title', locale)}</h1>
@@ -133,7 +155,7 @@ function ConsultationDetail() {
                       <span className="text-primary-500">🎯</span> {isRTL ? 'نقاط التركيز' : 'Focus Points'}
                     </h3>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {consultation.focusPoints?.map((point, i) => (
+                      {localizedFocusPoints.map((point, i) => (
                         <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
                           <span className="text-primary-500 font-bold">✓</span>
                           <span className="text-gray-700 text-sm">{point}</span>

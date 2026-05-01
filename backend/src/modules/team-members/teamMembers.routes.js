@@ -10,8 +10,8 @@ router.get('/', teamMembersController.getPublicList);
 
 router.get('/admin', authenticate, isAdmin, teamMembersController.getAll);
 router.get('/admin/:id', authenticate, isAdmin, teamMembersController.getById);
-router.post('/', authenticate, isAdmin, uploadTeamMemberPhoto.single('image'), teamMembersController.create);
-router.put('/:id', authenticate, isAdmin, uploadTeamMemberPhoto.single('image'), teamMembersController.update);
+router.post('/', authenticate, isAdmin, uploadTeamMemberPhoto, teamMembersController.create);
+router.put('/:id', authenticate, isAdmin, uploadTeamMemberPhoto, teamMembersController.update);
 router.delete('/:id', authenticate, isAdmin, teamMembersController.remove);
 
 export default router;

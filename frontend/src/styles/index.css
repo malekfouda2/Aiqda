@@ -79,7 +79,7 @@
   }
 
   .glass {
-    @apply bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-sm;
+    @apply bg-white/90 border border-gray-200/80 rounded-2xl shadow-sm;
   }
 
   .glass-dark {
@@ -97,15 +97,24 @@
 
   .mesh-gradient {
     background-image: 
-      radial-gradient(at 40% 20%, rgba(236, 72, 153, 0.06) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, rgba(45, 212, 191, 0.05) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
-      radial-gradient(at 80% 50%, rgba(251, 146, 60, 0.04) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(34, 211, 238, 0.05) 0px, transparent 50%);
+      radial-gradient(at 38% 18%, rgba(236, 72, 153, 0.05) 0px, transparent 46%),
+      radial-gradient(at 82% 8%, rgba(45, 212, 191, 0.045) 0px, transparent 44%),
+      radial-gradient(at 6% 78%, rgba(59, 130, 246, 0.04) 0px, transparent 42%);
   }
 
   .floating-orb {
-    @apply absolute rounded-full blur-3xl animate-pulse;
+    @apply absolute rounded-full;
+    filter: blur(64px);
+    opacity: 0.8;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 900px;
+    contain: layout paint style;
   }
 
   .stat-card {
@@ -232,6 +241,11 @@ html[dir='rtl'] .flip-in-rtl {
   50% { opacity: 0.8; }
 }
 
+@keyframes partners-marquee-scroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
@@ -246,6 +260,25 @@ html[dir='rtl'] .flip-in-rtl {
 
 .animate-glow-pulse {
   animation: glow-pulse 4s ease-in-out infinite;
+}
+
+.partners-marquee-track {
+  width: max-content;
+  will-change: transform;
+  animation: partners-marquee-scroll var(--partners-marquee-duration, 32s) linear infinite;
+}
+
+@media (max-width: 767px) {
+  .floating-orb {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .partners-marquee-track {
+    animation: none;
+    transform: none;
+  }
 }
 
 ::-webkit-scrollbar {

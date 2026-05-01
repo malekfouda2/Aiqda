@@ -5,6 +5,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { getSafeExternalHref } from '../utils/url';
 
 function AdminStudioApplications() {
   const { showSuccess, showError } = useUIStore();
@@ -17,6 +18,7 @@ function AdminStudioApplications() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [rejectModalId, setRejectModalId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const safeStudioWebsiteHref = getSafeExternalHref(selectedApp?.websitePortfolio);
 
   useBodyScrollLock(Boolean(selectedApp || rejectModalId));
 
@@ -316,9 +318,11 @@ function AdminStudioApplications() {
                         <InfoRow label="Studio Type" value={selectedApp.studioType} />
                       </div>
                       <InfoRow label="Website + Portfolio Link" value={
-                        <a href={selectedApp.websitePortfolio} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 underline break-all">
-                          {selectedApp.websitePortfolio}
-                        </a>
+                        safeStudioWebsiteHref ? (
+                          <a href={safeStudioWebsiteHref} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 underline break-all">
+                            {safeStudioWebsiteHref}
+                          </a>
+                        ) : '—'
                       } />
                     </div>
 

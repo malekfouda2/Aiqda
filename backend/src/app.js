@@ -27,6 +27,29 @@ import partnerRoutes from './modules/partners/partners.routes.js';
 
 const app = express();
 
+const contentSecurityPolicyDirectives = {
+  defaultSrc: ["'self'"],
+  baseUri: ["'self'"],
+  fontSrc: ["'self'", 'https:', 'data:'],
+  formAction: ["'self'"],
+  frameAncestors: ["'self'"],
+  frameSrc: ["'self'", 'https://player.vimeo.com'],
+  imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+  objectSrc: ["'none'"],
+  scriptSrc: ["'self'"],
+  scriptSrcAttr: ["'none'"],
+  styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+  connectSrc: ["'self'", 'https:'],
+  upgradeInsecureRequests: [],
+};
+
+const publicUploadsStaticOptions = {
+  setHeaders: (res) => {
+    // Public-facing images are requested from the frontend origin in local/dev setups.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+};
+
 app.disable('x-powered-by');
 
 const trustProxySetting = (() => {
@@ -51,12 +74,19 @@ const trustProxySetting = (() => {
 })();
 
 app.set('trust proxy', trustProxySetting);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: contentSecurityPolicyDirectives,
+  },
+}));
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5000',
   'http://127.0.0.1:5000',
+  'http://localhost:5001',
+  'http://127.0.0.1:5001',
   'http://localhost:5005',
   'http://127.0.0.1:5005',
   'https://a2f9d045-a532-4991-b5f1-5e7645823ac8-00-rx0jwqf0xpdj.worf.replit.dev'
@@ -85,7 +115,8 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads/partners', express.static('uploads/partners', publicUploadsStaticOptions));
+app.use('/uploads/team-members', express.static('uploads/team-members', publicUploadsStaticOptions));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -111,7 +142,7 @@ app.get('/api/health', (req, res) => {
 const frontendDist = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDist));
 app.get('/{*path}', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 

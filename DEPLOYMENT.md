@@ -32,6 +32,7 @@ Required in production:
 - `MONGODB_URI`
 - `JWT_SECRET`
 - `FRONTEND_URL`
+- `REDIS_URL`
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_SECURE`
@@ -44,7 +45,12 @@ Recommended:
 
 - `CONTACT_NOTIFICATION_TO`
 - `TRUST_PROXY`
+- `AUTH_COOKIE_NAME`
+- `AUTH_COOKIE_SAME_SITE`
+- `AUTH_COOKIE_DOMAIN`
+- `AUTH_COOKIE_MAX_AGE_MS`
 - `VIMEO_ACCESS_TOKEN`
+- `VIMEO_ALLOWED_EMBED_DOMAINS`
 - `JWT_EXPIRES_IN`
 - `AUTH_REGISTER_RATE_LIMIT_MAX`
 - `AUTH_LOGIN_RATE_LIMIT_MAX`
@@ -91,6 +97,7 @@ The backend now validates runtime configuration at startup and will refuse to bo
 
 - required env vars are missing
 - `JWT_SECRET` is weak or using the development fallback
+- `REDIS_URL` is missing for distributed request throttling
 - SMTP configuration is incomplete
 - production auto-seeding is enabled without an explicit override
 
@@ -126,6 +133,20 @@ The backend now includes app-level request throttling for:
 - public contact submissions
 - public instructor applications
 - public studio applications
+
+Production deployments should point `REDIS_URL` at a shared Redis instance so throttling remains consistent across multiple app replicas.
+
+## Session Cookies
+
+Authentication is now stored in an `HttpOnly` server-set cookie instead of browser storage.
+
+Recommended production settings:
+
+- `AUTH_COOKIE_SAME_SITE=lax`
+- `AUTH_COOKIE_SECURE=true`
+- `TRUST_PROXY=1` when running behind a reverse proxy or load balancer
+
+If your frontend and backend live on different subdomains of the same parent domain, keep `AUTH_COOKIE_SAME_SITE=lax` and set `AUTH_COOKIE_DOMAIN` only if you need to widen cookie scope intentionally.
 
 ## Recommended Infra Checks
 

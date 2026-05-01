@@ -1,10 +1,30 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+
+import LoadingSpinner from '../components/LoadingSpinner';
 import { consultationsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { fadeInUp, pageVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+
+const buildInitialFormState = () => ({
+  title: '',
+  titleAr: '',
+  description: '',
+  descriptionAr: '',
+  priceType: 'fixed',
+  price: '',
+  currency: 'SAR',
+  duration: '',
+  durationAr: '',
+  mode: '1 to 1',
+  modeAr: '',
+  focusPoints: [''],
+  focusPointsAr: [''],
+  zoomSchedulerLink: '',
+  isActive: true,
+  order: 0,
+});
 
 function AdminConsultations() {
   const { showSuccess, showError } = useUIStore();
@@ -13,22 +33,7 @@ function AdminConsultations() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [processing, setProcessing] = useState(false);
-
-  const initialFormState = {
-    title: '',
-    description: '',
-    priceType: 'fixed',
-    price: '',
-    currency: 'SAR',
-    duration: '',
-    mode: '1 to 1',
-    focusPoints: [''],
-    zoomSchedulerLink: '',
-    isActive: true,
-    order: 0
-  };
-
-  const [formData, setFormData] = useState(initialFormState);
+  const [formData, setFormData] = useState(buildInitialFormState());
 
   useBodyScrollLock(modalOpen);
 
@@ -39,8 +44,7 @@ function AdminConsultations() {
   const fetchConsultations = async () => {
     setLoading(true);
     try {
-      // For admin we might want to see all including inactive
-      const response = await consultationsAPI.getActive(); // Using getActive for now as per T001
+      const response = await consultationsAPI.getAll();
       setConsultations(response.data);
     } catch (error) {
       showError('Failed to fetch consultations');
@@ -50,39 +54,45 @@ function AdminConsultations() {
   };
 
   const handleOpenAdd = () => {
-    setFormData(initialFormState);
+    setFormData(buildInitialFormState());
     setIsEditing(false);
     setModalOpen(true);
   };
 
   const handleOpenEdit = (consultation) => {
     setFormData({
+      ...buildInitialFormState(),
       ...consultation,
-      price: consultation.price || ''
+      price: consultation.price || '',
+      focusPoints: consultation.focusPoints?.length ? consultation.focusPoints : [''],
+      focusPointsAr: consultation.focusPointsAr?.length ? consultation.focusPointsAr : [''],
     });
     setIsEditing(true);
     setModalOpen(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setProcessing(true);
+
     try {
-      const data = {
+      const payload = {
         ...formData,
         price: formData.priceType === 'fixed' ? Number(formData.price) : null,
-        focusPoints: formData.focusPoints.filter(p => p.trim() !== '')
+        focusPoints: formData.focusPoints.map((point) => point.trim()).filter(Boolean),
+        focusPointsAr: formData.focusPointsAr.map((point) => point.trim()).filter(Boolean),
       };
 
       if (isEditing) {
-        await consultationsAPI.update(formData._id, data);
+        await consultationsAPI.update(formData._id, payload);
         showSuccess('Consultation updated successfully');
       } else {
-        await consultationsAPI.create(data);
+        await consultationsAPI.create(payload);
         showSuccess('Consultation created successfully');
       }
+
       setModalOpen(false);
-      fetchConsultations();
+      await fetchConsultations();
     } catch (error) {
       showError(error.response?.data?.error || 'Operation failed');
     } finally {
@@ -91,29 +101,45 @@ function AdminConsultations() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this consultation type?')) return;
+    if (!window.confirm('Are you sure you want to delete this consultation type?')) {
+      return;
+    }
+
     try {
       await consultationsAPI.remove(id);
       showSuccess('Consultation deleted');
-      fetchConsultations();
+      await fetchConsultations();
     } catch (error) {
       showError('Failed to delete consultation');
     }
   };
 
-  const addFocusPoint = () => {
-    setFormData({ ...formData, focusPoints: [...formData.focusPoints, ''] });
+  const addFocusPoint = (field) => {
+    setFormData((current) => ({
+      ...current,
+      [field]: [...current[field], ''],
+    }));
   };
 
-  const removeFocusPoint = (index) => {
-    const newPoints = formData.focusPoints.filter((_, i) => i !== index);
-    setFormData({ ...formData, focusPoints: newPoints });
+  const removeFocusPoint = (field, index) => {
+    setFormData((current) => {
+      const nextPoints = current[field].filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        [field]: nextPoints.length ? nextPoints : [''],
+      };
+    });
   };
 
-  const updateFocusPoint = (index, value) => {
-    const newPoints = [...formData.focusPoints];
-    newPoints[index] = value;
-    setFormData({ ...formData, focusPoints: newPoints });
+  const updateFocusPoint = (field, index, value) => {
+    setFormData((current) => {
+      const nextPoints = [...current[field]];
+      nextPoints[index] = value;
+      return {
+        ...current,
+        [field]: nextPoints,
+      };
+    });
   };
 
   return (
@@ -123,11 +149,7 @@ function AdminConsultations() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Consultations</h1>
           <p className="text-gray-500">Create and manage your expert consultation types</p>
         </motion.div>
-        <motion.button
-          variants={fadeInUp}
-          onClick={handleOpenAdd}
-          className="btn-primary"
-        >
+        <motion.button variants={fadeInUp} onClick={handleOpenAdd} className="btn-primary">
           <span className="mr-2">+</span> Add New Consultation
         </motion.button>
       </div>
@@ -160,6 +182,9 @@ function AdminConsultations() {
                     <td className="px-6 py-4 text-sm text-gray-500">{item.order}</td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-gray-900">{item.title}</p>
+                      {item.titleAr && (
+                        <p className="text-xs text-gray-500 mt-1" dir="rtl">{item.titleAr}</p>
+                      )}
                       <p className="text-xs text-gray-400 line-clamp-1">{item.description}</p>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-700">
@@ -167,7 +192,10 @@ function AdminConsultations() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900 font-medium">{item.mode}</p>
-                      <p className="text-xs text-gray-500">{item.duration}</p>
+                      {item.modeAr && (
+                        <p className="text-xs text-gray-500" dir="rtl">{item.modeAr}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">{item.duration}</p>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
@@ -196,7 +224,13 @@ function AdminConsultations() {
         {modalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="app-modal-shell z-50">
             <div className="app-modal-backdrop" onClick={() => setModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.99, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.99, y: 12 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="app-modal-panel max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.99, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.99, y: 12 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="app-modal-panel max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Edit' : 'Add'} Consultation</h2>
                 <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
@@ -205,18 +239,32 @@ function AdminConsultations() {
               </div>
 
               <form onSubmit={handleSubmit} className="app-modal-scroll overflow-y-auto p-6 space-y-6 flex-1">
+                <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-700">
+                  English content remains the default site copy. Add Arabic fields below to localize the public consultations pages.
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                    <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="input-field" placeholder="e.g. Creative Audit" />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input-field min-h-[100px] resize-none" placeholder="Enter consultation description..." />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Title (English)</label>
+                    <input type="text" value={formData.title} onChange={(event) => setFormData({ ...formData, title: event.target.value })} required className="input-field" placeholder="e.g. Creative Audit" />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Title (Arabic)</label>
+                    <input type="text" dir="rtl" value={formData.titleAr} onChange={(event) => setFormData({ ...formData, titleAr: event.target.value })} className="input-field" placeholder="مثال: التقييم الإبداعي" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description (English)</label>
+                    <textarea value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} className="input-field min-h-[100px] resize-none" placeholder="Enter consultation description..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                    <textarea dir="rtl" value={formData.descriptionAr} onChange={(event) => setFormData({ ...formData, descriptionAr: event.target.value })} className="input-field min-h-[100px] resize-none" placeholder="أدخل وصف الاستشارة..." />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Price Type</label>
-                    <select value={formData.priceType} onChange={(e) => setFormData({ ...formData, priceType: e.target.value })} className="input-field">
+                    <select value={formData.priceType} onChange={(event) => setFormData({ ...formData, priceType: event.target.value })} className="input-field">
                       <option value="fixed">Fixed Price</option>
                       <option value="contract">Contract Based</option>
                     </select>
@@ -224,34 +272,62 @@ function AdminConsultations() {
                   {formData.priceType === 'fixed' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Price (SAR)</label>
-                      <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required={formData.priceType === 'fixed'} className="input-field" />
+                      <input type="number" value={formData.price} onChange={(event) => setFormData({ ...formData, price: event.target.value })} required={formData.priceType === 'fixed'} className="input-field" />
                     </div>
                   )}
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-                    <input type="text" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} required className="input-field" placeholder="e.g. 30 minutes" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (English)</label>
+                    <input type="text" value={formData.duration} onChange={(event) => setFormData({ ...formData, duration: event.target.value })} required className="input-field" placeholder="e.g. 30 minutes" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
-                    <input type="text" value={formData.mode} onChange={(e) => setFormData({ ...formData, mode: e.target.value })} required className="input-field" placeholder="e.g. 1 to 1" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (Arabic)</label>
+                    <input type="text" dir="rtl" value={formData.durationAr} onChange={(event) => setFormData({ ...formData, durationAr: event.target.value })} className="input-field" placeholder="مثال: 30 دقيقة" />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Zoom Scheduler Link</label>
-                    <input type="url" value={formData.zoomSchedulerLink} onChange={(e) => setFormData({ ...formData, zoomSchedulerLink: e.target.value })} required className="input-field" placeholder="https://scheduler.zoom.us/..." />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mode (English)</label>
+                    <input type="text" value={formData.mode} onChange={(event) => setFormData({ ...formData, mode: event.target.value })} required className="input-field" placeholder="e.g. 1 to 1" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mode (Arabic)</label>
+                    <input type="text" dir="rtl" value={formData.modeAr} onChange={(event) => setFormData({ ...formData, modeAr: event.target.value })} className="input-field" placeholder="مثال: فردي" />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Focus Points</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Zoom Scheduler Link</label>
+                    <input type="url" value={formData.zoomSchedulerLink} onChange={(event) => setFormData({ ...formData, zoomSchedulerLink: event.target.value })} required className="input-field" placeholder="https://scheduler.zoom.us/..." />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Focus Points (English)</label>
                     <div className="space-y-3">
                       {formData.focusPoints.map((point, index) => (
                         <div key={index} className="flex gap-2">
-                          <input type="text" value={point} onChange={(e) => updateFocusPoint(index, e.target.value)} className="input-field" placeholder="Enter a focus point..." />
-                          <button type="button" onClick={() => removeFocusPoint(index)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-gray-200">
+                          <input type="text" value={point} onChange={(event) => updateFocusPoint('focusPoints', index, event.target.value)} className="input-field" placeholder="Enter a focus point..." />
+                          <button type="button" onClick={() => removeFocusPoint('focusPoints', index)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-gray-200">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
                           </button>
                         </div>
                       ))}
-                      <button type="button" onClick={addFocusPoint} className="flex items-center gap-2 text-sm text-primary-600 font-medium hover:text-primary-700">
+                      <button type="button" onClick={() => addFocusPoint('focusPoints')} className="flex items-center gap-2 text-sm text-primary-600 font-medium hover:text-primary-700">
+                        <span>+ Add Point</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Focus Points (Arabic)</label>
+                    <div className="space-y-3">
+                      {formData.focusPointsAr.map((point, index) => (
+                        <div key={`ar-${index}`} className="flex gap-2">
+                          <input type="text" dir="rtl" value={point} onChange={(event) => updateFocusPoint('focusPointsAr', index, event.target.value)} className="input-field" placeholder="أدخل نقطة تركيز..." />
+                          <button type="button" onClick={() => removeFocusPoint('focusPointsAr', index)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-gray-200">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addFocusPoint('focusPointsAr')} className="flex items-center gap-2 text-sm text-primary-600 font-medium hover:text-primary-700">
                         <span>+ Add Point</span>
                       </button>
                     </div>
@@ -259,10 +335,10 @@ function AdminConsultations() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Display Order</label>
-                    <input type="number" value={formData.order} onChange={(e) => setFormData({ ...formData, order: Number(e.target.value) })} className="input-field" />
+                    <input type="number" value={formData.order} onChange={(event) => setFormData({ ...formData, order: Number(event.target.value) })} className="input-field" />
                   </div>
                   <div className="flex items-center gap-2 pt-8">
-                    <input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
+                    <input id="isActive" type="checkbox" checked={formData.isActive} onChange={(event) => setFormData({ ...formData, isActive: event.target.checked })} className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
                     <label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">Active</label>
                   </div>
                 </div>

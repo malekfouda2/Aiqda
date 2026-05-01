@@ -6,11 +6,9 @@ import LocalizationProvider from './i18n/LocalizationProvider';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <LocalizationProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </LocalizationProvider>
-  </React.StrictMode>
+  <LocalizationProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </LocalizationProvider>
 );

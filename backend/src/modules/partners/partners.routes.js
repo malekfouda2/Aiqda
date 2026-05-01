@@ -10,8 +10,8 @@ router.get('/', partnersController.getPublicList);
 
 router.get('/admin', authenticate, isAdmin, partnersController.getAll);
 router.get('/admin/:id', authenticate, isAdmin, partnersController.getById);
-router.post('/', authenticate, isAdmin, uploadPartnerLogo.single('image'), partnersController.create);
-router.put('/:id', authenticate, isAdmin, uploadPartnerLogo.single('image'), partnersController.update);
+router.post('/', authenticate, isAdmin, uploadPartnerLogo, partnersController.create);
+router.put('/:id', authenticate, isAdmin, uploadPartnerLogo, partnersController.update);
 router.delete('/:id', authenticate, isAdmin, partnersController.remove);
 
 export default router;

@@ -55,9 +55,9 @@ export const register = async ({ email, password, name, platformNoticeAccepted }
   });
 
   await user.save();
-  const token = generateToken({ id: user._id, email: user.email, role: user.role });
+  const sessionToken = generateToken({ id: user._id, email: user.email, role: user.role });
   
-  return { user, token };
+  return { user, sessionToken };
 };
 
 export const login = async ({ email, password }) => {
@@ -97,9 +97,9 @@ export const login = async ({ email, password }) => {
     throw new Error('Invalid email or password');
   }
 
-  const token = generateToken({ id: user._id, email: user.email, role: user.role });
+  const sessionToken = generateToken({ id: user._id, email: user.email, role: user.role });
   
-  return { user, token };
+  return { user, sessionToken };
 };
 
 export const getProfile = async (userId) => {

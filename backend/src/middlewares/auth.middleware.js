@@ -1,6 +1,7 @@
 import { verifyToken } from '../utils/jwt.js';
 import User from '../modules/users/user.model.js';
 import { hasAcceptedCurrentPlatformNotice, PLATFORM_NOTICE_ERROR_MESSAGE } from '../config/platformNotice.js';
+import { getAuthTokenFromRequest } from '../utils/authCookie.js';
 
 const buildRequestUser = (user) => ({
   id: user._id.toString(),
@@ -11,13 +12,11 @@ const buildRequestUser = (user) => ({
 });
 
 export const authenticate = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = getAuthTokenFromRequest(req);
+
+  if (!token) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = verifyToken(token);
@@ -34,13 +33,10 @@ export const authenticate = async (req, res, next) => {
 };
 
 export const authenticateOptional = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = getAuthTokenFromRequest(req);
+  if (!token) {
     return next();
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = verifyToken(token);

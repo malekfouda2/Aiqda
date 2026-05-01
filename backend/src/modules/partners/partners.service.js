@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 
 import Partner from './partner.model.js';
 import PartnerContentState from './partnerContentState.model.js';
+import { normalizeExternalUrl } from '../../utils/url.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,19 +56,6 @@ const normalizeOrder = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const isValidUrl = (value) => {
-  if (!value) {
-    return true;
-  }
-
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 const toStoredImagePath = (file) => {
   if (!file?.filename) {
     return null;
@@ -95,7 +83,11 @@ const deleteImageIfPresent = async (storedPath) => {
 
 const validatePartnerPayload = (data = {}, { fallbackOrder = 0 } = {}) => {
   const name = normalizeString(data.name);
-  const website = normalizeString(data.website);
+  const website = normalizeExternalUrl(data.website, {
+    fieldLabel: 'Website URL',
+    required: false,
+    maxLength: 500,
+  });
   const order = normalizeOrder(data.order, fallbackOrder);
   const isActive = parseBoolean(data.isActive, true);
   const removeImage = parseBoolean(data.removeImage, false);
@@ -106,14 +98,6 @@ const validatePartnerPayload = (data = {}, { fallbackOrder = 0 } = {}) => {
 
   if (name.length > 160) {
     throw new Error('Partner name is too long');
-  }
-
-  if (website.length > 500) {
-    throw new Error('Website URL is too long');
-  }
-
-  if (!isValidUrl(website)) {
-    throw new Error('Website must be a valid URL');
   }
 
   return {

@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 
 import { partnersAPI } from '../services/api';
 import { buildUploadUrl } from '../utils/uploads';
-import { fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { getSafeExternalHref } from '../utils/url';
+import { fadeInUp } from '../utils/animations';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 
 function PartnersSection() {
-  const { locale, t } = useLocale();
+  const { locale, isRTL } = useLocale();
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +30,7 @@ function PartnersSection() {
   }, []);
 
   return (
-    <section className="relative py-24 overflow-hidden border-t border-gray-100 bg-gradient-to-b from-white via-gray-50/70 to-white">
+    <section className="content-auto relative py-24 overflow-hidden border-t border-gray-100 bg-gradient-to-b from-white via-gray-50/70 to-white">
       <div className="absolute inset-0 pointer-events-none">
         <div className="floating-orb w-[300px] h-[300px] bg-primary-100/25 top-[-80px] left-[-60px] animate-float-slow" />
         <div className="floating-orb w-[260px] h-[260px] bg-cyan-100/25 bottom-[-80px] right-[-40px] animate-float" />
@@ -71,46 +72,53 @@ function PartnersSection() {
             {locale === 'ar' ? 'ستظهر شعارات الشركاء هنا قريبًا.' : 'Partner logos will appear here soon.'}
           </div>
         ) : (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-60px' }}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {partners.map((partner) => {
-              const logoUrl = buildUploadUrl(partner.image);
-              const Wrapper = partner.website ? 'a' : 'div';
-              const wrapperProps = partner.website ? {
-                href: partner.website,
-                target: '_blank',
-                rel: 'noreferrer',
-              } : {};
+          <div className="relative overflow-hidden rounded-[2rem] border border-gray-200/80 bg-white/70 px-4 py-6 shadow-sm sm:px-5">
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white via-white/90 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white via-white/90 to-transparent" />
 
-              return (
-                <motion.div
-                  key={partner._id}
-                  variants={cardVariants}
-                  className="h-full"
-                >
-                  <Wrapper
-                    {...wrapperProps}
-                    className="group flex h-full min-h-[180px] items-center justify-center rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-xl"
-                  >
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt={getLocalizedField(partner, 'name', locale)}
-                        className="max-h-24 w-full object-contain opacity-80 transition duration-300 group-hover:opacity-100"
-                      />
-                    ) : (
-                      <span className="text-lg font-semibold text-gray-500">{getLocalizedField(partner, 'name', locale)}</span>
-                    )}
-                  </Wrapper>
-                </motion.div>
-              );
-            })}
-          </motion.div>
+            <div
+              className="partners-marquee-track flex"
+              style={{
+                '--partners-marquee-duration': `${Math.max(24, partners.length * 7)}s`,
+                animationDirection: isRTL ? 'reverse' : 'normal',
+              }}
+            >
+              {[0, 1].map((copyIndex) => (
+                <div key={`partners-copy-${copyIndex}`} className="flex shrink-0 items-stretch gap-5 pe-5">
+                  {partners.map((partner) => {
+                    const logoUrl = buildUploadUrl(partner.image);
+                    const safeWebsiteHref = getSafeExternalHref(partner.website);
+                    const Wrapper = safeWebsiteHref ? 'a' : 'div';
+                    const wrapperProps = safeWebsiteHref ? {
+                      href: safeWebsiteHref,
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                    } : {};
+
+                    return (
+                      <Wrapper
+                        key={`${partner._id}-${copyIndex}`}
+                        {...wrapperProps}
+                        className="group flex min-h-[152px] w-[240px] shrink-0 items-center justify-center rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-xl sm:w-[280px]"
+                      >
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={getLocalizedField(partner, 'name', locale)}
+                            loading="lazy"
+                            decoding="async"
+                            className="max-h-24 w-full object-contain opacity-80 transition duration-300 group-hover:opacity-100"
+                          />
+                        ) : (
+                          <span className="text-lg font-semibold text-gray-500 text-center">{getLocalizedField(partner, 'name', locale)}</span>
+                        )}
+                      </Wrapper>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </section>

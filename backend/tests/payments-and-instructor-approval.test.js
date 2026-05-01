@@ -103,6 +103,31 @@ test('payment submission validates proof and amount before creating a payment', 
   assert.match(wrongAmountResponse.body.error, /must match the package price/i);
 });
 
+test('payment proof uploads reject files whose contents do not match the claimed type', async () => {
+  const student = await createUser({ role: 'student' });
+  const packageRecord = await createSubscriptionPackage({ price: 499 });
+  const subscription = await createSubscription({
+    user: student.user._id,
+    package: packageRecord._id,
+    status: 'pending'
+  });
+
+  const invalidProofResponse = await request(suite.app)
+    .post('/api/payments')
+    .set(authHeader(student.token))
+    .field('subscriptionId', subscription._id.toString())
+    .field('amount', '499')
+    .field('paymentReference', 'PAY-BAD-PROOF-001')
+    .field('checkoutDisclaimerAccepted', 'true')
+    .attach('proofFile', Buffer.from('this is not really a pdf'), {
+      filename: 'proof.pdf',
+      contentType: 'application/pdf'
+    });
+
+  assert.equal(invalidProofResponse.status, 400);
+  assert.match(invalidProofResponse.body.error, /Invalid file type/i);
+});
+
 test('payment access is restricted and admin approval activates the subscription', async () => {
   const admin = await createUser({ role: 'admin' });
   const owner = await createUser({ role: 'student' });

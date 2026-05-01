@@ -5,8 +5,26 @@ import { consultationsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import useAuthStore from '../store/authStore';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
-import { getLocalizedField } from '../i18n/translations';
+import { getLocalizedArrayField, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+
+const getConsultationModeLabel = (consultation, locale) => {
+  if (locale === 'ar') {
+    if (typeof consultation.modeAr === 'string' && consultation.modeAr.trim()) {
+      return consultation.modeAr;
+    }
+
+    if (consultation.mode === '1 to 1') {
+      return 'فردي';
+    }
+
+    if (consultation.mode === '1 to many') {
+      return 'جماعي';
+    }
+  }
+
+  return consultation.mode;
+};
 
 function Consultations() {
   const { locale, isRTL } = useLocale();
@@ -95,23 +113,28 @@ function Consultations() {
             animate="visible"
             className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {consultations.map((consultation) => (
-              <motion.div
-                key={consultation._id}
-                variants={cardVariants}
-                className="h-full"
-              >
-                <div className="card h-full flex flex-col group hover:shadow-2xl transition-all duration-500">
+            {consultations.map((consultation) => {
+              const localizedFocusPoints = getLocalizedArrayField(consultation, 'focusPoints', locale);
+              const localizedMode = getConsultationModeLabel(consultation, locale);
+              const localizedDuration = getLocalizedField(consultation, 'duration', locale);
+
+              return (
+                <motion.div
+                  key={consultation._id}
+                  variants={cardVariants}
+                  className="h-full"
+                >
+                  <div className="card h-full flex flex-col group hover:shadow-2xl transition-all duration-500">
                   <div className="flex items-center justify-between mb-4">
                     <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                       consultation.mode === '1 to 1' 
                         ? 'bg-primary-50 text-primary-600 border border-primary-100' 
                         : 'bg-cyan-50 text-cyan-600 border border-cyan-100'
                     }`}>
-                      {consultation.mode === '1 to 1' ? (isRTL ? 'فردي' : consultation.mode) : (isRTL ? 'جماعي' : consultation.mode)}
+                      {localizedMode}
                     </span>
                     <span className="px-3 py-1 rounded-lg bg-gray-50 text-gray-500 text-xs font-semibold border border-gray-100">
-                      {consultation.duration}
+                      {localizedDuration}
                     </span>
                   </div>
 
@@ -126,13 +149,13 @@ function Consultations() {
                   <div className="space-y-3 mb-8 flex-1">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{isRTL ? 'نقاط التركيز' : 'Focus Points'}</p>
                     <ul className="space-y-2">
-                      {consultation.focusPoints?.slice(0, 4).map((point, i) => (
+                      {localizedFocusPoints.slice(0, 4).map((point, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                           <span className="text-primary-500 mt-0.5">✓</span>
                           <span>{point}</span>
                         </li>
                       ))}
-                      {consultation.focusPoints?.length > 4 && (
+                      {localizedFocusPoints.length > 4 && (
                         <li className="text-xs text-gray-400 italic">{isRTL ? '+ نقاط إضافية...' : '+ more points...'}</li>
                       )}
                     </ul>
@@ -161,9 +184,10 @@ function Consultations() {
                       {user ? (isRTL ? 'احجز الآن ←' : 'Book Now →') : (isRTL ? 'سجّل الدخول للحجز' : 'Login to Book')}
                     </Link>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
       </div>

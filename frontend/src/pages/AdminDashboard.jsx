@@ -12,12 +12,18 @@ function AdminDashboard() {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [pendingSubscriptions, setPendingSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
   useEffect(() => {
     fetchData();
+    const intervalId = setInterval(() => {
+      fetchData({ silent: true });
+    }, 15000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false } = {}) => {
     try {
       const [analyticsRes, paymentsRes, subsRes] = await Promise.all([
         analyticsAPI.getAdminAnalytics(),
@@ -27,10 +33,13 @@ function AdminDashboard() {
       setAnalytics(analyticsRes.data);
       setPendingPayments(paymentsRes.data);
       setPendingSubscriptions(subsRes.data);
+      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -46,7 +55,7 @@ function AdminDashboard() {
     { key: 'totalCourses', label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-primary' },
     { key: 'totalEnrollments', label: isRTL ? 'التسجيلات' : 'Enrollments', icon: '👥', iconClass: 'icon-box-success' },
     { key: 'pendingPayments', label: isRTL ? 'مدفوعات قيد الانتظار' : 'Pending Payments', icon: '💳', iconClass: 'icon-box-warning' },
-    { key: 'qualifiedLessons', label: isRTL ? 'محتويات مؤهلة' : 'Qualified Contents', icon: '🎯', iconClass: 'icon-box-accent' },
+    { key: 'activeStudentsNow', label: isRTL ? 'متعلمين نشطين الآن' : 'Active Learners Now', icon: '📡', iconClass: 'icon-box-accent' },
   ];
 
   const quickActions = [
@@ -78,6 +87,13 @@ function AdminDashboard() {
               {isRTL ? 'نظرة ' : 'Platform '}<span className="gradient-text">{isRTL ? 'عامة' : 'Overview'}</span>
             </h1>
             <p className="text-gray-500 text-lg">{isRTL ? 'أدر منصتك التعليمية' : 'Manage your education platform'}</p>
+            {lastUpdatedAt && (
+              <p className="text-xs text-gray-400 mt-3">
+                {isRTL
+                  ? `يتم التحديث تلقائيًا كل 15 ثانية • آخر تحديث ${lastUpdatedAt.toLocaleTimeString()}`
+                  : `Auto-refreshes every 15 seconds • Last updated ${lastUpdatedAt.toLocaleTimeString()}`}
+              </p>
+            )}
           </motion.div>
 
           <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -96,6 +112,13 @@ function AdminDashboard() {
                       {stat.key === 'pendingPayments' ? pendingPayments.length : (analytics?.overview?.[stat.key] || 0)}
                     </p>
                     <p className="text-gray-500 text-sm">{stat.label}</p>
+                    {stat.key === 'activeStudentsNow' && analytics?.overview?.activeWindowMinutes ? (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {isRTL
+                          ? `آخر ${analytics.overview.activeWindowMinutes} دقائق`
+                          : `last ${analytics.overview.activeWindowMinutes} min`}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </motion.div>

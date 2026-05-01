@@ -125,6 +125,97 @@ test('students cannot access draft quizzes while admins can still review full qu
   assert.equal(adminResponse.body.lesson.toString(), draftLesson._id.toString());
 });
 
+test('students cannot fetch Vimeo embed data for draft lessons even when enrolled', async () => {
+  const instructor = await createUser({ role: 'instructor' });
+  const student = await createUser({ role: 'student' });
+
+  const course = await createCourse({
+    instructorId: instructor.user._id,
+    enrolledStudents: [student.user._id],
+    isPublished: true,
+    title: 'Draft Video Access Course'
+  });
+
+  const packageRecord = await createSubscriptionPackage({
+    courses: [course._id]
+  });
+  await createSubscription({
+    user: student.user._id,
+    package: packageRecord._id,
+    status: 'active',
+    startDate: new Date(Date.now() - 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
+  const draftLesson = await createLesson({
+    course: course._id,
+    title: 'Draft Video Lesson',
+    order: 1,
+    isPublished: false,
+    vimeoVideoId: '1186554397'
+  });
+
+  const studentResponse = await request(suite.app)
+    .get(`/api/video/embed/${draftLesson._id}`)
+    .set(authHeader(student.token));
+  assert.equal(studentResponse.status, 403);
+
+  const instructorResponse = await request(suite.app)
+    .get(`/api/video/embed/${draftLesson._id}`)
+    .set(authHeader(instructor.token));
+  assert.equal(instructorResponse.status, 200);
+  assert.equal(instructorResponse.body.lessonId.toString(), draftLesson._id.toString());
+});
+
+test('supporting lesson files require authorized download access and are not exposed under /uploads', async () => {
+  const instructor = await createUser({ role: 'instructor' });
+  const student = await createUser({ role: 'student' });
+
+  const course = await createCourse({
+    instructorId: instructor.user._id,
+    enrolledStudents: [student.user._id],
+    isPublished: true,
+    title: 'Protected Supporting Files Course'
+  });
+
+  const packageRecord = await createSubscriptionPackage({
+    courses: [course._id]
+  });
+  await createSubscription({
+    user: student.user._id,
+    package: packageRecord._id,
+    status: 'active',
+    startDate: new Date(Date.now() - 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
+  const lesson = await createLesson({
+    course: course._id,
+    title: 'Lesson With File',
+    order: 1,
+    isPublished: true
+  });
+
+  const uploadResponse = await request(suite.app)
+    .post(`/api/lessons/${lesson._id}/upload-file`)
+    .set(authHeader(instructor.token))
+    .attach('file', Buffer.from('lesson support file'), {
+      filename: 'notes.txt',
+      contentType: 'text/plain'
+    });
+  assert.equal(uploadResponse.status, 200);
+
+  const protectedDownloadResponse = await request(suite.app)
+    .get(`/api/lessons/${lesson._id}/file`)
+    .set(authHeader(student.token));
+  assert.equal(protectedDownloadResponse.status, 200);
+  assert.match(protectedDownloadResponse.headers['content-disposition'], /notes\.txt/);
+
+  const publicDownloadResponse = await request(suite.app)
+    .get(`/uploads/${uploadResponse.body.supportingFile}`);
+  assert.equal(publicDownloadResponse.status, 404);
+});
+
 test('manual included package access lets higher tiers enroll in lower-tier courses', async () => {
   const student = await createUser({ role: 'student' });
   const lowerTierStudent = await createUser({ role: 'student' });

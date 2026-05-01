@@ -75,6 +75,42 @@ test('registration validates required fields and normalizes the email', async ()
   assert.equal(validResponse.body.user.name, 'New Student');
   assert.equal(validResponse.body.user.platformNoticeAcknowledgement.version, 'POL-0016');
   assert.ok(validResponse.body.user.platformNoticeAcknowledgement.acceptedAt);
+  assert.ok(validResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+});
+
+test('login sets an auth cookie, profile reads from it, and logout clears it', async () => {
+  await createUser({
+    email: 'cookie-user@example.com',
+    password: 'Password123!',
+    role: 'student',
+  });
+
+  const agent = request.agent(suite.app);
+  const loginResponse = await agent
+    .post('/api/auth/login')
+    .send({
+      email: 'cookie-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(loginResponse.status, 200);
+  assert.equal(loginResponse.body.user.email, 'cookie-user@example.com');
+  assert.equal(loginResponse.body.token, undefined);
+  assert.ok(loginResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+
+  const profileResponse = await agent
+    .get('/api/auth/profile');
+  assert.equal(profileResponse.status, 200);
+  assert.equal(profileResponse.body.email, 'cookie-user@example.com');
+
+  const logoutResponse = await agent
+    .post('/api/auth/logout');
+  assert.equal(logoutResponse.status, 204);
+  assert.ok(logoutResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+
+  const afterLogoutProfileResponse = await agent
+    .get('/api/auth/profile');
+  assert.equal(afterLogoutProfileResponse.status, 401);
 });
 
 test('login endpoint is rate limited after repeated failed attempts', async () => {

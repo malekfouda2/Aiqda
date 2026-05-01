@@ -109,3 +109,22 @@ export const getSecureVideoToken = async (req, res) => {
     res.status(403).json({ error: error.message });
   }
 };
+
+export const downloadFile = async (req, res) => {
+  try {
+    const { absolutePath, downloadName } = await lessonsService.getLessonFileDownload(
+      req.params.id,
+      req.user.id,
+      req.user.role
+    );
+
+    res.download(absolutePath, downloadName);
+  } catch (error) {
+    const statusCode = isForbiddenError(error.message)
+      ? 403
+      : error.message === 'Lesson not found'
+        ? 404
+        : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};

@@ -4,17 +4,10 @@ const API_BASE_URL = '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 api.interceptors.response.use(
@@ -23,10 +16,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const isAuthRoute = error.config?.url?.includes('/auth/login')
         || error.config?.url?.includes('/auth/register')
-        || error.config?.url?.includes('/auth/social/complete');
+        || error.config?.url?.includes('/auth/social/complete')
+        || error.config?.url?.includes('/auth/profile')
+        || error.config?.url?.includes('/auth/logout');
       if (!isAuthRoute) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
@@ -37,6 +30,7 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
   getSocialProviders: () => api.get('/auth/social/providers'),
   completeSocialLogin: (data) => api.post('/auth/social/complete', data),
   acceptInstructorInvite: (data) => api.post('/auth/invite/accept', data),
@@ -79,6 +73,7 @@ export const paymentsAPI = {
   getUserPayments: () => api.get('/payments/my'),
   getAll: (status) => api.get('/payments', { params: { status } }),
   getById: (id) => api.get(`/payments/${id}`),
+  downloadProof: (id) => api.get(`/payments/${id}/proof`, { responseType: 'blob' }),
   approve: (id) => api.patch(`/payments/${id}/approve`),
   reject: (id, reason) => api.patch(`/payments/${id}/reject`, { reason })
 };
@@ -109,6 +104,7 @@ export const lessonsAPI = {
     });
   },
   updateProgress: (id, watchPercentage) => api.post(`/lessons/${id}/progress`, { watchPercentage }),
+  downloadFile: (id) => api.get(`/lessons/${id}/file`, { responseType: 'blob' }),
   getVideoToken: (id) => api.get(`/lessons/${id}/video-token`)
 };
 
@@ -173,6 +169,7 @@ export const instructorApplicationsAPI = {
   }),
   getAll: (status) => api.get('/instructor-applications', { params: { status } }),
   getById: (id) => api.get(`/instructor-applications/${id}`),
+  downloadFile: (id, field) => api.get(`/instructor-applications/${id}/files/${field}`, { responseType: 'blob' }),
   approve: (id) => api.patch(`/instructor-applications/${id}/approve`),
   reject: (id, reason) => api.patch(`/instructor-applications/${id}/reject`, { reason })
 };
@@ -187,6 +184,7 @@ export const studioApplicationsAPI = {
 
 export const consultationsAPI = {
   getActive: () => api.get('/consultations'),
+  getAll: () => api.get('/consultations/admin'),
   getById: (id) => api.get(`/consultations/${id}`),
   create: (data) => api.post('/consultations', data),
   update: (id, data) => api.put(`/consultations/${id}`, data),

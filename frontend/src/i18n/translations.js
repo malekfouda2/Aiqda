@@ -64,6 +64,25 @@ export const getLocalizedField = (entity, field, locale = DEFAULT_LOCALE) => {
   return directValue ?? '';
 };
 
+export const getLocalizedArrayField = (entity, field, locale = DEFAULT_LOCALE) => {
+  if (!entity) {
+    return [];
+  }
+
+  if (locale === 'ar') {
+    const arabicField = `${field}Ar`;
+    if (Array.isArray(entity[arabicField]) && entity[arabicField].length > 0) {
+      return entity[arabicField];
+    }
+  }
+
+  if (Array.isArray(entity[field])) {
+    return entity[field];
+  }
+
+  return [];
+};
+
 export const translations = {
   en: {
     brand: {

@@ -12,6 +12,7 @@ const router = express.Router();
 
 router.post('/register', authRegisterRateLimit, authController.register);
 router.post('/login', authLoginRateLimit, authController.login);
+router.post('/logout', authController.logout);
 router.get('/social/providers', authController.getSocialProviders);
 router.get('/social/:provider/start', authSocialRateLimit, authController.startSocialLogin);
 router.get('/social/:provider/callback', authSocialRateLimit, authController.handleSocialCallback);

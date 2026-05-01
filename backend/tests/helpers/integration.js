@@ -51,7 +51,7 @@ export const setupIntegrationSuite = () => {
 
   beforeEach(async () => {
     await mongoose.connection.db.dropDatabase();
-    clearRateLimitStore();
+    await clearRateLimitStore();
   });
 
   after(async () => {

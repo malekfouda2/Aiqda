@@ -4,12 +4,7 @@ import { DashboardSidebar, DashboardMobileNav } from '../components/DashboardSid
 function DashboardLayout({ type = 'student' }) {
   return (
     <div className="min-h-screen py-8 relative overflow-hidden">
-      <div className="absolute inset-0 mesh-gradient opacity-30" />
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-orb w-[500px] h-[500px] bg-primary-100/30 top-[-200px] right-[-100px] animate-float-slow" />
-        <div className="floating-orb w-[300px] h-[300px] bg-cyan-100/30 bottom-[-100px] left-[-50px] animate-float" />
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-white to-gray-50" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <DashboardMobileNav type={type} />
