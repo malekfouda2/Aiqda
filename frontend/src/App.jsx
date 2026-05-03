@@ -15,6 +15,7 @@ const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const TermsAndConditionsForUsers = lazy(() => import('./pages/TermsAndConditionsForUsers'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
 const UserContentAccessPolicy = lazy(() => import('./pages/UserContentAccessPolicy'));
+const StudioContentSubmissionFramework = lazy(() => import('./pages/StudioContentSubmissionFramework'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const SocialAuthCallback = lazy(() => import('./pages/SocialAuthCallback'));
@@ -81,6 +82,10 @@ function App() {
         <Route path="/terms-and-conditions-for-users" element={renderLazyPage(TermsAndConditionsForUsers)} />
         <Route path="/refund-policy" element={renderLazyPage(RefundPolicy)} />
         <Route path="/user-content-access-policy" element={renderLazyPage(UserContentAccessPolicy)} />
+        <Route
+          path="/studio-content-submission-framework"
+          element={renderLazyPage(StudioContentSubmissionFramework)}
+        />
         <Route path="/login" element={renderLazyPage(Login)} />
         <Route path="/register" element={renderLazyPage(Register)} />
         <Route path="/auth/social/callback" element={renderLazyPage(SocialAuthCallback)} />

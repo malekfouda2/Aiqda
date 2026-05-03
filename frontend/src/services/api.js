@@ -205,6 +205,7 @@ export const videoAPI = {
   getList: (params) => api.get('/video/list', { params }),
   getDetails: (videoId) => api.get(`/video/details/${videoId}`),
   assign: (lessonId, vimeoVideoId) => api.post('/video/assign', { lessonId, vimeoVideoId }),
+  syncSecurity: (lessonId) => api.post('/video/sync-security', lessonId ? { lessonId } : {}),
   getEmbed: (lessonId) => api.get(`/video/embed/${lessonId}`),
   validateToken: () => api.get('/video/validate-token'),
 };

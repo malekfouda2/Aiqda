@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { coursesAPI, lessonsAPI, quizzesAPI } from '../services/api';
+import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
@@ -18,9 +18,16 @@ const INITIAL_LESSON_FORM = {
 function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
   const [courses, setCourses] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCourseForm, setShowCourseForm] = useState(false);
-  const [courseForm, setCourseForm] = useState({ title: '', description: '', category: 'General', level: 'beginner' });
+  const [courseForm, setCourseForm] = useState({
+    title: '',
+    description: '',
+    category: 'General',
+    level: 'beginner',
+    packageIds: [],
+  });
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [courseLessons, setCourseLessons] = useState({});
   const [showLessonForm, setShowLessonForm] = useState(null);
@@ -35,8 +42,23 @@ function InstructorCourses() {
   useBodyScrollLock(Boolean(showQuizEditor && quizData));
 
   useEffect(() => {
-    fetchCourses();
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const [coursesResponse, packagesResponse] = await Promise.all([
+        coursesAPI.getTeaching(),
+        subscriptionsAPI.getPackages(true),
+      ]);
+      setCourses(coursesResponse.data);
+      setPackages(packagesResponse.data);
+    } catch (error) {
+      console.error('Failed to fetch creator data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCourses = async () => {
     try {
@@ -44,8 +66,6 @@ function InstructorCourses() {
       setCourses(response.data);
     } catch (error) {
       console.error('Failed to fetch courses:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -74,12 +94,27 @@ function InstructorCourses() {
     try {
       await coursesAPI.create(courseForm);
       showSuccess('Chapter created successfully');
-      setCourseForm({ title: '', description: '', category: 'General', level: 'beginner' });
+      setCourseForm({
+        title: '',
+        description: '',
+        category: 'General',
+        level: 'beginner',
+        packageIds: [],
+      });
       setShowCourseForm(false);
       fetchCourses();
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to create chapter');
     }
+  };
+
+  const togglePackageAssignment = (packageId) => {
+    setCourseForm((current) => ({
+      ...current,
+      packageIds: current.packageIds.includes(packageId)
+        ? current.packageIds.filter((id) => id !== packageId)
+        : [...current.packageIds, packageId],
+    }));
   };
 
   const openLessonForm = (courseId) => {
@@ -386,21 +421,52 @@ function InstructorCourses() {
                     <input type="text" value={courseForm.title} onChange={(e) => setCourseForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
-                    <input type="text" value={courseForm.category} onChange={(e) => setCourseForm(f => ({ ...f, category: e.target.value }))} className="input-field" />
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Level</label>
+                    <select value={courseForm.level} onChange={(e) => setCourseForm(f => ({ ...f, level: e.target.value }))} className="input-field">
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
-                  <textarea value={courseForm.description} onChange={(e) => setCourseForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={3} required />
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Subscription Packages</label>
+                  <p className="text-xs text-gray-400 mb-3">Select the packages that should include this chapter.</p>
+                  {packages.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
+                      No active subscription packages are available yet.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {packages.map((pkg) => {
+                        const isSelected = courseForm.packageIds.includes(pkg._id);
+                        return (
+                          <button
+                            key={pkg._id}
+                            type="button"
+                            onClick={() => togglePackageAssignment(pkg._id)}
+                            className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                              isSelected
+                                ? 'border-primary-500 bg-primary-50 text-primary-600'
+                                : 'border-gray-200 bg-white text-gray-600 hover:border-primary-200 hover:text-primary-500'
+                            }`}
+                          >
+                            {pkg.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Level</label>
-                  <select value={courseForm.level} onChange={(e) => setCourseForm(f => ({ ...f, level: e.target.value }))} className="input-field">
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
+                    <input type="text" value={courseForm.category} onChange={(e) => setCourseForm(f => ({ ...f, category: e.target.value }))} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
+                    <textarea value={courseForm.description} onChange={(e) => setCourseForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={3} required />
+                  </div>
                 </div>
                 <button type="submit" className="btn-primary">Create Chapter</button>
               </form>
@@ -434,6 +500,26 @@ function InstructorCourses() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category} · {course.level}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(course.assignedPackages || []).length > 0 ? (
+                        course.assignedPackages.map((pkg) => (
+                          <span
+                            key={pkg._id}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+                              pkg.isActive
+                                ? 'border-primary-100 bg-primary-50 text-primary-600'
+                                : 'border-gray-200 bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {pkg.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-600">
+                          Not assigned to any package
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

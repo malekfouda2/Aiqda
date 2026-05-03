@@ -663,16 +663,23 @@ export const getLessonAnalytics = async (lessonId) => {
       ]);
 
       const accountType = accountInfo?.type || null;
-      const advancedAnalyticsAvailable = accountType === 'enterprise';
+      const accountCapabilities = accountInfo?.capabilities || {};
+      const advancedAnalyticsAvailable = Boolean(accountCapabilities.analyticsApiAccess);
+      const unsupportedAdvancedMetrics = advancedAnalyticsAvailable
+        ? []
+        : (accountCapabilities.enterpriseAnalyticsRequiredMetrics || VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS);
 
       vimeo = {
         available: true,
         accountType,
+        capabilities: accountCapabilities,
         advancedAnalyticsAvailable,
-        unsupportedAdvancedMetrics: advancedAnalyticsAvailable ? [] : VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+        unsupportedAdvancedMetrics,
         note: advancedAnalyticsAvailable
           ? null
-          : 'Advanced Vimeo analytics such as impressions, unique viewers, and average percent watched require Vimeo Enterprise Analytics API access.',
+          : accountCapabilities.isPaidPlan
+            ? 'This Vimeo paid plan exposes player/security controls and core API metadata, but Aiqda still cannot ingest advanced Vimeo analytics such as impressions, unique viewers, and average percent watched without Enterprise Analytics API access.'
+            : 'This Vimeo account can expose only a limited API dataset. Advanced Vimeo analytics such as impressions, unique viewers, and average percent watched require Vimeo Enterprise Analytics API access.',
         video: {
           vimeoId: videoDetails.vimeoId,
           title: videoDetails.title,
@@ -689,6 +696,7 @@ export const getLessonAnalytics = async (lessonId) => {
           hasAudio: videoDetails.hasAudio,
         },
         metrics: videoDetails.metrics,
+        delivery: videoDetails.delivery,
         privacy: videoDetails.privacy,
         security: videoDetails.security,
       };
@@ -696,6 +704,7 @@ export const getLessonAnalytics = async (lessonId) => {
       vimeo = {
         available: false,
         accountType: null,
+        capabilities: null,
         advancedAnalyticsAvailable: false,
         unsupportedAdvancedMetrics: VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
         note: error.message,

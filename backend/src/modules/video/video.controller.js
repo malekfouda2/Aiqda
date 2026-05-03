@@ -52,3 +52,16 @@ export const validateToken = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const syncSecurity = async (req, res) => {
+  try {
+    const { lessonId } = req.body || {};
+    const result = lessonId
+      ? await videoService.syncLessonVideoSecurity(lessonId)
+      : await videoService.syncAllAssignedLessonVideoSecurity();
+
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

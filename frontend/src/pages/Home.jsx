@@ -114,19 +114,6 @@ function Home() {
               </span>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="mb-8"
-            >
-              <img
-                src="/logo.png"
-                alt={brandName}
-                className="h-24 sm:h-32 w-auto mx-auto"
-              />
-            </motion.div>
-
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-bold mb-8 tracking-tight">
               {isRTL ? (
                 <>
@@ -181,6 +168,12 @@ function Home() {
                   >
                     {isRTL ? "تصفح الفصول" : "Browse Chapters"}
                   </Link>
+                  <a
+                    href="#home-creators"
+                    className="btn-secondary text-lg px-10 py-4"
+                  >
+                    {isRTL ? "انضم إلى صنّاع المحتوى لدينا" : "Join Our Creators"}
+                  </a>
                 </>
               )}
             </motion.div>
@@ -564,7 +557,7 @@ function Home() {
         </div>
       </section>
 
-      <section className="content-auto relative py-24 overflow-hidden">
+      <section id="home-creators" className="content-auto relative py-24 overflow-hidden scroll-mt-36">
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">

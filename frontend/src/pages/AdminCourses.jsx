@@ -104,6 +104,8 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
   }
 
   const { appAnalytics, studentProgress, vimeo, refreshedAt, lesson } = analytics;
+  const delivery = vimeo?.delivery || {};
+  const capabilities = vimeo?.capabilities || {};
 
   return (
     <div className="space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
@@ -214,18 +216,34 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
 
           {vimeo?.available ? (
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <StatCard label="Plays" value={vimeo.metrics?.plays ?? 0} color="primary" />
                 <StatCard label="Likes" value={vimeo.metrics?.likes ?? 0} color="rose" />
                 <StatCard label="Comments" value={vimeo.metrics?.comments ?? 0} color="amber" />
                 <StatCard label="Versions" value={vimeo.metrics?.versions ?? 0} color="gray" />
+                <StatCard label="Text tracks" value={vimeo.metrics?.textTracks ?? 0} color="cyan" />
+                <StatCard label="Downloads" value={delivery.downloadableRenditions ?? 0} sub={vimeo.security?.downloadsEnabled ? 'enabled' : 'disabled'} color="blue" />
               </div>
 
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
                 <p><span className="font-medium text-gray-700">Vimeo title:</span> {vimeo.video?.title || 'N/A'}</p>
                 <p><span className="font-medium text-gray-700">Privacy:</span> {vimeo.privacy?.view || 'unknown'} / embed {vimeo.privacy?.embed || 'unknown'}</p>
                 <p><span className="font-medium text-gray-700">Playable:</span> {vimeo.video?.isPlayable ? 'Yes' : 'No'}</p>
+                <p><span className="font-medium text-gray-700">Playback delivery:</span> {delivery.hlsAvailable ? 'HLS' : 'No HLS'} / {delivery.dashAvailable ? 'DASH' : 'No DASH'} / {delivery.progressiveRenditions ?? 0} progressive renditions</p>
+                <p><span className="font-medium text-gray-700">Transcode:</span> {delivery.transcodeStatus || 'unknown'} / playback {delivery.playbackStatus || 'unknown'}</p>
+                <p><span className="font-medium text-gray-700">Captions & transcript:</span> {delivery.captionsEnabled ? 'captions on' : 'no captions'} / {delivery.transcriptEnabled ? 'transcript on' : 'no transcript'}</p>
+                <p><span className="font-medium text-gray-700">Language:</span> {delivery.language || 'N/A'}</p>
+                <p><span className="font-medium text-gray-700">Review page:</span> {delivery.reviewPageActive ? 'active' : 'off'}</p>
                 <p><span className="font-medium text-gray-700">Last modified:</span> {formatDateTime(vimeo.video?.modifiedAt)}</p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
+                <p className="font-medium text-gray-700">Vimeo plan capabilities</p>
+                <p>Paid plan controls: {capabilities.isPaidPlan ? 'enabled' : 'not detected'}</p>
+                <p>Hide from Vimeo: {capabilities.supportsHideFromVimeo ? 'supported' : 'not supported'}</p>
+                <p>Domain-level embed privacy: {capabilities.supportsDomainLevelPrivacy ? 'supported' : 'not supported'}</p>
+                <p>Player button hiding: {capabilities.supportsPlayerButtonHiding ? 'supported' : 'not supported'}</p>
+                <p>Analytics API access: {capabilities.analyticsApiAccess ? 'enterprise enabled' : 'not enabled on this Vimeo account'}</p>
               </div>
 
               {vimeo.security?.warnings?.length > 0 ? (

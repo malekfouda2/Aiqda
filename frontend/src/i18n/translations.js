@@ -206,6 +206,7 @@ export const translations = {
       userTerms: 'Terms & Conditions For Users',
       creatorTerms: 'Terms & Conditions For Creators',
       accessPolicy: 'User Content Access Policy',
+      studioContentSubmissionFramework: 'Studio Content Submission Framework',
     },
     status: {
       beginner: 'Beginner',
@@ -344,6 +345,7 @@ export const translations = {
       userTerms: 'الشروط والأحكام للمستخدمين',
       creatorTerms: 'الشروط والأحكام لصنّاع المحتوى',
       accessPolicy: 'سياسة وصول المستخدم إلى المحتوى',
+      studioContentSubmissionFramework: 'إطار تقديم محتوى الاستوديو',
     },
     status: {
       beginner: 'مبتدئ',

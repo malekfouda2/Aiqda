@@ -69,6 +69,12 @@ If you enable social login, configure the provider redirect URIs to point to you
 - Google: `https://your-domain.com/api/auth/social/google/callback`
 - LinkedIn: `https://your-domain.com/api/auth/social/linkedin/callback`
 
+## Vimeo Notes
+
+- Set `VIMEO_ALLOWED_EMBED_DOMAINS` to your real public website domains in production, for example `aiqda.pro,www.aiqda.pro`.
+- Do not rely on `localhost` for Vimeo domain-level privacy. Vimeo expects public hostnames for embed whitelisting.
+- Paid Vimeo plans enable stronger privacy and player controls, but Vimeo's separate Analytics API remains Enterprise-only.
+
 ## Seeding Policy
 
 Automatic seeding should remain disabled in production.

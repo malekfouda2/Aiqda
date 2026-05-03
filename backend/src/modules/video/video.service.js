@@ -6,6 +6,7 @@ import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.ser
 const VIMEO_API_BASE = 'https://api.vimeo.com';
 const VIMEO_VIDEO_DETAILS_CACHE_TTL_MS = 5 * 60 * 1000;
 const VIMEO_ACCOUNT_INFO_CACHE_TTL_MS = 5 * 60 * 1000;
+const LOCAL_EMBED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
 const PLAYER_HARDENING_PARAMS = {
   title: '0',
   byline: '0',
@@ -16,6 +17,28 @@ const PLAYER_HARDENING_PARAMS = {
 const vimeoVideoDetailsCache = new Map();
 let vimeoAccountInfoCache = null;
 const getVimeoAccessToken = () => process.env.VIMEO_ACCESS_TOKEN;
+
+const VIMEO_SECURITY_PRESET = {
+  privacy: {
+    view: 'nobody',
+    download: false,
+    add: false,
+    comments: 'nobody',
+  },
+  embed: {
+    buttons: {
+      share: false,
+      like: false,
+      watchlater: false,
+      embed: false,
+    },
+    title: {
+      name: 'hide',
+      owner: 'hide',
+      portrait: 'hide',
+    },
+  },
+};
 
 const ensureStudentSubscriptionAccess = async (course, userId) => {
   const courseId = course?._id?.toString?.() || course?.toString?.();
@@ -136,6 +159,37 @@ const setCachedVimeoAccountInfo = (accountInfo) => {
   };
 };
 
+const normalizeAccountType = (accountType) => (
+  typeof accountType === 'string' ? accountType.trim().toLowerCase() : null
+);
+
+export const getVimeoAccountCapabilities = (accountType) => {
+  const normalizedType = normalizeAccountType(accountType);
+  const isEnterprise = normalizedType === 'enterprise';
+  const isPaidPlan = Boolean(normalizedType) && !['basic', 'free'].includes(normalizedType);
+
+  return {
+    planTier: normalizedType,
+    isPaidPlan,
+    supportsHideFromVimeo: isPaidPlan || isEnterprise,
+    supportsDomainLevelPrivacy: true,
+    supportsPlayerCustomization: isPaidPlan || isEnterprise,
+    supportsPlayerButtonHiding: isPaidPlan || isEnterprise,
+    supportsVideoPageAnalyticsDashboard: isPaidPlan || isEnterprise,
+    analyticsApiAccess: isEnterprise,
+    enterpriseAnalyticsRequiredMetrics: [
+      'impressions',
+      'finishes',
+      'downloads',
+      'unique_viewers',
+      'unique_impressions',
+      'average_percent_watched',
+      'average_time_watched',
+      'total_time_watched',
+    ],
+  };
+};
+
 const buildVimeoMetricsSummary = (data = {}) => ({
   plays: Number(data.stats?.plays || 0),
   likes: Number(data.metadata?.connections?.likes?.total || 0),
@@ -146,8 +200,9 @@ const buildVimeoMetricsSummary = (data = {}) => ({
 
 const resolveAllowedEmbedDomains = () => {
   const domains = new Set();
+  const skippedDomains = [];
 
-  const addDomain = (value) => {
+  const addDomain = (value, source = 'unknown') => {
     if (!value) {
       return;
     }
@@ -158,27 +213,48 @@ const resolveAllowedEmbedDomains = () => {
         return;
       }
 
-      // Vimeo rejects raw IPs for domain-level privacy; use hostnames only.
-      if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(candidate)) {
+      const normalizedCandidate = candidate.toLowerCase();
+
+      // Vimeo domain-level privacy expects public hostnames, not raw IPs or localhost.
+      if (
+        /^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalizedCandidate)
+        || LOCAL_EMBED_HOSTS.has(normalizedCandidate)
+        || !normalizedCandidate.includes('.')
+      ) {
+        skippedDomains.push({
+          domain: normalizedCandidate,
+          source,
+          reason: 'Vimeo domain-level privacy requires a public hostname.',
+        });
         return;
       }
 
-      domains.add(candidate.toLowerCase());
+      domains.add(normalizedCandidate);
     } catch {
       // Ignore invalid domain inputs instead of blocking assignment.
     }
   };
 
-  addDomain(process.env.FRONTEND_URL);
+  addDomain(process.env.FRONTEND_URL, 'FRONTEND_URL');
 
   for (const entry of (process.env.VIMEO_ALLOWED_EMBED_DOMAINS || '').split(',')) {
-    addDomain(entry);
+    addDomain(entry, 'VIMEO_ALLOWED_EMBED_DOMAINS');
   }
 
-  return [...domains];
+  return {
+    domains: [...domains],
+    skippedDomains,
+  };
 };
 
-const getVimeoSecurityWarnings = ({ privacy = {}, embed = {} } = {}) => {
+const getVimeoSecurityWarnings = ({
+  privacy = {},
+  embed = {},
+  failedDomains = [],
+  skippedDomains = [],
+  requestedDomains = [],
+  presetError = null,
+} = {}) => {
   const warnings = [];
   const isDirectPageProtected = privacy.view === 'disable' || privacy.view === 'nobody';
 
@@ -187,7 +263,11 @@ const getVimeoSecurityWarnings = ({ privacy = {}, embed = {} } = {}) => {
   }
 
   if (privacy.embed !== 'whitelist') {
-    warnings.push('Embed privacy is not restricted to specific domains. Limit embeds to your website domains in Vimeo to prevent off-site embedding.');
+    if (requestedDomains.length > 0) {
+      warnings.push('Embed privacy is not restricted to specific domains. Limit embeds to your website domains in Vimeo to prevent off-site embedding.');
+    } else {
+      warnings.push('Embed privacy is not restricted to specific domains. Configure public website domains in FRONTEND_URL or VIMEO_ALLOWED_EMBED_DOMAINS to enable Vimeo domain-level privacy.');
+    }
   }
 
   if (embed.buttons?.share) {
@@ -206,57 +286,122 @@ const getVimeoSecurityWarnings = ({ privacy = {}, embed = {} } = {}) => {
     warnings.push('The Vimeo like button is still enabled.');
   }
 
-  return warnings;
-};
+  if (privacy.download !== false) {
+    warnings.push('Vimeo downloads are still enabled for this video.');
+  }
 
-const buildVimeoSecuritySummary = ({ privacy = {}, embed = {}, whitelistedDomains = [], failedDomains = [] } = {}) => {
-  const warnings = getVimeoSecurityWarnings({ privacy, embed });
-  const isDirectPageProtected = privacy.view === 'disable' || privacy.view === 'nobody';
+  if (privacy.add !== false) {
+    warnings.push('This video can still be added to Vimeo collections/showcases.');
+  }
+
+  if (privacy.comments !== 'nobody' && privacy.comments !== 'disable') {
+    warnings.push('Viewer comments are still enabled on Vimeo for this video.');
+  }
 
   if (failedDomains.length > 0) {
     warnings.push(`Some Vimeo allowed domains could not be applied: ${failedDomains.map(({ domain }) => domain).join(', ')}`);
   }
+
+  if (skippedDomains.length > 0) {
+    warnings.push(`Some configured embed hosts were skipped because Vimeo requires public domains: ${skippedDomains.map(({ domain }) => domain).join(', ')}`);
+  }
+
+  if (presetError) {
+    warnings.push(`Aiqda could not apply the paid-plan Vimeo security preset automatically: ${presetError}`);
+  }
+
+  return warnings;
+};
+
+const buildVimeoSecuritySummary = ({
+  privacy = {},
+  embed = {},
+  whitelistedDomains = [],
+  failedDomains = [],
+  skippedDomains = [],
+  presetError = null,
+} = {}) => {
+  const { domains: requestedDomains, skippedDomains: resolvedSkippedDomains } = resolveAllowedEmbedDomains();
+  const allSkippedDomains = [...resolvedSkippedDomains, ...skippedDomains].filter((entry, index, entries) => (
+    entries.findIndex((candidate) => (
+      candidate.domain === entry.domain
+      && candidate.source === entry.source
+      && candidate.reason === entry.reason
+    )) === index
+  ));
+  const warnings = getVimeoSecurityWarnings({
+    privacy,
+    embed,
+    failedDomains,
+    skippedDomains: allSkippedDomains,
+    requestedDomains,
+    presetError,
+  });
+  const isDirectPageProtected = privacy.view === 'disable' || privacy.view === 'nobody';
 
   return {
     viewPrivacy: privacy.view || null,
     embedPrivacy: privacy.embed || null,
     isDirectPageProtected,
     isDomainRestricted: privacy.embed === 'whitelist',
+    downloadsEnabled: privacy.download !== false,
+    addToCollectionsEnabled: privacy.add !== false,
+    commentsPrivacy: privacy.comments || null,
+    commentsEnabled: privacy.comments !== 'nobody' && privacy.comments !== 'disable',
     shareButtonEnabled: Boolean(embed.buttons?.share),
     watchLaterEnabled: Boolean(embed.buttons?.watchlater),
     embedButtonEnabled: Boolean(embed.buttons?.embed),
     likeButtonEnabled: Boolean(embed.buttons?.like),
+    requestedDomains,
     whitelistedDomains,
     failedDomains,
+    skippedDomains: allSkippedDomains,
     warnings,
   };
 };
 
-const hardenVimeoEmbedAppearance = async (vimeoVideoId) => {
+const buildVimeoDeliverySummary = (data = {}) => {
+  const progressiveFiles = Array.isArray(data.files)
+    ? data.files.filter((file) => file?.quality !== 'hls')
+    : [];
+  const downloadableFiles = Array.isArray(data.download) ? data.download : [];
+
+  return {
+    language: data.language || null,
+    transcodeStatus: data.transcode?.status || null,
+    playbackStatus: data.play?.status || null,
+    hlsAvailable: Boolean(data.play?.hls?.link),
+    dashAvailable: Boolean(data.play?.dash?.link),
+    progressiveRenditions: progressiveFiles.length,
+    downloadableRenditions: downloadableFiles.length,
+    captionsEnabled: Boolean(data.embed?.closed_captions),
+    transcriptEnabled: Boolean(data.embed?.transcript),
+    reviewPageActive: Boolean(data.review_page?.active),
+    reviewPageShareable: Boolean(data.review_page?.is_shareable),
+    folderName: data.parent_folder?.name || null,
+  };
+};
+
+const applyVimeoSecurityPreset = async (vimeoVideoId) => {
   try {
     await vimeoFetch(`/videos/${vimeoVideoId}`, {
       method: 'PATCH',
-      body: JSON.stringify({
-        embed: {
-          title: {
-            name: 'hide',
-            owner: 'hide',
-            portrait: 'hide',
-          },
-        },
-      }),
+      body: JSON.stringify(VIMEO_SECURITY_PRESET),
     });
+    return { ok: true, error: null };
   } catch (error) {
-    console.warn(`[Vimeo] Could not apply embed appearance hardening to video ${vimeoVideoId}: ${error.message}`);
+    console.warn(`[Vimeo] Could not apply paid-plan security preset to video ${vimeoVideoId}: ${error.message}`);
+    return { ok: false, error: error.message };
   }
 };
 
 const syncVimeoEmbedDomainWhitelist = async (vimeoVideoId) => {
-  const domains = resolveAllowedEmbedDomains();
+  const { domains, skippedDomains } = resolveAllowedEmbedDomains();
   if (domains.length === 0) {
     return {
       appliedDomains: [],
       failedDomains: [],
+      skippedDomains,
     };
   }
 
@@ -274,6 +419,7 @@ const syncVimeoEmbedDomainWhitelist = async (vimeoVideoId) => {
     return {
       appliedDomains: [],
       failedDomains: domains.map((domain) => ({ domain, message: error.message })),
+      skippedDomains,
     };
   }
 
@@ -304,11 +450,12 @@ const syncVimeoEmbedDomainWhitelist = async (vimeoVideoId) => {
   return {
     appliedDomains,
     failedDomains,
+    skippedDomains,
   };
 };
 
 export const getVimeoVideoDetails = async (vimeoVideoId, options = {}) => {
-  const { forceRefresh = false } = options;
+  const { forceRefresh = false, syncContext = null } = options;
   const cleanId = vimeoVideoId.replace(/[^0-9]/g, '');
   if (!cleanId) throw new Error('Invalid Vimeo Video ID');
 
@@ -319,8 +466,15 @@ export const getVimeoVideoDetails = async (vimeoVideoId, options = {}) => {
     }
   }
 
-  const data = await vimeoFetch(`/videos/${cleanId}?fields=uri,name,description,duration,width,height,created_time,modified_time,last_user_action_event_date,embed.html,embed.buttons,embed.logos,embed.title,pictures.sizes,player_embed_url,privacy.view,privacy.embed,stats,metadata.connections,status,link,is_playable,has_audio`);
-  const security = buildVimeoSecuritySummary(data);
+  const data = await vimeoFetch(`/videos/${cleanId}?fields=uri,name,description,duration,width,height,language,created_time,modified_time,last_user_action_event_date,embed,files,download,play,review_page,transcode,parent_folder,player_embed_url,privacy.view,privacy.embed,privacy.download,privacy.add,privacy.comments,stats,metadata.connections,status,link,is_playable,has_audio`);
+  const security = buildVimeoSecuritySummary({
+    privacy: data.privacy || {},
+    embed: data.embed || {},
+    whitelistedDomains: syncContext?.appliedDomains || [],
+    failedDomains: syncContext?.failedDomains || [],
+    skippedDomains: syncContext?.skippedDomains || [],
+    presetError: syncContext?.presetError || null,
+  });
 
   const details = {
     vimeoId: cleanId,
@@ -341,8 +495,12 @@ export const getVimeoVideoDetails = async (vimeoVideoId, options = {}) => {
     privacy: {
       view: data.privacy?.view || null,
       embed: data.privacy?.embed || null,
+      download: data.privacy?.download ?? null,
+      add: data.privacy?.add ?? null,
+      comments: data.privacy?.comments || null,
     },
     metrics: buildVimeoMetricsSummary(data),
+    delivery: buildVimeoDeliverySummary(data),
     embed: data.embed || null,
     status: data.status,
     link: data.link,
@@ -398,12 +556,12 @@ export const assignVideoToLesson = async (lessonId, vimeoVideoId) => {
 
   if (videoDetails) {
     vimeoVideoDetailsCache.delete(cleanId);
-    await hardenVimeoEmbedAppearance(cleanId);
+    await applyVimeoSecurityPreset(cleanId);
   }
 
   const domainWhitelistResult = getVimeoAccessToken()
     ? await syncVimeoEmbedDomainWhitelist(cleanId)
-    : { appliedDomains: [], failedDomains: [] };
+    : { appliedDomains: [], failedDomains: [], skippedDomains: [] };
 
   const lesson = await Lesson.findByIdAndUpdate(
     lessonId,
@@ -416,21 +574,103 @@ export const assignVideoToLesson = async (lessonId, vimeoVideoId) => {
 
   if (!lesson) throw new Error('Lesson not found');
 
-  const videoSecurity = videoDetails
-    ? buildVimeoSecuritySummary({
-        privacy: {
-          ...videoDetails.privacy,
-          embed: domainWhitelistResult.appliedDomains.length > 0 ? 'whitelist' : videoDetails.privacy?.embed,
-        },
-        embed: videoDetails.embed || {},
-        whitelistedDomains: domainWhitelistResult.appliedDomains,
-        failedDomains: domainWhitelistResult.failedDomains,
+  vimeoVideoDetailsCache.delete(cleanId);
+  const refreshedVideoDetails = videoDetails
+    ? await getVimeoVideoDetails(cleanId, {
+        forceRefresh: true,
+        syncContext: domainWhitelistResult,
       })
     : null;
 
+  if (refreshedVideoDetails?.embedUrl && lesson.vimeoEmbedUrl !== refreshedVideoDetails.embedUrl) {
+    lesson.vimeoEmbedUrl = refreshedVideoDetails.embedUrl;
+    await lesson.save();
+  }
+
   return {
     lesson,
-    videoSecurity,
+    videoSecurity: refreshedVideoDetails?.security || null,
+    videoDetails: refreshedVideoDetails,
+  };
+};
+
+const syncLessonSecurityFromDocument = async (lesson) => {
+  if (!lesson?.vimeoVideoId) {
+    throw new Error('No Vimeo video is assigned to this lesson');
+  }
+
+  const cleanId = lesson.vimeoVideoId.replace(/[^0-9]/g, '');
+  if (!cleanId) {
+    throw new Error('Invalid Vimeo Video ID');
+  }
+
+  const presetResult = await applyVimeoSecurityPreset(cleanId);
+  const domainWhitelistResult = await syncVimeoEmbedDomainWhitelist(cleanId);
+  vimeoVideoDetailsCache.delete(cleanId);
+
+  const videoDetails = await getVimeoVideoDetails(cleanId, {
+    forceRefresh: true,
+    syncContext: {
+      ...domainWhitelistResult,
+      presetError: presetResult.error,
+    },
+  });
+
+  if (lesson.vimeoEmbedUrl !== videoDetails.embedUrl) {
+    lesson.vimeoEmbedUrl = videoDetails.embedUrl;
+    await lesson.save();
+  }
+
+  return {
+    lessonId: lesson._id,
+    lessonTitle: lesson.title,
+    vimeoVideoId: cleanId,
+    embedUrl: videoDetails.embedUrl,
+    securityPresetApplied: presetResult.ok,
+    securityPresetError: presetResult.error,
+    security: videoDetails.security,
+    delivery: videoDetails.delivery,
+  };
+};
+
+export const syncLessonVideoSecurity = async (lessonId) => {
+  const lesson = await Lesson.findById(lessonId).select('_id title vimeoVideoId vimeoEmbedUrl');
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  return syncLessonSecurityFromDocument(lesson);
+};
+
+export const syncAllAssignedLessonVideoSecurity = async () => {
+  const lessons = await Lesson.find({
+    vimeoVideoId: { $exists: true, $ne: null },
+  }).select('_id title vimeoVideoId vimeoEmbedUrl');
+
+  const results = [];
+
+  for (const lesson of lessons) {
+    try {
+      const result = await syncLessonSecurityFromDocument(lesson);
+      results.push({
+        ok: result.securityPresetApplied,
+        ...result,
+      });
+    } catch (error) {
+      results.push({
+        ok: false,
+        lessonId: lesson._id,
+        lessonTitle: lesson.title,
+        vimeoVideoId: lesson.vimeoVideoId,
+        error: error.message,
+      });
+    }
+  }
+
+  return {
+    syncedCount: results.filter((result) => result.ok).length,
+    failedCount: results.filter((result) => !result.ok).length,
+    results,
   };
 };
 
@@ -514,10 +754,12 @@ export const getVimeoAccountInfo = async (options = {}) => {
   }
 
   const data = await vimeoFetch('/me?fields=name,account,link');
+  const capabilities = getVimeoAccountCapabilities(data.account);
   const accountInfo = {
     name: data.name,
     type: data.account,
     link: data.link,
+    capabilities,
   };
 
   setCachedVimeoAccountInfo(accountInfo);

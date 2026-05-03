@@ -2,6 +2,7 @@ import Course from './course.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { CourseProgress } from '../analytics/progress.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
+import { SubscriptionPackage } from '../subscriptions/subscription.model.js';
 
 const COURSE_UPDATABLE_FIELDS = [
   'title',
@@ -35,14 +36,116 @@ const sanitizeCourseUpdates = (updates = {}) => {
   );
 };
 
+const normalizePackageIds = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(
+    value
+      .map((entry) => entry?._id?.toString?.() || entry?.toString?.() || '')
+      .filter(Boolean)
+  )];
+};
+
+const ensurePackageAssignmentsExist = async (packageIds) => {
+  if (packageIds.length === 0) {
+    return;
+  }
+
+  const packages = await SubscriptionPackage.find({ _id: { $in: packageIds } })
+    .select('_id')
+    .lean();
+
+  if (packages.length !== packageIds.length) {
+    throw new Error('One or more selected subscription packages were not found');
+  }
+};
+
+const syncCoursePackageAssignments = async (courseId, packageIds) => {
+  await SubscriptionPackage.updateMany(
+    { courses: courseId, _id: { $nin: packageIds } },
+    { $pull: { courses: courseId } }
+  );
+
+  if (packageIds.length > 0) {
+    await SubscriptionPackage.updateMany(
+      { _id: { $in: packageIds } },
+      { $addToSet: { courses: courseId } }
+    );
+  }
+};
+
+const buildAssignedPackagesMap = async (courseIds) => {
+  if (!Array.isArray(courseIds) || courseIds.length === 0) {
+    return new Map();
+  }
+
+  const packages = await SubscriptionPackage.find({
+    courses: { $in: courseIds }
+  })
+    .select('name isActive purchaseMode courses')
+    .lean();
+
+  const assignedPackagesByCourseId = new Map();
+
+  for (const pkg of packages) {
+    for (const packageCourseId of pkg.courses || []) {
+      const normalizedCourseId = packageCourseId.toString();
+      if (!courseIds.some((courseId) => courseId.toString() === normalizedCourseId)) {
+        continue;
+      }
+
+      const currentPackages = assignedPackagesByCourseId.get(normalizedCourseId) || [];
+      currentPackages.push({
+        _id: pkg._id,
+        name: pkg.name,
+        isActive: pkg.isActive,
+        purchaseMode: pkg.purchaseMode,
+      });
+      assignedPackagesByCourseId.set(normalizedCourseId, currentPackages);
+    }
+  }
+
+  return assignedPackagesByCourseId;
+};
+
+const attachAssignedPackages = async (courseOrCourses) => {
+  if (!courseOrCourses) {
+    return courseOrCourses;
+  }
+
+  const courseList = Array.isArray(courseOrCourses) ? courseOrCourses : [courseOrCourses];
+  const assignedPackagesByCourseId = await buildAssignedPackagesMap(
+    courseList.map((course) => course._id)
+  );
+
+  const enrichCourse = (course) => {
+    const normalizedCourse = course.toObject ? course.toObject() : { ...course };
+    return {
+      ...normalizedCourse,
+      assignedPackages: assignedPackagesByCourseId.get(course._id.toString()) || [],
+    };
+  };
+
+  return Array.isArray(courseOrCourses)
+    ? courseList.map(enrichCourse)
+    : enrichCourse(courseList[0]);
+};
+
 export const createCourse = async (courseData, instructorId) => {
+  const packageIds = normalizePackageIds(courseData.packageIds);
+  await ensurePackageAssignmentsExist(packageIds);
+
   const sanitizedCourseData = sanitizeCourseUpdates(courseData);
   const course = new Course({
     ...sanitizedCourseData,
     instructor: instructorId
   });
   await course.save();
-  return course.populate('instructor', 'name email');
+  await syncCoursePackageAssignments(course._id, packageIds);
+  const populatedCourse = await course.populate('instructor', 'name email');
+  return attachAssignedPackages(populatedCourse);
 };
 
 export const getAllCourses = async (filters = {}) => {
@@ -51,15 +154,19 @@ export const getAllCourses = async (filters = {}) => {
   if (filters.isPublished !== undefined) query.isPublished = filters.isPublished;
   if (filters.category) query.category = filters.category;
   
-  return Course.find(query)
+  const courses = await Course.find(query)
     .populate('instructor', 'name email')
     .sort({ createdAt: -1 });
+
+  return attachAssignedPackages(courses);
 };
 
 export const getPublishedCourses = async () => {
-  return Course.find({ isPublished: true })
+  const courses = await Course.find({ isPublished: true })
     .populate('instructor', 'name email')
     .sort({ createdAt: -1 });
+
+  return attachAssignedPackages(courses);
 };
 
 export const getCourseById = async (courseId, userId = null, userRole = null) => {
@@ -71,7 +178,7 @@ export const getCourseById = async (courseId, userId = null, userRole = null) =>
   if (!canAccessCourse(course, userId, userRole)) {
     throw new Error('Course not found');
   }
-  return course;
+  return attachAssignedPackages(course);
 };
 
 export const updateCourse = async (courseId, updates, userId, userRole) => {
@@ -84,14 +191,24 @@ export const updateCourse = async (courseId, updates, userId, userRole) => {
     throw new Error('Not authorized to update this course');
   }
 
+  const hasPackageAssignments = Object.prototype.hasOwnProperty.call(updates, 'packageIds');
+  const packageIds = hasPackageAssignments ? normalizePackageIds(updates.packageIds) : null;
+  if (hasPackageAssignments) {
+    await ensurePackageAssignmentsExist(packageIds);
+  }
+
   const sanitizedUpdates = sanitizeCourseUpdates(updates);
-  if (Object.keys(sanitizedUpdates).length === 0) {
+  if (Object.keys(sanitizedUpdates).length === 0 && !hasPackageAssignments) {
     throw new Error('No valid course fields to update');
   }
 
   Object.assign(course, sanitizedUpdates);
   await course.save();
-  return course.populate('instructor', 'name email');
+  if (hasPackageAssignments) {
+    await syncCoursePackageAssignments(course._id, packageIds);
+  }
+  const populatedCourse = await course.populate('instructor', 'name email');
+  return attachAssignedPackages(populatedCourse);
 };
 
 export const deleteCourse = async (courseId, userId, userRole) => {
@@ -105,6 +222,10 @@ export const deleteCourse = async (courseId, userId, userRole) => {
   }
 
   await Lesson.deleteMany({ course: courseId });
+  await SubscriptionPackage.updateMany(
+    { courses: courseId },
+    { $pull: { courses: courseId } }
+  );
   await Course.findByIdAndDelete(courseId);
   return { message: 'Course deleted successfully' };
 };
@@ -153,15 +274,19 @@ export const enrollStudent = async (courseId, studentId, userRole = null) => {
 };
 
 export const getEnrolledCourses = async (studentId) => {
-  return Course.find({ enrolledStudents: studentId })
+  const courses = await Course.find({ enrolledStudents: studentId })
     .populate('instructor', 'name email')
     .sort({ createdAt: -1 });
+
+  return attachAssignedPackages(courses);
 };
 
 export const getInstructorCourses = async (instructorId) => {
-  return Course.find({ instructor: instructorId })
+  const courses = await Course.find({ instructor: instructorId })
     .populate('instructor', 'name email')
     .sort({ createdAt: -1 });
+
+  return attachAssignedPackages(courses);
 };
 
 export const updateLessonCount = async (courseId) => {
