@@ -6,7 +6,7 @@ import LanguageToggle from './LanguageToggle';
 import { useLocale } from '../i18n/useLocale';
 
 function Navbar() {
-  const { user, logout, isAdmin, isInstructor } = useAuthStore();
+  const { user, logout, canAccessAdminPanel, canAccessMemberDashboard, isInstructor } = useAuthStore();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUIStore();
   const navigate = useNavigate();
   const { t, isRTL, brandName } = useLocale();
@@ -20,8 +20,10 @@ function Navbar() {
   ];
 
   if (user) {
-    navLinks.push({ to: '/dashboard', label: t('navbar.dashboard') });
-    if (isAdmin()) navLinks.push({ to: '/admin', label: t('navbar.admin') });
+    if (canAccessMemberDashboard()) {
+      navLinks.push({ to: '/dashboard', label: t('navbar.dashboard') });
+    }
+    if (canAccessAdminPanel()) navLinks.push({ to: '/admin', label: t('navbar.admin') });
     if (isInstructor()) navLinks.push({ to: '/instructor', label: t('navbar.creator') });
   }
 

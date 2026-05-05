@@ -5,7 +5,7 @@ import LanguageToggle from './LanguageToggle';
 import { useLocale } from '../i18n/useLocale';
 
 function Footer() {
-  const { user, isAdmin, isInstructor } = useAuthStore();
+  const { user, canAccessAdminPanel, canAccessMemberDashboard, isAdmin, isInstructor } = useAuthStore();
   const { t, isRTL, brandName } = useLocale();
 
   const primaryLinks = [
@@ -26,8 +26,8 @@ function Footer() {
 
   const accountLinks = user
     ? [
-        { to: '/dashboard', label: t('common.dashboard') },
-        ...(isAdmin() ? [{ to: '/admin', label: `${t('common.admin')} Panel` }] : []),
+        ...(canAccessMemberDashboard() ? [{ to: '/dashboard', label: t('common.dashboard') }] : []),
+        ...(canAccessAdminPanel() ? [{ to: '/admin', label: `${t('common.admin')} Panel` }] : []),
         ...(isInstructor() && !isAdmin() ? [{ to: '/instructor', label: `${t('common.creator')} Panel` }] : []),
       ]
     : [

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { usersAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -12,6 +12,13 @@ function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const roleLabels = {
+    all: isRTL ? 'الكل' : 'All',
+    student: isRTL ? 'الأعضاء' : 'Members',
+    instructor: isRTL ? 'صنّاع المحتوى' : 'Creators',
+    admin: isRTL ? 'المسؤولون' : 'Admins',
+    applications_admin: isRTL ? 'مراجعو الطلبات' : 'Application Reviewers',
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -62,7 +69,7 @@ function AdminUsers() {
       </motion.div>
 
       <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
-        {['all', 'student', 'instructor', 'admin'].map((role) => (
+        {['all', 'student', 'instructor', 'admin', 'applications_admin'].map((role) => (
           <button
             key={role}
             onClick={() => setFilter(role)}
@@ -72,7 +79,7 @@ function AdminUsers() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
             }`}
           >
-            {{ all: isRTL ? 'الكل' : 'All', student: isRTL ? 'الأعضاء' : 'Members', instructor: isRTL ? 'صنّاع المحتوى' : 'Creators', admin: isRTL ? 'المسؤولون' : 'Admins' }[role]}
+            {roleLabels[role]}
           </button>
         ))}
       </motion.div>
@@ -114,6 +121,7 @@ function AdminUsers() {
                         <option value="student">{isRTL ? 'عضو' : 'Member'}</option>
                         <option value="instructor">{isRTL ? 'صانع محتوى' : 'Creator'}</option>
                         <option value="admin">{isRTL ? 'مسؤول' : 'Admin'}</option>
+                        <option value="applications_admin">{isRTL ? 'مراجع الطلبات' : 'Application Reviewer'}</option>
                       </select>
                     </td>
                     <td className="py-4 px-4">

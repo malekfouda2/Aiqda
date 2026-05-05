@@ -18,6 +18,7 @@ import {
 import crypto from 'crypto';
 import { normalizeExternalUrl } from '../../utils/url.js';
 import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
+import { isBackofficeRole } from '../../utils/roles.js';
 
 const getInstructorSetupBaseUrl = () => {
   const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5000';
@@ -123,7 +124,7 @@ export const approve = async (id, adminId) => {
   let setupLink = null;
   let user = await User.findOne({ email: application.email });
   if (user) {
-    if (user.role === 'admin') {
+    if (isBackofficeRole(user.role)) {
       throw new Error('This email is already attached to an admin account and cannot be converted automatically.');
     }
 

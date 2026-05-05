@@ -23,6 +23,15 @@ const buildInitialFormState = () => ({
   existingImage: null,
 });
 
+const TEAM_MEMBER_ALLOWED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
+
+const TEAM_MEMBER_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 function AdminTeamMembers() {
   const { showSuccess, showError } = useUIStore();
   const [teamMembers, setTeamMembers] = useState([]);
@@ -123,6 +132,13 @@ function AdminTeamMembers() {
       return;
     }
 
+    setImagePreviewUrl(null);
+    setModalOpen(false);
+    setFormData(buildInitialFormState());
+  };
+
+  const resetAndCloseModal = () => {
+    setImagePreviewUrl(null);
     setModalOpen(false);
     setFormData(buildInitialFormState());
   };
@@ -157,6 +173,19 @@ function AdminTeamMembers() {
 
   const handleImageChange = (event) => {
     const [file] = event.target.files || [];
+
+    if (file && !TEAM_MEMBER_ALLOWED_IMAGE_TYPES.has(file.type)) {
+      showError('Please upload a JPEG, PNG, GIF, or WebP image');
+      event.target.value = '';
+      return;
+    }
+
+    if (file && file.size > TEAM_MEMBER_MAX_IMAGE_BYTES) {
+      showError('Profile image must be 5 MB or smaller');
+      event.target.value = '';
+      return;
+    }
+
     setFormData((current) => ({
       ...current,
       image: file || null,
@@ -198,10 +227,10 @@ function AdminTeamMembers() {
         showSuccess('Team member created successfully');
       }
 
-      closeModal();
+      resetAndCloseModal();
       await fetchTeamMembers();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to save team member');
+      showError(error.response?.data?.error || error.message || 'Failed to save team member');
     } finally {
       setProcessing(false);
     }

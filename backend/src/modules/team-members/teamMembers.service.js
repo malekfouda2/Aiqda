@@ -111,6 +111,20 @@ const toStoredImagePath = (file) => {
   return `/uploads/team-members/${file.filename}`;
 };
 
+const deleteUploadedFileIfPresent = async (file) => {
+  if (!file?.path) {
+    return;
+  }
+
+  try {
+    await fs.unlink(file.path);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Failed to delete uploaded team member file:', error.message);
+    }
+  }
+};
+
 const deleteImageIfPresent = async (storedPath) => {
   if (!storedPath) {
     return;
@@ -291,53 +305,67 @@ export const getById = async (id) => {
 };
 
 export const create = async (data, imageFile) => {
-  const count = await TeamMember.countDocuments();
-  const payload = validateTeamMemberPayload(data, { fallbackOrder: count + 1 });
+  try {
+    const count = await TeamMember.countDocuments();
+    const payload = validateTeamMemberPayload(data, { fallbackOrder: count + 1 });
 
-  const teamMember = await TeamMember.create({
-    name: payload.name,
-    nameAr: payload.nameAr,
-    title: payload.title,
-    titleAr: payload.titleAr,
-    achievements: payload.achievements,
-    achievementsAr: payload.achievementsAr,
-    order: payload.order,
-    isActive: payload.isActive,
-    image: toStoredImagePath(imageFile),
-  });
+    const teamMember = await TeamMember.create({
+      name: payload.name,
+      nameAr: payload.nameAr,
+      title: payload.title,
+      titleAr: payload.titleAr,
+      achievements: payload.achievements,
+      achievementsAr: payload.achievementsAr,
+      order: payload.order,
+      isActive: payload.isActive,
+      image: toStoredImagePath(imageFile),
+    });
 
-  return teamMember;
+    return teamMember;
+  } catch (error) {
+    await deleteUploadedFileIfPresent(imageFile);
+    throw error;
+  }
 };
 
 export const update = async (id, data, imageFile) => {
   const teamMember = await TeamMember.findById(id);
   if (!teamMember) {
+    await deleteUploadedFileIfPresent(imageFile);
     throw new Error('Team member not found');
   }
 
-  const payload = validateTeamMemberPayload(data, { fallbackOrder: teamMember.order });
-  const nextImage = toStoredImagePath(imageFile);
+  try {
+    const payload = validateTeamMemberPayload(data, { fallbackOrder: teamMember.order });
+    const nextImage = toStoredImagePath(imageFile);
+    const previousImage = teamMember.image;
+    const shouldDeletePreviousImage = Boolean((payload.removeImage || nextImage) && previousImage);
 
-  if ((payload.removeImage || nextImage) && teamMember.image) {
-    await deleteImageIfPresent(teamMember.image);
+    teamMember.name = payload.name;
+    teamMember.nameAr = payload.nameAr;
+    teamMember.title = payload.title;
+    teamMember.titleAr = payload.titleAr;
+    teamMember.achievements = payload.achievements;
+    teamMember.achievementsAr = payload.achievementsAr;
+    teamMember.order = payload.order;
+    teamMember.isActive = payload.isActive;
+
+    if (nextImage) {
+      teamMember.image = nextImage;
+    } else if (payload.removeImage) {
+      teamMember.image = null;
+    }
+
+    await teamMember.save();
+
+    if (shouldDeletePreviousImage) {
+      await deleteImageIfPresent(previousImage);
+    }
+  } catch (error) {
+    await deleteUploadedFileIfPresent(imageFile);
+    throw error;
   }
 
-  teamMember.name = payload.name;
-  teamMember.nameAr = payload.nameAr;
-  teamMember.title = payload.title;
-  teamMember.titleAr = payload.titleAr;
-  teamMember.achievements = payload.achievements;
-  teamMember.achievementsAr = payload.achievementsAr;
-  teamMember.order = payload.order;
-  teamMember.isActive = payload.isActive;
-
-  if (nextImage) {
-    teamMember.image = nextImage;
-  } else if (payload.removeImage) {
-    teamMember.image = null;
-  }
-
-  await teamMember.save();
   return teamMember;
 };
 

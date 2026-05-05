@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import LoadingSpinner from './LoadingSpinner';
+import { getDefaultRouteForRole } from '../utils/roles';
 
 function ProtectedRoute({ children, roles = [] }) {
   const { user, isHydrating, hasHydrated } = useAuthStore();
@@ -19,7 +20,7 @@ function ProtectedRoute({ children, roles = [] }) {
   }
 
   if (roles.length > 0 && !roles.includes(user?.role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return children;

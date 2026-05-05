@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authAPI, usersAPI } from '../services/api';
 import { PLATFORM_NOTICE_VERSION } from '../content/platformNotice';
+import { canAccessAdminPanel, canAccessInstructorPanel, canAccessMemberDashboard, isAdminRole } from '../utils/roles';
 
 const useAuthStore = create((set, get) => ({
   user: null,
@@ -126,9 +127,11 @@ const useAuthStore = create((set, get) => ({
   },
 
   isAuthenticated: () => !!get().user,
-  isAdmin: () => get().user?.role === 'admin',
-  isInstructor: () => ['instructor', 'admin'].includes(get().user?.role),
+  isAdmin: () => isAdminRole(get().user?.role),
+  canAccessAdminPanel: () => canAccessAdminPanel(get().user?.role),
+  isInstructor: () => canAccessInstructorPanel(get().user?.role),
   isStudent: () => get().user?.role === 'student',
+  canAccessMemberDashboard: () => canAccessMemberDashboard(get().user?.role),
   hasAcceptedCurrentPlatformNotice: () => {
     const acknowledgement = get().user?.platformNoticeAcknowledgement;
     return acknowledgement?.version === PLATFORM_NOTICE_VERSION && Boolean(acknowledgement?.acceptedAt);

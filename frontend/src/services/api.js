@@ -141,12 +141,8 @@ export const teamMembersAPI = {
   getPublic: () => api.get('/team-members'),
   getAll: () => api.get('/team-members/admin'),
   getById: (id) => api.get(`/team-members/admin/${id}`),
-  create: (formData) => api.post('/team-members', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  update: (id, formData) => api.put(`/team-members/${id}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  create: (formData) => api.post('/team-members', formData),
+  update: (id, formData) => api.put(`/team-members/${id}`, formData),
   remove: (id) => api.delete(`/team-members/${id}`)
 };
 

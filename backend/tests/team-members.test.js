@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import request from 'supertest';
 
@@ -10,6 +12,19 @@ const VALID_PNG_BUFFER = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZL2sAAAAASUVORK5CYII=',
   'base64'
 );
+const TEAM_MEMBER_UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'team-members');
+
+const listTeamMemberUploadFiles = async () => {
+  try {
+    return new Set(await fs.readdir(TEAM_MEMBER_UPLOADS_DIR));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return new Set();
+    }
+
+    throw error;
+  }
+};
 
 test('public team members endpoint seeds and returns active default members', async () => {
   const response = await request(suite.app)
@@ -83,6 +98,58 @@ test('admins can create, update, and delete team members with photos', async () 
 
   const storedMember = await TeamMember.findById(createResponse.body._id);
   assert.equal(storedMember, null);
+});
+
+test('failed team member saves do not leak uploaded images or delete the current photo', async () => {
+  const admin = await createUser({ role: 'admin' });
+
+  await request(suite.app).get('/api/team-members');
+
+  const beforeInvalidCreateFiles = await listTeamMemberUploadFiles();
+  const invalidCreateResponse = await request(suite.app)
+    .post('/api/team-members')
+    .set(authHeader(admin.token))
+    .field('name', '   ')
+    .field('title', 'Creative Lead')
+    .attach('image', VALID_PNG_BUFFER, {
+      filename: 'invalid-create.png',
+      contentType: 'image/png',
+    });
+
+  assert.equal(invalidCreateResponse.status, 400);
+  assert.equal(invalidCreateResponse.body.error, 'Name is required');
+  assert.deepEqual(await listTeamMemberUploadFiles(), beforeInvalidCreateFiles);
+
+  const createResponse = await request(suite.app)
+    .post('/api/team-members')
+    .set(authHeader(admin.token))
+    .field('name', 'Safe Photo User')
+    .field('title', 'Creative Lead')
+    .attach('image', VALID_PNG_BUFFER, {
+      filename: 'safe-photo.png',
+      contentType: 'image/png',
+    });
+
+  assert.equal(createResponse.status, 201);
+  const originalImage = createResponse.body.image;
+  const beforeFailedUpdateFiles = await listTeamMemberUploadFiles();
+
+  const invalidUpdateResponse = await request(suite.app)
+    .put(`/api/team-members/${createResponse.body._id}`)
+    .set(authHeader(admin.token))
+    .field('name', 'Safe Photo User')
+    .field('title', 'x'.repeat(161))
+    .attach('image', VALID_PNG_BUFFER, {
+      filename: 'replacement-photo.png',
+      contentType: 'image/png',
+    });
+
+  assert.equal(invalidUpdateResponse.status, 400);
+  assert.equal(invalidUpdateResponse.body.error, 'Title is too long');
+
+  const storedMember = await TeamMember.findById(createResponse.body._id);
+  assert.equal(storedMember.image, originalImage);
+  assert.deepEqual(await listTeamMemberUploadFiles(), beforeFailedUpdateFiles);
 });
 
 test('default team members are seeded only once so admins can intentionally leave the section empty', async () => {

@@ -193,6 +193,7 @@ export const translations = {
         student: 'Member',
         instructor: 'Creator',
         admin: 'Admin',
+        applications_admin: 'Application Reviewer',
       },
     },
     social: {
@@ -332,6 +333,7 @@ export const translations = {
         student: 'عضو',
         instructor: 'صانع محتوى',
         admin: 'مسؤول',
+        applications_admin: 'مراجع الطلبات',
       },
     },
     social: {

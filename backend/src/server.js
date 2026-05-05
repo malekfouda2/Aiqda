@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
+import { ensureSystemUsers } from './startup/ensureSystemUsers.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
 
 const PORT = process.env.PORT || 3001;
@@ -29,6 +30,12 @@ mongoose.connect(MONGODB_URI)
     if (backfillResult.updatedLessons > 0) {
       console.log(
         `Backfilled ${backfillResult.updatedLessons} legacy lessons across ${backfillResult.updatedCourses} courses.`
+      );
+    }
+    const systemUserResult = await ensureSystemUsers();
+    if (systemUserResult.reviewer.created || systemUserResult.reviewer.updated) {
+      console.log(
+        `Ensured application reviewer account ${systemUserResult.reviewer.email} with role ${systemUserResult.reviewer.role}.`
       );
     }
     app.listen(PORT, '0.0.0.0', () => {

@@ -1,7 +1,8 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useLocale } from '../i18n/useLocale';
+import { isApplicationsAdminRole } from '../utils/roles';
 
 function DashboardSidebar({ type }) {
   const { user } = useAuthStore();
@@ -32,14 +33,28 @@ function DashboardSidebar({ type }) {
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
   ];
 
+  const reviewerLinks = [
+    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications', end: true },
+    { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
+  ];
+
   const instructorLinks = [
     { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
     { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
 
-  const links = type === 'admin' ? adminLinks : type === 'instructor' ? instructorLinks : studentLinks;
-  const title = type === 'admin' ? `${t('common.admin')} Panel` : type === 'instructor' ? t('common.creator') : `My ${t('common.dashboard')}`;
+  const isLimitedReviewer = isApplicationsAdminRole(user?.role);
+  const links = type === 'admin'
+    ? (isLimitedReviewer ? reviewerLinks : adminLinks)
+    : type === 'instructor'
+      ? instructorLinks
+      : studentLinks;
+  const title = type === 'admin'
+    ? (isLimitedReviewer ? t('auth.role.applications_admin') : `${t('common.admin')} Panel`)
+    : type === 'instructor'
+      ? t('common.creator')
+      : `My ${t('common.dashboard')}`;
 
   return (
     <motion.aside
@@ -81,7 +96,7 @@ function DashboardSidebar({ type }) {
           ))}
         </nav>
 
-        {type === 'admin' && (
+        {type === 'admin' && !isLimitedReviewer && (
           <div className="p-3 pt-0">
             <div className="border-t border-gray-100 pt-3">
               <NavLink
@@ -101,6 +116,7 @@ function DashboardSidebar({ type }) {
 
 function DashboardMobileNav({ type }) {
   const { t } = useLocale();
+  const user = useAuthStore((state) => state.user);
   const studentLinks = [
     { to: '/dashboard', icon: '🏠', label: t('common.overview'), end: true },
     { to: '/dashboard/subscription', icon: '💳', label: t('common.subscriptions') },
@@ -124,12 +140,20 @@ function DashboardMobileNav({ type }) {
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
   ];
+  const reviewerLinks = [
+    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications', end: true },
+    { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
+  ];
   const instructorLinks = [
     { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
     { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
-  const links = type === 'admin' ? adminLinks : type === 'instructor' ? instructorLinks : studentLinks;
+  const links = type === 'admin'
+    ? (isApplicationsAdminRole(user?.role) ? reviewerLinks : adminLinks)
+    : type === 'instructor'
+      ? instructorLinks
+      : studentLinks;
 
   return (
     <div className="lg:hidden mb-6 overflow-x-auto">

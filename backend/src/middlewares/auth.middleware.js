@@ -2,6 +2,7 @@ import { verifyToken } from '../utils/jwt.js';
 import User from '../modules/users/user.model.js';
 import { hasAcceptedCurrentPlatformNotice, PLATFORM_NOTICE_ERROR_MESSAGE } from '../config/platformNotice.js';
 import { getAuthTokenFromRequest } from '../utils/authCookie.js';
+import { ADMIN_ROLE, APPLICATION_REVIEW_ROLES, CONTENT_ACCESS_ROLES, INSTRUCTOR_ACCESS_ROLES } from '../utils/roles.js';
 
 const buildRequestUser = (user) => ({
   id: user._id.toString(),
@@ -63,9 +64,10 @@ export const authorize = (...roles) => {
   };
 };
 
-export const isAdmin = authorize('admin');
-export const isInstructor = authorize('instructor', 'admin');
-export const isStudent = authorize('student', 'instructor', 'admin');
+export const isAdmin = authorize(ADMIN_ROLE);
+export const canReviewApplications = authorize(...APPLICATION_REVIEW_ROLES);
+export const isInstructor = authorize(...INSTRUCTOR_ACCESS_ROLES);
+export const isStudent = authorize(...CONTENT_ACCESS_ROLES);
 
 export const requirePlatformNoticeAcknowledgement = (req, res, next) => {
   if (!req.user) {

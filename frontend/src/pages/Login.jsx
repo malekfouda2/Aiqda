@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import { useLocale } from '../i18n/useLocale';
+import { getDefaultRouteForRole } from '../utils/roles';
 
 function Login() {
   const { t, isRTL, brandName } = useLocale();
@@ -19,9 +20,7 @@ function Login() {
     const result = await login(email, password);
     if (result.success) {
       const userData = useAuthStore.getState().user;
-      const defaultPath = userData?.role === 'admin' ? '/admin' 
-        : userData?.role === 'instructor' ? '/instructor' 
-        : '/dashboard';
+      const defaultPath = getDefaultRouteForRole(userData?.role);
       const from = requestedPath || defaultPath;
       navigate(from, { replace: true });
     }

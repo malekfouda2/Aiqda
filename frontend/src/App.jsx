@@ -1,11 +1,12 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 import { useLocale } from './i18n/useLocale';
 import useAuthStore from './store/authStore';
+import { ADMIN_PANEL_ROLES, INSTRUCTOR_PANEL_ROLES, MEMBER_DASHBOARD_ROLES, isApplicationsAdminRole } from './utils/roles';
 
 const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
@@ -63,6 +64,16 @@ const renderLazyPage = (PageComponent) => (
   </Suspense>
 );
 
+function AdminIndexRoute() {
+  const role = useAuthStore((state) => state.user?.role);
+
+  if (isApplicationsAdminRole(role)) {
+    return <Navigate to="instructor-applications" replace />;
+  }
+
+  return renderLazyPage(AdminDashboard);
+}
+
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
@@ -103,7 +114,7 @@ function App() {
         } />
 
         <Route path="/dashboard" element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={MEMBER_DASHBOARD_ROLES}>
             <DashboardLayout type="student" />
           </ProtectedRoute>
         }>
@@ -114,11 +125,11 @@ function App() {
         </Route>
 
         <Route path="/admin" element={
-          <ProtectedRoute roles={['admin']}>
+          <ProtectedRoute roles={ADMIN_PANEL_ROLES}>
             <DashboardLayout type="admin" />
           </ProtectedRoute>
         }>
-          <Route index element={renderLazyPage(AdminDashboard)} />
+          <Route index element={<AdminIndexRoute />} />
           <Route path="contact-messages" element={renderLazyPage(AdminContactMessages)} />
           <Route path="team-members" element={renderLazyPage(AdminTeamMembers)} />
           <Route path="partners" element={renderLazyPage(AdminPartners)} />
@@ -134,7 +145,7 @@ function App() {
         </Route>
 
         <Route path="/instructor" element={
-          <ProtectedRoute roles={['instructor', 'admin']}>
+          <ProtectedRoute roles={INSTRUCTOR_PANEL_ROLES}>
             <DashboardLayout type="instructor" />
           </ProtectedRoute>
         }>

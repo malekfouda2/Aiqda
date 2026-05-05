@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import useAuthStore from '../store/authStore';
 import { pageVariants, fadeInUp } from '../utils/animations';
 import { useLocale } from '../i18n/useLocale';
+import { getDefaultRouteForRole } from '../utils/roles';
 
 function SocialAuthCallback() {
   const { isRTL, brandName } = useLocale();
@@ -41,7 +42,8 @@ function SocialAuthCallback() {
       }
 
       if (result.success) {
-        navigate(result.redirectPath || '/dashboard', { replace: true });
+        const role = useAuthStore.getState().user?.role;
+        navigate(result.redirectPath || getDefaultRouteForRole(role), { replace: true });
         return;
       }
 

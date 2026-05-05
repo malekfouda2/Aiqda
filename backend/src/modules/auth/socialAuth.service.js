@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import User from '../users/user.model.js';
 import { generateToken, verifyToken } from '../../utils/jwt.js';
+import { APPLICATIONS_ADMIN_ROLE } from '../../utils/roles.js';
 
 const SOCIAL_STATE_PURPOSE = 'social-auth-state';
 const SOCIAL_COMPLETE_PURPOSE = 'social-auth-complete';
@@ -92,6 +93,10 @@ const normalizeRedirectPath = (value) => {
 const getDefaultRedirectPathForRole = (role) => {
   if (role === 'admin') {
     return '/admin';
+  }
+
+  if (role === APPLICATIONS_ADMIN_ROLE) {
+    return '/admin/instructor-applications';
   }
 
   if (role === 'instructor') {

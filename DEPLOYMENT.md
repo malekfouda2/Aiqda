@@ -33,6 +33,7 @@ Required in production:
 - `JWT_SECRET`
 - `FRONTEND_URL`
 - `REDIS_URL`
+- `EBAA_REVIEWER_PASSWORD`
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_SECURE`
@@ -49,6 +50,8 @@ Recommended:
 - `AUTH_COOKIE_SAME_SITE`
 - `AUTH_COOKIE_DOMAIN`
 - `AUTH_COOKIE_MAX_AGE_MS`
+- `EBAA_REVIEWER_NAME`
+- `EBAA_REVIEWER_EMAIL`
 - `VIMEO_ACCESS_TOKEN`
 - `VIMEO_ALLOWED_EMBED_DOMAINS`
 - `JWT_EXPIRES_IN`
@@ -141,6 +144,18 @@ The backend now includes app-level request throttling for:
 - public studio applications
 
 Production deployments should point `REDIS_URL` at a shared Redis instance so throttling remains consistent across multiple app replicas.
+
+## Limited Reviewer Account
+
+The backend now ensures a dedicated application reviewer account exists on every boot, including in production. This account is limited to creator and studio application review flows only.
+
+Recommended settings:
+
+- `EBAA_REVIEWER_NAME=Ebaa`
+- `EBAA_REVIEWER_EMAIL=ebaa@aiqda.com`
+- `EBAA_REVIEWER_PASSWORD=<strong unique password>`
+
+In production, `EBAA_REVIEWER_PASSWORD` is required or the app will refuse to start.
 
 ## Session Cookies
 

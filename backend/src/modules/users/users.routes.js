@@ -1,6 +1,7 @@
 import express from 'express';
 import * as usersController from './users.controller.js';
 import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
+import { isAdminRole } from '../../utils/roles.js';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.patch('/:id/role', isAdmin, usersController.updateUserRole);
 router.post('/me/platform-notice-acknowledgement', usersController.acknowledgePlatformNotice);
 
 const selfOrAdmin = (req, res, next) => {
-  if (req.user.role === 'admin' || req.user.id === req.params.id) {
+  if (isAdminRole(req.user.role) || req.user.id === req.params.id) {
     return next();
   }
   return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });

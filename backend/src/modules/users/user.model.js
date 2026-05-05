@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { PLATFORM_NOTICE_VERSION } from '../../config/platformNotice.js';
+import { USER_ROLES } from '../../utils/roles.js';
 
 const socialProviderSchema = new mongoose.Schema({
   subject: {
@@ -56,7 +57,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'instructor', 'admin'],
+    enum: USER_ROLES,
     default: 'student'
   },
   avatar: {

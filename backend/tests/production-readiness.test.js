@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import request from 'supertest';
 
+import User from '../src/modules/users/user.model.js';
 import { Subscription } from '../src/modules/subscriptions/subscription.model.js';
 import { shouldAutoSeedConsultations, shouldAutoSeedDemoData } from '../src/seed.js';
+import { ensureSystemUsers } from '../src/startup/ensureSystemUsers.js';
 import { validateRuntimeConfig } from '../src/startup/validateRuntimeConfig.js';
+import { comparePassword } from '../src/utils/password.js';
 import {
   authHeader,
   createConsultation,
@@ -49,6 +52,51 @@ test('auto-seed defaults stay safe in production and convenient in development',
   assert.equal(shouldAutoSeedConsultations({ NODE_ENV: 'development' }), true);
   assert.equal(shouldAutoSeedDemoData({ NODE_ENV: 'production', AUTO_SEED_DEMO_DATA: 'true' }), true);
   assert.equal(shouldAutoSeedConsultations({ NODE_ENV: 'production', AUTO_SEED_CONSULTATIONS: 'true' }), true);
+});
+
+test('production runtime configuration requires a password for the limited reviewer account', () => {
+  assert.throws(
+    () => validateRuntimeConfig({
+      NODE_ENV: 'production',
+      MONGODB_URI: 'mongodb://127.0.0.1:27017/aiqda',
+      JWT_SECRET: 'a-very-strong-production-secret-value',
+      FRONTEND_URL: 'https://www.aiqda.pro',
+      REDIS_URL: 'redis://127.0.0.1:6379',
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_PORT: '587',
+      SMTP_USER: 'mailer@example.com',
+      SMTP_PASS: 'mail-password',
+      EMAIL_FROM: 'Aiqda <no-reply@example.com>',
+      STUDIO_APPLICATION_MEETING_URL: 'https://scheduler.example.com/aiqda/studio-intro',
+      EBAA_REVIEWER_EMAIL: 'ebaa@aiqda.com',
+      EBAA_REVIEWER_PASSWORD: '',
+    }),
+    /EBAA_REVIEWER_PASSWORD is required in production/
+  );
+});
+
+test('system user bootstrap ensures the limited reviewer account exists idempotently', async () => {
+  const env = {
+    NODE_ENV: 'production',
+    EBAA_REVIEWER_NAME: 'Ebaa',
+    EBAA_REVIEWER_EMAIL: 'ebaa.reviewer@example.com',
+    EBAA_REVIEWER_PASSWORD: 'EbaaSecure123!',
+  };
+
+  const firstRun = await ensureSystemUsers(env);
+  assert.equal(firstRun.reviewer.created, true);
+  assert.equal(firstRun.reviewer.updated, false);
+  assert.equal(firstRun.reviewer.role, 'applications_admin');
+
+  const storedUser = await User.findOne({ email: env.EBAA_REVIEWER_EMAIL });
+  assert.ok(storedUser);
+  assert.equal(storedUser.role, 'applications_admin');
+  assert.equal(storedUser.isActive, true);
+  assert.equal(await comparePassword(env.EBAA_REVIEWER_PASSWORD, storedUser.password), true);
+
+  const secondRun = await ensureSystemUsers(env);
+  assert.equal(secondRun.reviewer.created, false);
+  assert.equal(secondRun.reviewer.updated, false);
 });
 
 test('instructor and studio rejections persist correctly while email notifications are sent', async () => {
