@@ -20,6 +20,14 @@ const VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS = [
   'average_time_watched',
   'total_time_watched',
 ];
+const VIMEO_DASHBOARD_ONLY_ENGAGEMENT_METRICS = [
+  'viewer_retention',
+  'views_at_1_percent',
+  'views_at_25_percent',
+  'views_at_50_percent',
+  'views_at_75_percent',
+  'views_at_100_percent',
+];
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -680,7 +688,9 @@ export const getLessonAnalytics = async (lessonId) => {
     available: false,
     accountType: null,
     advancedAnalyticsAvailable: false,
+    dashboardAnalyticsAvailable: false,
     unsupportedAdvancedMetrics: VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+    dashboardOnlyMetrics: VIMEO_DASHBOARD_ONLY_ENGAGEMENT_METRICS,
     note: 'No Vimeo video is currently assigned to this lesson.',
   };
 
@@ -694,6 +704,7 @@ export const getLessonAnalytics = async (lessonId) => {
       const accountType = accountInfo?.type || null;
       const accountCapabilities = accountInfo?.capabilities || {};
       const advancedAnalyticsAvailable = Boolean(accountCapabilities.analyticsApiAccess);
+      const dashboardAnalyticsAvailable = Boolean(accountCapabilities.supportsVideoPageAnalyticsDashboard);
       const unsupportedAdvancedMetrics = advancedAnalyticsAvailable
         ? []
         : (accountCapabilities.enterpriseAnalyticsRequiredMetrics || VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS);
@@ -703,11 +714,13 @@ export const getLessonAnalytics = async (lessonId) => {
         accountType,
         capabilities: accountCapabilities,
         advancedAnalyticsAvailable,
+        dashboardAnalyticsAvailable,
         unsupportedAdvancedMetrics,
+        dashboardOnlyMetrics: VIMEO_DASHBOARD_ONLY_ENGAGEMENT_METRICS,
         note: advancedAnalyticsAvailable
           ? null
           : accountCapabilities.isPaidPlan
-            ? 'This Vimeo paid plan exposes player/security controls and core API metadata, but Aiqda still cannot ingest advanced Vimeo analytics such as impressions, unique viewers, and average percent watched without Enterprise Analytics API access.'
+            ? 'This Vimeo paid plan unlocks advanced analytics inside the Vimeo dashboard, but Vimeo still restricts the Analytics API dataset that Aiqda can ingest. Enterprise-only API metrics such as impressions, unique viewers, and average percent watched are still not exposed programmatically here.'
             : 'This Vimeo account can expose only a limited API dataset. Advanced Vimeo analytics such as impressions, unique viewers, and average percent watched require Vimeo Enterprise Analytics API access.',
         video: {
           vimeoId: videoDetails.vimeoId,
@@ -735,7 +748,9 @@ export const getLessonAnalytics = async (lessonId) => {
         accountType: null,
         capabilities: null,
         advancedAnalyticsAvailable: false,
+        dashboardAnalyticsAvailable: false,
         unsupportedAdvancedMetrics: VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS,
+        dashboardOnlyMetrics: VIMEO_DASHBOARD_ONLY_ENGAGEMENT_METRICS,
         note: error.message,
       };
     }

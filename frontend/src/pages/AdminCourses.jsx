@@ -82,6 +82,39 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+function formatDuration(seconds) {
+  const totalSeconds = Number(seconds || 0);
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return 'N/A';
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return [hours, minutes, remainingSeconds]
+      .map((part) => String(part).padStart(2, '0'))
+      .join(':');
+  }
+
+  return [minutes, remainingSeconds]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
+}
+
+function formatMetricName(value) {
+  if (!value) {
+    return 'N/A';
+  }
+
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function LessonAnalyticsPanel({ analytics, loading, error }) {
   if (loading && !analytics) {
     return (
@@ -106,6 +139,9 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
   const { appAnalytics, studentProgress, vimeo, refreshedAt, lesson } = analytics;
   const delivery = vimeo?.delivery || {};
   const capabilities = vimeo?.capabilities || {};
+  const resolution = vimeo?.video?.width && vimeo?.video?.height
+    ? `${vimeo.video.width} x ${vimeo.video.height}`
+    : 'N/A';
 
   return (
     <div className="space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
@@ -113,7 +149,7 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
         <div>
           <h6 className="text-sm font-semibold text-gray-900">Live lesson analytics</h6>
           <p className="text-xs text-gray-400">
-            Auto-refreshing every 10 seconds. Last updated {formatDateTime(refreshedAt)}.
+            Aiqda watch progress refreshes every 10 seconds. Vimeo API metadata refreshes about every minute. Last updated {formatDateTime(refreshedAt)}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -132,7 +168,7 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard label="Enrolled" value={appAnalytics.totalEnrolledStudents} color="blue" />
         <StatCard label="Started" value={appAnalytics.studentsWithActivity} sub={`${appAnalytics.studentsNotStarted} not started`} color="primary" />
         <StatCard label="Active now" value={appAnalytics.activeStudentsNow} sub={`last ${appAnalytics.activeWindowMinutes} min`} color="green" />
@@ -141,14 +177,14 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
         <StatCard label="Qualified" value={appAnalytics.qualifiedCount} sub={`${appAnalytics.qualificationRate}% of enrolled`} color="rose" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        <div className="rounded-xl border border-gray-100 bg-white p-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.95fr)]">
+        <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-4">
+          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h6 className="text-sm font-semibold text-gray-900">Student watch progress</h6>
               <p className="text-xs text-gray-400">Live Aiqda progress updates from this lesson player.</p>
             </div>
-            <div className="flex gap-2 text-xs text-gray-400">
+            <div className="flex flex-wrap gap-2 text-xs text-gray-400">
               <span>Quiz pass rate {appAnalytics.quizPassRate}%</span>
               <span>Completion rate {appAnalytics.completionRate}%</span>
             </div>
@@ -208,15 +244,15 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-4">
+        <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-4">
           <div className="mb-4">
             <h6 className="text-sm font-semibold text-gray-900">Vimeo video metrics</h6>
-            <p className="text-xs text-gray-400">Live values currently available from the connected Vimeo account.</p>
+            <p className="text-xs text-gray-400">Core audience, playback, and security values currently available from the connected Vimeo account.</p>
           </div>
 
           {vimeo?.available ? (
-            <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="min-w-0 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <StatCard label="Plays" value={vimeo.metrics?.plays ?? 0} color="primary" />
                 <StatCard label="Likes" value={vimeo.metrics?.likes ?? 0} color="rose" />
                 <StatCard label="Comments" value={vimeo.metrics?.comments ?? 0} color="amber" />
@@ -225,25 +261,92 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
                 <StatCard label="Downloads" value={delivery.downloadableRenditions ?? 0} sub={vimeo.security?.downloadsEnabled ? 'enabled' : 'disabled'} color="blue" />
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
-                <p><span className="font-medium text-gray-700">Vimeo title:</span> {vimeo.video?.title || 'N/A'}</p>
-                <p><span className="font-medium text-gray-700">Privacy:</span> {vimeo.privacy?.view || 'unknown'} / embed {vimeo.privacy?.embed || 'unknown'}</p>
-                <p><span className="font-medium text-gray-700">Playable:</span> {vimeo.video?.isPlayable ? 'Yes' : 'No'}</p>
-                <p><span className="font-medium text-gray-700">Playback delivery:</span> {delivery.hlsAvailable ? 'HLS' : 'No HLS'} / {delivery.dashAvailable ? 'DASH' : 'No DASH'} / {delivery.progressiveRenditions ?? 0} progressive renditions</p>
-                <p><span className="font-medium text-gray-700">Transcode:</span> {delivery.transcodeStatus || 'unknown'} / playback {delivery.playbackStatus || 'unknown'}</p>
-                <p><span className="font-medium text-gray-700">Captions & transcript:</span> {delivery.captionsEnabled ? 'captions on' : 'no captions'} / {delivery.transcriptEnabled ? 'transcript on' : 'no transcript'}</p>
-                <p><span className="font-medium text-gray-700">Language:</span> {delivery.language || 'N/A'}</p>
-                <p><span className="font-medium text-gray-700">Review page:</span> {delivery.reviewPageActive ? 'active' : 'off'}</p>
-                <p><span className="font-medium text-gray-700">Last modified:</span> {formatDateTime(vimeo.video?.modifiedAt)}</p>
+              <div className="grid gap-3 xl:grid-cols-2">
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+                  <p className="mb-2 font-medium text-gray-700">Playback and asset health</p>
+                  <div className="space-y-1 break-words">
+                    <p><span className="font-medium text-gray-700">Title:</span> {vimeo.video?.title || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Duration:</span> {formatDuration(vimeo.video?.duration)}</p>
+                    <p><span className="font-medium text-gray-700">Resolution:</span> {resolution}</p>
+                    <p><span className="font-medium text-gray-700">Playable:</span> {vimeo.video?.isPlayable ? 'Yes' : 'No'}</p>
+                    <p><span className="font-medium text-gray-700">Audio track:</span> {vimeo.video?.hasAudio ? 'present' : 'not detected'}</p>
+                    <p><span className="font-medium text-gray-700">Playback delivery:</span> {delivery.hlsAvailable ? 'HLS' : 'No HLS'} / {delivery.dashAvailable ? 'DASH' : 'No DASH'} / {delivery.progressiveRenditions ?? 0} progressive renditions</p>
+                    <p><span className="font-medium text-gray-700">Transcode:</span> {delivery.transcodeStatus || 'unknown'} / playback {delivery.playbackStatus || 'unknown'}</p>
+                    <p><span className="font-medium text-gray-700">Captions & transcript:</span> {delivery.captionsEnabled ? 'captions on' : 'no captions'} / {delivery.transcriptEnabled ? 'transcript on' : 'no transcript'}</p>
+                    <p><span className="font-medium text-gray-700">Language:</span> {delivery.language || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Folder:</span> {delivery.folderName || 'N/A'}</p>
+                  </div>
+                </div>
+
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+                  <p className="mb-2 font-medium text-gray-700">Privacy and publishing state</p>
+                  <div className="space-y-1 break-words">
+                    <p><span className="font-medium text-gray-700">Privacy:</span> {vimeo.privacy?.view || 'unknown'} / embed {vimeo.privacy?.embed || 'unknown'}</p>
+                    <p><span className="font-medium text-gray-700">Review page:</span> {delivery.reviewPageActive ? 'active' : 'off'} / {delivery.reviewPageShareable ? 'shareable' : 'not shareable'}</p>
+                    <p><span className="font-medium text-gray-700">Whitelisted domains:</span> {vimeo.security?.whitelistedDomains?.length ? vimeo.security.whitelistedDomains.join(', ') : 'none reported'}</p>
+                    <p><span className="font-medium text-gray-700">Created:</span> {formatDateTime(vimeo.video?.createdAt)}</p>
+                    <p><span className="font-medium text-gray-700">Last modified:</span> {formatDateTime(vimeo.video?.modifiedAt)}</p>
+                    <p><span className="font-medium text-gray-700">Last owner action:</span> {formatDateTime(vimeo.video?.lastUserActionAt)}</p>
+                    <p><span className="font-medium text-gray-700">Vimeo status:</span> {vimeo.video?.status || 'unknown'}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
-                <p className="font-medium text-gray-700">Vimeo plan capabilities</p>
-                <p>Paid plan controls: {capabilities.isPaidPlan ? 'enabled' : 'not detected'}</p>
-                <p>Hide from Vimeo: {capabilities.supportsHideFromVimeo ? 'supported' : 'not supported'}</p>
-                <p>Domain-level embed privacy: {capabilities.supportsDomainLevelPrivacy ? 'supported' : 'not supported'}</p>
-                <p>Player button hiding: {capabilities.supportsPlayerButtonHiding ? 'supported' : 'not supported'}</p>
-                <p>Analytics API access: {capabilities.analyticsApiAccess ? 'enterprise enabled' : 'not enabled on this Vimeo account'}</p>
+              <div className="grid gap-3 xl:grid-cols-2">
+                <div className="min-w-0 rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-800">
+                  <p className="mb-2 font-medium text-cyan-900">Vimeo analytics access</p>
+                  <div className="space-y-2 break-words">
+                    <p>{vimeo.note || 'Aiqda is ingesting the full Vimeo analytics dataset available to this account through the official API.'}</p>
+                    <div>
+                      <p className="font-medium text-cyan-900">Live in Aiqda now</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {['plays', 'likes', 'comments', 'text_tracks', 'versions', 'playback_status', 'privacy', 'delivery'].map((metric) => (
+                          <span key={metric} className="rounded-full border border-cyan-300 bg-white/80 px-2 py-1 text-[11px] text-cyan-800">
+                            {formatMetricName(metric)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {vimeo.dashboardAnalyticsAvailable ? (
+                      <div>
+                        <p className="font-medium text-cyan-900">Visible in Vimeo dashboard</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {vimeo.dashboardOnlyMetrics?.map((metric) => (
+                            <span key={metric} className="rounded-full border border-cyan-300 bg-white/80 px-2 py-1 text-[11px] text-cyan-800">
+                              {formatMetricName(metric)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {vimeo.unsupportedAdvancedMetrics?.length > 0 ? (
+                      <div>
+                        <p className="font-medium text-cyan-900">Enterprise Analytics API only</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {vimeo.unsupportedAdvancedMetrics.map((metric) => (
+                            <span key={metric} className="rounded-full border border-cyan-300 bg-white/80 px-2 py-1 text-[11px] text-cyan-800">
+                              {formatMetricName(metric)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+                  <p className="mb-2 font-medium text-gray-700">Vimeo plan capabilities</p>
+                  <div className="space-y-1 break-words">
+                    <p>Paid plan controls: {capabilities.isPaidPlan ? 'enabled' : 'not detected'}</p>
+                    <p>Hide from Vimeo: {capabilities.supportsHideFromVimeo ? 'supported' : 'not supported'}</p>
+                    <p>Domain-level embed privacy: {capabilities.supportsDomainLevelPrivacy ? 'supported' : 'not supported'}</p>
+                    <p>Player button hiding: {capabilities.supportsPlayerButtonHiding ? 'supported' : 'not supported'}</p>
+                    <p>Dashboard analytics: {vimeo.dashboardAnalyticsAvailable ? 'available in Vimeo' : 'not reported on this account'}</p>
+                    <p>Analytics API access: {capabilities.analyticsApiAccess ? 'enterprise enabled' : 'not enabled on this Vimeo account'}</p>
+                  </div>
+                </div>
               </div>
 
               {vimeo.security?.warnings?.length > 0 ? (
@@ -254,18 +357,6 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
                       <li key={warning}>{warning}</li>
                     ))}
                   </ul>
-                </div>
-              ) : null}
-
-              {!vimeo.advancedAnalyticsAvailable && vimeo.note ? (
-                <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-700">
-                  <p className="font-medium mb-1">Advanced Vimeo analytics limitation</p>
-                  <p>{vimeo.note}</p>
-                  {vimeo.unsupportedAdvancedMetrics?.length > 0 ? (
-                    <p className="mt-2">
-                      Missing via public API on this account: {vimeo.unsupportedAdvancedMetrics.join(', ')}.
-                    </p>
-                  ) : null}
                 </div>
               ) : null}
             </div>

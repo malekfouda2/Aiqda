@@ -4,7 +4,7 @@ import Course from '../courses/course.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 
 const VIMEO_API_BASE = 'https://api.vimeo.com';
-const VIMEO_VIDEO_DETAILS_CACHE_TTL_MS = 5 * 60 * 1000;
+const VIMEO_VIDEO_DETAILS_CACHE_TTL_MS = 60 * 1000;
 const VIMEO_ACCOUNT_INFO_CACHE_TTL_MS = 5 * 60 * 1000;
 const LOCAL_EMBED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
 const PLAYER_HARDENING_PARAMS = {

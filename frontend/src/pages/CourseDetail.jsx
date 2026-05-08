@@ -151,7 +151,7 @@ function CourseDetail() {
   }
 
   return (
-    <div className="min-h-screen py-12 relative overflow-hidden">
+    <div className="min-h-screen pt-8 pb-12 lg:pt-10 relative overflow-hidden">
       <div className="absolute inset-0 mesh-gradient opacity-30" />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -159,13 +159,13 @@ function CourseDetail() {
         <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-100px] left-[-50px] animate-float" />
       </div>
 
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Link to="/courses" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-8 group transition-colors">
+          <Link to="/courses" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors">
             <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -173,8 +173,8 @@ function CourseDetail() {
           </Link>
 
           <div className="card mb-8">
-            <div className="flex flex-col lg:flex-row gap-8">
-              <div className="lg:w-2/3">
+            <div className="grid gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.9fr)]">
+              <div className="min-w-0">
                 <div className="flex items-center gap-3 mb-4">
                   <span className={`tag ${
                     course.level === 'beginner' ? 'tag-beginner' :
@@ -234,22 +234,22 @@ function CourseDetail() {
                 </div>
               </div>
 
-              <div className="lg:w-1/3">
+              <div className="min-w-0">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                   {isEnrolled ? (
                     <div>
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <div>
+                      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
                           <p className="text-xs uppercase tracking-[0.24em] text-gray-400 mb-2">
                             {isRTL ? 'رحلتك داخل الفصل' : 'Your Chapter Journey'}
                           </p>
-                          <p className="text-xl font-semibold text-gray-900">
+                          <p className="text-xl font-semibold leading-tight text-gray-900">
                             {isCourseCompleted
                               ? (isRTL ? 'أكملت هذا الفصل' : 'You completed this chapter')
                               : (isRTL ? 'استمر بخطوة واضحة' : 'Continue with a clear next step')}
                           </p>
                         </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center border border-emerald-200">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-cyan-50">
                           <span className="text-2xl">{isCourseCompleted ? '🏁' : '🧭'}</span>
                         </div>
                       </div>
@@ -295,7 +295,7 @@ function CourseDetail() {
                       <div className="space-y-3">
                         <Link
                           to={recommendedLesson ? `/learn/${recommendedLesson._id}` : '#'}
-                          className="btn-primary w-full justify-center"
+                          className="btn-primary w-full px-5 py-3 text-base leading-tight"
                         >
                           {isCourseCompleted
                             ? (isRTL ? 'راجع الفصل ←' : 'Review Chapter →')
@@ -303,7 +303,7 @@ function CourseDetail() {
                               ? (isRTL ? 'تابع التعلم ←' : 'Continue Learning →')
                               : (isRTL ? 'ابدأ الفصل ←' : 'Start Chapter →')}
                         </Link>
-                        <a href="#course-roadmap" className="btn-secondary w-full justify-center">
+                        <a href="#course-roadmap" className="btn-secondary w-full px-5 py-3 text-base leading-tight">
                           {isRTL ? 'استعرض المسار' : 'View Roadmap'}
                         </a>
                       </div>
@@ -331,7 +331,7 @@ function CourseDetail() {
                       <button
                         onClick={handleEnroll}
                         disabled={enrolling}
-                        className="btn-primary w-full justify-center"
+                        className="btn-primary w-full px-5 py-3 text-base leading-tight"
                       >
                         {enrolling ? (isRTL ? 'جارٍ التسجيل...' : 'Enrolling...') : (isRTL ? 'سجّل الآن ←' : 'Enroll Now →')}
                       </button>

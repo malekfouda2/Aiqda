@@ -30,11 +30,11 @@
 
 @layer components {
   .btn-primary {
-    @apply relative bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-medium py-2.5 px-6 rounded-xl transition-all duration-300 ease-out shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:scale-[1.02];
+    @apply relative inline-flex items-center justify-center bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white text-center font-medium py-2.5 px-6 rounded-xl transition-all duration-300 ease-out shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:scale-[1.02];
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-6 rounded-xl border border-gray-200 transition-all duration-300 ease-out hover:border-gray-300 hover:scale-[1.02] shadow-sm;
+    @apply inline-flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 text-center font-medium py-2.5 px-6 rounded-xl border border-gray-200 transition-all duration-300 ease-out hover:border-gray-300 hover:scale-[1.02] shadow-sm;
   }
 
   .btn-ghost {
