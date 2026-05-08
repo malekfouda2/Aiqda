@@ -143,6 +143,15 @@ function AdminTeamMembers() {
     setFormData(buildInitialFormState());
   };
 
+  const sortTeamMembers = (members) => [...members].sort((a, b) => {
+    const orderDelta = Number(a.order ?? 0) - Number(b.order ?? 0);
+    if (orderDelta !== 0) {
+      return orderDelta;
+    }
+
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+
   const updateAchievement = (field, index, value) => {
     setFormData((current) => {
       const nextAchievements = [...current[field]];
@@ -219,11 +228,18 @@ function AdminTeamMembers() {
         payload.append('image', formData.image);
       }
 
+      let savedTeamMember;
       if (formData._id) {
-        await teamMembersAPI.update(formData._id, payload);
+        const response = await teamMembersAPI.update(formData._id, payload);
+        savedTeamMember = response.data;
+        setTeamMembers((current) => sortTeamMembers(current.map((member) => (
+          member._id === savedTeamMember._id ? savedTeamMember : member
+        ))));
         showSuccess('Team member updated successfully');
       } else {
-        await teamMembersAPI.create(payload);
+        const response = await teamMembersAPI.create(payload);
+        savedTeamMember = response.data;
+        setTeamMembers((current) => sortTeamMembers([...current, savedTeamMember]));
         showSuccess('Team member created successfully');
       }
 

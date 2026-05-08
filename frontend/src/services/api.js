@@ -10,6 +10,15 @@ const api = axios.create({
   }
 });
 
+api.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+    delete config.headers['Content-Type'];
+    delete config.headers['content-type'];
+  }
+
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
