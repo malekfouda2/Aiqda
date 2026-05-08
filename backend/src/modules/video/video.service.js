@@ -20,7 +20,7 @@ const getVimeoAccessToken = () => process.env.VIMEO_ACCESS_TOKEN;
 
 const VIMEO_SECURITY_PRESET = {
   privacy: {
-    view: 'nobody',
+    view: 'disable',
     download: false,
     add: false,
     comments: 'nobody',
@@ -256,9 +256,12 @@ const getVimeoSecurityWarnings = ({
   presetError = null,
 } = {}) => {
   const warnings = [];
-  const isDirectPageProtected = privacy.view === 'disable' || privacy.view === 'nobody';
+  const isHideFromVimeo = privacy.view === 'disable';
+  const isPrivateToOwner = privacy.view === 'nobody';
 
-  if (!isDirectPageProtected) {
+  if (isPrivateToOwner) {
+    warnings.push('This video is set to Vimeo Private. Only the Vimeo owner and team members can watch it, even when it is embedded. Change the viewing privacy to "Hide from Vimeo" for member playback.');
+  } else if (!isHideFromVimeo) {
     warnings.push('Direct Vimeo page access is still enabled. Set the video privacy to "Hide from Vimeo" in Vimeo to stop public link sharing.');
   }
 
@@ -343,6 +346,8 @@ const buildVimeoSecuritySummary = ({
     viewPrivacy: privacy.view || null,
     embedPrivacy: privacy.embed || null,
     isDirectPageProtected,
+    requiresVimeoTeamMembership: privacy.view === 'nobody',
+    usesRecommendedViewPrivacy: privacy.view === 'disable',
     isDomainRestricted: privacy.embed === 'whitelist',
     downloadsEnabled: privacy.download !== false,
     addToCollectionsEnabled: privacy.add !== false,

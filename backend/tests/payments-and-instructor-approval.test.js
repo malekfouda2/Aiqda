@@ -216,6 +216,13 @@ test('instructor analytics returns allocated revenue from approved payments', as
 
   assert.equal(analyticsResponse.status, 200);
   assert.equal(analyticsResponse.body.totalRevenue, 750);
+  assert.equal(analyticsResponse.body.publishedCourses, 1);
+  assert.equal(analyticsResponse.body.draftCourses, 0);
+  assert.equal(analyticsResponse.body.totalLessons, 0);
+  assert.equal(analyticsResponse.body.videosAssigned, 0);
+  assert.equal(analyticsResponse.body.videosPending, 0);
+  assert.equal(analyticsResponse.body.avgWatchPercentage, 0);
+  assert.equal(analyticsResponse.body.quizPassRate, 0);
   assert.equal(analyticsResponse.body.revenueCalculation.placeholder, false);
   assert.match(
     analyticsResponse.body.revenueCalculation.methodology,
@@ -223,6 +230,11 @@ test('instructor analytics returns allocated revenue from approved payments', as
   );
   assert.equal(analyticsResponse.body.courseStats.length, 1);
   assert.equal(analyticsResponse.body.courseStats[0].estimatedRevenue, 750);
+  assert.equal(analyticsResponse.body.courseStats[0].isPublished, true);
+  assert.equal(analyticsResponse.body.courseStats[0].avgWatchPercentage, 0);
+  assert.equal(analyticsResponse.body.courseStats[0].videosAssigned, 0);
+  assert.equal(analyticsResponse.body.courseStats[0].videosPending, 0);
+  assert.equal(analyticsResponse.body.courseStats[0].quizPassRate, 0);
 });
 
 test('approved instructor applications require invite acceptance before login works', async () => {

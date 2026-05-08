@@ -322,7 +322,7 @@ export const getCourseProgress = async (userId, courseId) => {
 
 export const getInstructorAnalytics = async (instructorId) => {
   const courses = await Course.find({ instructor: instructorId })
-    .select('title enrolledStudents')
+    .select('title enrolledStudents isPublished')
     .lean();
   const { courseMetricsById, lessonProgress } = await buildCourseAnalyticsSnapshot(courses);
 
@@ -332,10 +332,17 @@ export const getInstructorAnalytics = async (instructorId) => {
     return {
       courseId: course._id,
       title: course.title,
+      isPublished: Boolean(course.isPublished),
       enrolledCount: course.enrolledStudents?.length || 0,
       lessonsCount: courseMetrics.lessonsCount,
+      videosAssigned: courseMetrics.videosAssigned,
+      videosPending: courseMetrics.videosPending,
+      avgWatchPercentage: courseMetrics.avgWatchPercentage,
       qualifiedViews: courseMetrics.qualifiedViews,
-      estimatedRevenue: courseMetrics.estimatedRevenue
+      quizPassRate: courseMetrics.progressCount > 0
+        ? Math.round((courseMetrics.quizPassCount / courseMetrics.progressCount) * 100)
+        : 0,
+      estimatedRevenue: courseMetrics.estimatedRevenue,
     };
   });
 
@@ -343,6 +350,17 @@ export const getInstructorAnalytics = async (instructorId) => {
     courseStats.reduce((sum, course) => sum + course.estimatedRevenue, 0)
   );
   const totalQualifiedViews = courseStats.reduce((sum, course) => sum + course.qualifiedViews, 0);
+  const totalLessons = courseStats.reduce((sum, course) => sum + course.lessonsCount, 0);
+  const videosAssigned = courseStats.reduce((sum, course) => sum + course.videosAssigned, 0);
+  const videosPending = courseStats.reduce((sum, course) => sum + course.videosPending, 0);
+  const publishedCourses = courseStats.filter((course) => course.isPublished).length;
+  const draftCourses = Math.max(courseStats.length - publishedCourses, 0);
+  const totalProgressEntries = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.progressCount, 0);
+  const totalWatchPercentage = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.watchPercentageSum, 0);
+  const totalQuizPassCount = [...courseMetricsById.values()]
+    .reduce((sum, courseMetrics) => sum + courseMetrics.quizPassCount, 0);
   const monthlyStats = buildMonthlyCounts(
     lessonProgress.filter((progressEntry) => progressEntry.isQualified),
     'completedAt'
@@ -350,8 +368,19 @@ export const getInstructorAnalytics = async (instructorId) => {
 
   return {
     totalCourses: courses.length,
+    publishedCourses,
+    draftCourses,
+    totalLessons,
     totalStudents: countUniqueStudents(courses),
     totalQualifiedViews,
+    avgWatchPercentage: totalProgressEntries > 0
+      ? Math.round(totalWatchPercentage / totalProgressEntries)
+      : 0,
+    videosAssigned,
+    videosPending,
+    quizPassRate: totalProgressEntries > 0
+      ? Math.round((totalQuizPassCount / totalProgressEntries) * 100)
+      : 0,
     totalRevenue,
     monthlyStats,
     courseStats,
