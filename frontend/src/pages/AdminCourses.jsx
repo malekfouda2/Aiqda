@@ -198,10 +198,10 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
             <div className="space-y-3">
               {studentProgress.map((student) => (
                 <div key={student.progressId} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-gray-900">{student.name}</p>
+                  <div className="grid gap-4 xl:grid-cols-[minmax(180px,0.9fr)_minmax(220px,1.1fr)_minmax(150px,0.9fr)_minmax(160px,0.9fr)] xl:items-start">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-start gap-2">
+                        <p className="text-base font-semibold leading-tight text-gray-900 break-words">{student.name}</p>
                         {student.isActiveNow ? (
                           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                             Active now
@@ -213,29 +213,35 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-gray-400 truncate">{student.email || 'No email available'}</p>
+                      <p className="mt-1 break-all text-xs text-gray-400">{student.email || 'No email available'}</p>
                     </div>
 
-                    <div className="grid gap-2 sm:grid-cols-3 lg:w-[420px]">
-                      <div>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                          <span>Watch</span>
-                          <span>{student.watchPercentage}%</span>
-                        </div>
-                        <ProgressBar
-                          value={student.watchPercentage}
-                          fillClass={student.hasMetWatchRequirement ? 'from-emerald-400 to-emerald-500' : 'from-primary-500 to-cyan-500'}
-                        />
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center justify-between gap-3 text-xs text-gray-500">
+                        <span className="font-medium text-gray-700">Watch progress</span>
+                        <span>{student.watchPercentage}%</span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        <p className="font-medium text-gray-700">{student.quizPassed ? 'Quiz passed' : 'Quiz pending'}</p>
-                        <p>Score {student.quizScore}%</p>
-                        <p>{student.quizAttempts} attempt{student.quizAttempts === 1 ? '' : 's'}</p>
+                      <ProgressBar
+                        value={student.watchPercentage}
+                        fillClass={student.hasMetWatchRequirement ? 'from-emerald-400 to-emerald-500' : 'from-primary-500 to-cyan-500'}
+                      />
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                        <span className={`rounded-full border px-2 py-0.5 ${student.hasMetWatchRequirement ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                          {student.hasMetWatchRequirement ? 'Watch requirement met' : 'Below watch target'}
+                        </span>
+                        <span>Minimum {lesson.minimumWatchPercentage}%</span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        <p className="font-medium text-gray-700">{formatRelativeTime(student.lastWatchedAt)}</p>
-                        <p>Updated {formatDateTime(student.updatedAt)}</p>
-                      </div>
+                    </div>
+
+                    <div className="min-w-0 text-xs text-gray-500">
+                      <p className="font-medium text-gray-700">{student.quizPassed ? 'Quiz passed' : 'Quiz pending'}</p>
+                      <p className="mt-1">Score {student.quizScore}%</p>
+                      <p>{student.quizAttempts} attempt{student.quizAttempts === 1 ? '' : 's'}</p>
+                    </div>
+
+                    <div className="min-w-0 text-xs text-gray-500">
+                      <p className="font-medium text-gray-700">{formatRelativeTime(student.lastWatchedAt)}</p>
+                      <p className="mt-1 break-words">Updated {formatDateTime(student.updatedAt)}</p>
                     </div>
                   </div>
                 </div>
