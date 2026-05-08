@@ -216,6 +216,21 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
+
+  .vimeo-shell-fullscreen,
+  .vimeo-shell-fullscreen:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    border: 0;
+    background: #020617;
+  }
+
+  .vimeo-shell-fullscreen:fullscreen::backdrop {
+    background: #020617;
+  }
 }
 
 .flip-in-rtl {

@@ -3,6 +3,7 @@ import User from '../modules/users/user.model.js';
 import { hasAcceptedCurrentPlatformNotice, PLATFORM_NOTICE_ERROR_MESSAGE } from '../config/platformNotice.js';
 import { getAuthTokenFromRequest } from '../utils/authCookie.js';
 import { ADMIN_ROLE, APPLICATION_REVIEW_ROLES, CONTENT_ACCESS_ROLES, INSTRUCTOR_ACCESS_ROLES } from '../utils/roles.js';
+import { validateAuthenticatedSessionForUser } from '../modules/auth/authSession.service.js';
 
 const buildRequestUser = (user) => ({
   id: user._id.toString(),
@@ -21,8 +22,13 @@ export const authenticate = async (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement');
+    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession authorizedDevices');
     if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+
+    const hasValidSession = await validateAuthenticatedSessionForUser(user, decoded);
+    if (!hasValidSession) {
       return res.status(401).json({ error: 'Invalid or expired token.' });
     }
 
@@ -41,8 +47,11 @@ export const authenticateOptional = async (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement');
-    req.user = user && user.isActive ? buildRequestUser(user) : null;
+    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession authorizedDevices');
+    const hasValidSession = user && user.isActive
+      ? await validateAuthenticatedSessionForUser(user, decoded)
+      : false;
+    req.user = hasValidSession ? buildRequestUser(user) : null;
   } catch (error) {
     req.user = null;
   }

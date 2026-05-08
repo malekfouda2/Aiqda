@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
+import { analyticsAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+import { getCourseJourney, getEntityId, getLessonProgressState } from '../utils/courseNavigation';
 
 function CourseDetail() {
   const { locale, t, isRTL } = useLocale();
@@ -20,12 +21,37 @@ function CourseDetail() {
   const [enrolling, setEnrolling] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [courseProgressData, setCourseProgressData] = useState(null);
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [id, user?._id]);
+
+  const courseJourney = useMemo(() => (
+    getCourseJourney({
+      lessons,
+      lessonProgress: courseProgressData?.lessonProgress || [],
+    })
+  ), [courseProgressData?.lessonProgress, lessons]);
+
+  const courseProgressPercentage = useMemo(() => {
+    const reportedProgress = Number(courseProgressData?.courseProgress?.progressPercentage);
+    if (Number.isFinite(reportedProgress) && reportedProgress > 0) {
+      return Math.round(reportedProgress);
+    }
+
+    return courseJourney.completionPercentage;
+  }, [courseJourney.completionPercentage, courseProgressData?.courseProgress?.progressPercentage]);
+
+  const recommendedLesson = courseJourney.recommendedLesson;
+  const recommendedLessonState = recommendedLesson
+    ? getLessonProgressState(recommendedLesson, courseJourney.progressMap)
+    : null;
+  const isCourseCompleted = courseJourney.isCompleted || courseProgressPercentage >= 100;
+  const enrolledCount = course?.enrolledStudents?.length || 0;
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const [courseRes, lessonsRes] = await Promise.all([
         coursesAPI.getById(id),
@@ -35,13 +61,28 @@ function CourseDetail() {
       setLessons(lessonsRes.data);
       
       if (user) {
-        setIsEnrolled(courseRes.data.enrolledStudents?.includes(user._id));
+        const enrolled = (courseRes.data.enrolledStudents || []).some(
+          (studentId) => getEntityId(studentId) === user._id
+        );
+        setIsEnrolled(enrolled);
+
         try {
           const subRes = await subscriptionsAPI.getActiveSubscription();
           setHasSubscription(!!subRes.data);
         } catch {
           setHasSubscription(false);
         }
+
+        if (enrolled) {
+          const progressRes = await analyticsAPI.getCourseProgress(id).catch(() => null);
+          setCourseProgressData(progressRes?.data || null);
+        } else {
+          setCourseProgressData(null);
+        }
+      } else {
+        setIsEnrolled(false);
+        setHasSubscription(false);
+        setCourseProgressData(null);
       }
     } catch (error) {
       console.error('Failed to fetch course:', error);
@@ -67,6 +108,21 @@ function CourseDetail() {
     try {
       await coursesAPI.enroll(id);
       setIsEnrolled(true);
+      setCourse((currentCourse) => {
+        if (!currentCourse) {
+          return currentCourse;
+        }
+
+        const nextStudents = [...(currentCourse.enrolledStudents || [])];
+        if (!nextStudents.some((studentId) => getEntityId(studentId) === user._id)) {
+          nextStudents.push(user._id);
+        }
+
+        return {
+          ...currentCourse,
+          enrolledStudents: nextStudents,
+        };
+      });
       showSuccess(isRTL ? 'تم التسجيل في الفصل بنجاح!' : 'Successfully enrolled in the chapter!');
     } catch (error) {
       showError(error.response?.data?.error || (isRTL ? 'تعذر التسجيل' : 'Failed to enroll'));
@@ -133,7 +189,7 @@ function CourseDetail() {
                 <h1 className="text-4xl font-bold text-gray-900 mb-4">{getLocalizedField(course, 'title', locale)}</h1>
                 <p className="text-gray-600 text-lg leading-relaxed mb-6">{getLocalizedField(course, 'description', locale)}</p>
                 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
                       <span className="text-xs">👤</span>
@@ -146,27 +202,111 @@ function CourseDetail() {
                   </span>
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
-                    <span>👥</span> {course.enrolledStudents?.length || 0} {isRTL ? 'عضو' : 'members'}
+                    <span>👥</span> {enrolledCount} {isRTL ? 'عضو' : 'members'}
                   </span>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      {isRTL ? 'إجمالي المحتويات' : 'Total Contents'}
+                    </p>
+                    <p className="text-2xl font-semibold text-gray-900">{lessons.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      {isRTL ? 'المكتمل' : 'Completed'}
+                    </p>
+                    <p className="text-2xl font-semibold text-gray-900">{courseJourney.completedCount}</p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      {isRTL ? 'المرحلة الحالية' : 'Current Stage'}
+                    </p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {isCourseCompleted
+                        ? (isRTL ? 'مكتمل' : 'Completed')
+                        : recommendedLessonState?.hasStarted
+                          ? (isRTL ? 'استئناف' : 'Resume')
+                          : (isRTL ? 'ابدأ' : 'Start')}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div className="lg:w-1/3">
-                <div className="bg-white backdrop-blur-xl rounded-2xl p-6 border border-gray-200">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                   {isEnrolled ? (
-                    <div className="text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center border border-emerald-200">
-                        <span className="text-3xl">✅</span>
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.24em] text-gray-400 mb-2">
+                            {isRTL ? 'رحلتك داخل الفصل' : 'Your Chapter Journey'}
+                          </p>
+                          <p className="text-xl font-semibold text-gray-900">
+                            {isCourseCompleted
+                              ? (isRTL ? 'أكملت هذا الفصل' : 'You completed this chapter')
+                              : (isRTL ? 'استمر بخطوة واضحة' : 'Continue with a clear next step')}
+                          </p>
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center border border-emerald-200">
+                          <span className="text-2xl">{isCourseCompleted ? '🏁' : '🧭'}</span>
+                        </div>
                       </div>
-                      <p className="text-emerald-600 text-lg font-semibold mb-4">
-                        {isRTL ? 'أنت مسجل بالفعل!' : "You're enrolled!"}
-                      </p>
-                      <Link
-                        to={lessons[0] ? `/learn/${lessons[0]._id}` : '#'}
-                        className="btn-primary w-full justify-center"
-                      >
-                        {isRTL ? 'تابع التعلم ←' : 'Continue Learning →'}
-                      </Link>
+
+                      <div className="rounded-2xl border border-primary-100 bg-gradient-to-r from-primary-500/8 via-white to-cyan-500/8 p-4 mb-4">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {isRTL ? 'تقدم الفصل' : 'Chapter Progress'}
+                          </span>
+                          <span className="text-lg font-semibold text-primary-500">{courseProgressPercentage}%</span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-white border border-gray-200 overflow-hidden mb-3">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-primary-500 to-cyan-500 transition-all duration-500"
+                            style={{ width: `${Math.min(courseProgressPercentage, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {isRTL
+                            ? `أنجزت ${courseJourney.completedCount} من ${lessons.length} محتوى`
+                            : `You've completed ${courseJourney.completedCount} of ${lessons.length} contents`}
+                        </p>
+                      </div>
+
+                      {recommendedLesson && (
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                            {isCourseCompleted ? (isRTL ? 'للمراجعة' : 'For Review') : (isRTL ? 'الخطوة التالية' : 'Next Best Step')}
+                          </p>
+                          <p className="font-semibold text-gray-900 mb-1">
+                            {getLocalizedField(recommendedLesson, 'title', locale)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {isCourseCompleted
+                              ? (isRTL ? 'يمكنك العودة إلى أي محتوى للمراجعة وقتما تشاء.' : 'You can revisit any content whenever you want.')
+                              : recommendedLessonState?.hasStarted
+                                ? (isRTL ? 'سنأخذك مباشرة إلى المكان الأنسب للمتابعة.' : "We'll take you straight to the best place to resume.")
+                                : (isRTL ? 'ابدأ بالمحتوى التالي المقترح داخل هذا الفصل.' : 'Start the next recommended content inside this chapter.')}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <Link
+                          to={recommendedLesson ? `/learn/${recommendedLesson._id}` : '#'}
+                          className="btn-primary w-full justify-center"
+                        >
+                          {isCourseCompleted
+                            ? (isRTL ? 'راجع الفصل ←' : 'Review Chapter →')
+                            : recommendedLessonState?.hasStarted
+                              ? (isRTL ? 'تابع التعلم ←' : 'Continue Learning →')
+                              : (isRTL ? 'ابدأ الفصل ←' : 'Start Chapter →')}
+                        </Link>
+                        <a href="#course-roadmap" className="btn-secondary w-full justify-center">
+                          {isRTL ? 'استعرض المسار' : 'View Roadmap'}
+                        </a>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -175,6 +315,18 @@ function CourseDetail() {
                           <span className="text-3xl">🎓</span>
                         </div>
                         <p className="text-gray-500 text-sm">{isRTL ? 'ابدأ رحلتك التعليمية' : 'Start your learning journey'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-4">
+                        <p className="font-medium text-gray-900 mb-1">
+                          {hasSubscription
+                            ? (isRTL ? 'أنت جاهز للتسجيل' : "You're ready to enroll")
+                            : (isRTL ? 'تحتاج اشتراكًا نشطًا أولًا' : 'You need an active subscription first')}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {hasSubscription
+                            ? (isRTL ? 'بمجرد التسجيل ستحصل على مسار تعلم منظم داخل الفصل.' : 'Once enrolled, you will get a guided chapter path and resume flow.')
+                            : (isRTL ? 'فعّل اشتراكك للوصول إلى هذا الفصل ومحتواه.' : 'Activate your subscription to access this chapter and its content.')}
+                        </p>
                       </div>
                       <button
                         onClick={handleEnroll}
@@ -195,12 +347,33 @@ function CourseDetail() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="card"
+            id="course-roadmap"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="icon-box icon-box-primary w-10 h-10 text-lg">
-                <span>📖</span>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="icon-box icon-box-primary w-10 h-10 text-lg">
+                  <span>📖</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'مسار الفصل' : 'Chapter Roadmap'}</h2>
+                  <p className="text-sm text-gray-500">
+                    {isRTL ? 'كل محتوى مرتب بخطوات واضحة من البداية حتى الإكمال.' : 'Every content item, ordered from first step to completion.'}
+                  </p>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'محتوى الفصل' : 'Chapter Content'}</h2>
+
+              {isEnrolled && lessons.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-500">
+                    {courseJourney.completedCount}/{lessons.length} {isRTL ? 'مكتمل' : 'completed'}
+                  </span>
+                  {recommendedLesson && (
+                    <span className="px-3 py-1 rounded-full bg-primary-500/10 text-primary-500 border border-primary-100 text-sm">
+                      {isRTL ? 'التالي:' : 'Up next:'} {getLocalizedField(recommendedLesson, 'title', locale)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             
             {lessons.length === 0 ? (
@@ -218,27 +391,95 @@ function CourseDetail() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + index * 0.05 }}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all group"
+                    className={`p-4 rounded-2xl border transition-all ${
+                      isEnrolled && recommendedLesson?._id === lesson._id
+                        ? 'bg-gradient-to-r from-primary-500/8 via-white to-cyan-500/8 border-primary-200 shadow-sm'
+                        : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-primary-200'
+                    }`}
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center text-gray-500 font-semibold group-hover:from-primary-50 group-hover:to-cyan-50 group-hover:text-primary-500 transition-all border border-gray-200">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors truncate">
-                        {getLocalizedField(lesson, 'title', locale)}
-                      </h3>
-                      {lesson.description && (
-                        <p className="text-sm text-gray-400 truncate">{getLocalizedField(lesson, 'description', locale)}</p>
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-semibold border ${
+                          isEnrolled && getLessonProgressState(lesson, courseJourney.progressMap).isQualified
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            : 'bg-white text-gray-500 border-gray-200'
+                        }`}>
+                          {index + 1}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="font-medium text-gray-900 truncate">
+                              {getLocalizedField(lesson, 'title', locale)}
+                            </h3>
+                            {isEnrolled && recommendedLesson?._id === lesson._id && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
+                              <span className="px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-500 text-xs font-medium border border-primary-100">
+                                {isRTL ? 'الخطوة التالية' : 'Up Next'}
+                              </span>
+                            )}
+                            {isEnrolled && getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium border border-emerald-200">
+                                {isRTL ? 'مكتمل' : 'Completed'}
+                              </span>
+                            )}
+                            {isEnrolled && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && getLessonProgressState(lesson, courseJourney.progressMap).hasStarted && (
+                              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-medium border border-amber-200">
+                                {isRTL ? 'قيد التقدم' : 'In Progress'}
+                              </span>
+                            )}
+                          </div>
+
+                          {lesson.description && (
+                            <p className="text-sm text-gray-500 line-clamp-2 mb-3">{getLocalizedField(lesson, 'description', locale)}</p>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                            <span>{isRTL ? `المحتوى ${index + 1} من ${lessons.length}` : `Content ${index + 1} of ${lessons.length}`}</span>
+                            {isEnrolled && (
+                              <span>
+                                {getLessonProgressState(lesson, courseJourney.progressMap).watchPercentage}% {isRTL ? 'مشاهدة' : 'watched'}
+                              </span>
+                            )}
+                          </div>
+
+                          {isEnrolled && (
+                            <div className="mt-3 h-2 rounded-full bg-white border border-gray-200 overflow-hidden max-w-xl">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  getLessonProgressState(lesson, courseJourney.progressMap).isQualified
+                                    ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                                    : 'bg-gradient-to-r from-primary-500 to-cyan-500'
+                                }`}
+                                style={{ width: `${Math.min(getLessonProgressState(lesson, courseJourney.progressMap).watchPercentage, 100)}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEnrolled ? (
+                        <Link
+                          to={`/learn/${lesson._id}`}
+                          className={`justify-center whitespace-nowrap ${
+                            recommendedLesson?._id === lesson._id
+                              ? 'btn-primary'
+                              : getLessonProgressState(lesson, courseJourney.progressMap).hasStarted
+                                ? 'btn-secondary'
+                                : 'btn-secondary'
+                          }`}
+                        >
+                          {getLessonProgressState(lesson, courseJourney.progressMap).isQualified
+                            ? (isRTL ? 'راجع ←' : 'Review →')
+                            : getLessonProgressState(lesson, courseJourney.progressMap).hasStarted
+                              ? (isRTL ? 'تابع ←' : 'Continue →')
+                              : (isRTL ? 'ابدأ ←' : 'Start →')}
+                        </Link>
+                      ) : (
+                        <div className="text-sm text-gray-400 whitespace-nowrap">
+                          {isRTL ? 'سجّل للوصول' : 'Enroll to unlock'}
+                        </div>
                       )}
                     </div>
-                    {isEnrolled && (
-                      <Link
-                        to={`/learn/${lesson._id}`}
-                        className="btn-secondary text-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        {isRTL ? 'ابدأ ←' : 'Start →'}
-                      </Link>
-                    )}
                   </motion.div>
                 ))}
               </div>

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import User from '../users/user.model.js';
 import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { APPLICATIONS_ADMIN_ROLE } from '../../utils/roles.js';
+import { createAuthenticatedSessionForUser } from './authSession.service.js';
 
 const SOCIAL_STATE_PURPOSE = 'social-auth-state';
 const SOCIAL_COMPLETE_PURPOSE = 'social-auth-complete';
@@ -411,7 +412,7 @@ export const handleSocialLoginCallback = async ({
   }
 };
 
-export const completeSocialLogin = async ({ token }) => {
+export const completeSocialLogin = async ({ token, deviceContext }) => {
   if (!token) {
     throw new Error('Social login token is required');
   }
@@ -436,11 +437,12 @@ export const completeSocialLogin = async ({ token }) => {
     throw new Error('Account setup is still pending. Use your invitation link to finish setting your password.');
   }
 
-  const appToken = generateToken({ id: user._id, email: user.email, role: user.role });
+  const { sessionToken, deviceId } = await createAuthenticatedSessionForUser(user, deviceContext);
 
   return {
     user,
-    sessionToken: appToken,
+    sessionToken,
+    deviceId,
     redirectPath: normalizeRedirectPath(decoded.redirectPath) || getDefaultRedirectPathForRole(user.role),
   };
 };

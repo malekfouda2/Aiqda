@@ -1,5 +1,7 @@
 const DEFAULT_AUTH_COOKIE_NAME = 'aiqda_auth';
 const DEFAULT_AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_DEVICE_COOKIE_NAME = 'aiqda_device';
+const DEFAULT_DEVICE_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -48,10 +50,10 @@ const parseCookieHeader = (cookieHeader) => {
 };
 
 const getAuthCookieName = () => process.env.AUTH_COOKIE_NAME || DEFAULT_AUTH_COOKIE_NAME;
+const getDeviceCookieName = () => process.env.DEVICE_COOKIE_NAME || DEFAULT_DEVICE_COOKIE_NAME;
 
 const buildCookieOptions = () => {
   const options = {
-    httpOnly: true,
     sameSite: normalizeSameSite(process.env.AUTH_COOKIE_SAME_SITE),
     secure: process.env.AUTH_COOKIE_SECURE === 'true' || (
       process.env.AUTH_COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production'
@@ -81,13 +83,30 @@ export const getAuthTokenFromRequest = (req) => {
   return '';
 };
 
+export const getDeviceIdFromRequest = (req) => {
+  const cookies = parseCookieHeader(req.headers.cookie);
+  return cookies[getDeviceCookieName()] || '';
+};
+
 export const setAuthCookie = (req, res, token) => {
   res.cookie(getAuthCookieName(), token, {
     ...buildCookieOptions(req),
+    httpOnly: true,
     maxAge: parsePositiveInteger(process.env.AUTH_COOKIE_MAX_AGE_MS, DEFAULT_AUTH_COOKIE_MAX_AGE_MS),
   });
 };
 
+export const setDeviceCookie = (req, res, deviceId) => {
+  res.cookie(getDeviceCookieName(), deviceId, {
+    ...buildCookieOptions(req),
+    httpOnly: true,
+    maxAge: parsePositiveInteger(process.env.DEVICE_COOKIE_MAX_AGE_MS, DEFAULT_DEVICE_COOKIE_MAX_AGE_MS),
+  });
+};
+
 export const clearAuthCookie = (req, res) => {
-  res.clearCookie(getAuthCookieName(), buildCookieOptions(req));
+  res.clearCookie(getAuthCookieName(), {
+    ...buildCookieOptions(req),
+    httpOnly: true,
+  });
 };

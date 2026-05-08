@@ -3,6 +3,16 @@ import Player from '@vimeo/player';
 import { useLocale } from '../i18n/useLocale';
 
 const PROGRESS_SYNC_INTERVAL_MS = 5000;
+const WATERMARK_MOVE_INTERVAL_MS = 9000;
+const WATERMARK_CLOCK_INTERVAL_MS = 30000;
+const WATERMARK_POSITIONS = [
+  { top: '8%', left: '7%', rotate: '-11deg' },
+  { top: '18%', left: '58%', rotate: '8deg' },
+  { top: '38%', left: '20%', rotate: '-7deg' },
+  { top: '56%', left: '62%', rotate: '10deg' },
+  { top: '72%', left: '14%', rotate: '-6deg' },
+  { top: '74%', left: '57%', rotate: '7deg' },
+];
 
 function buildFallbackEmbedUrl(vimeoVideoId) {
   if (!vimeoVideoId) {
@@ -15,11 +25,46 @@ function buildFallbackEmbedUrl(vimeoVideoId) {
   url.searchParams.set('portrait', '0');
   url.searchParams.set('badge', '0');
   url.searchParams.set('dnt', '1');
+  url.searchParams.set('fullscreen', '0');
   return url.toString();
 }
 
-function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress = 0 }) {
+function normalizeEmbedUrl(embedUrl) {
+  if (!embedUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(embedUrl);
+    url.searchParams.set('title', '0');
+    url.searchParams.set('byline', '0');
+    url.searchParams.set('portrait', '0');
+    url.searchParams.set('badge', '0');
+    url.searchParams.set('dnt', '1');
+    url.searchParams.set('fullscreen', '0');
+    return url.toString();
+  } catch {
+    return embedUrl;
+  }
+}
+
+function formatWatermarkTimestamp(value, locale) {
+  try {
+    return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(value);
+  } catch {
+    return value.toISOString();
+  }
+}
+
+function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress = 0, viewerWatermark = null }) {
   const { t, isRTL } = useLocale();
+  const shellRef = useRef(null);
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const playerInstanceIdRef = useRef(0);
@@ -33,6 +78,9 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
   const [watchedPercentage, setWatchedPercentage] = useState(initialProgress);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [playerError, setPlayerError] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [watermarkIndex, setWatermarkIndex] = useState(0);
+  const [watermarkTimestamp, setWatermarkTimestamp] = useState(() => new Date());
 
   useEffect(() => {
     const initial = new Set();
@@ -42,7 +90,9 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
     lastSentProgressRef.current = initialProgress;
   }, [initialProgress]);
 
-  const activeEmbedUrl = embedUrl || buildFallbackEmbedUrl(vimeoVideoId);
+  const activeEmbedUrl = normalizeEmbedUrl(embedUrl) || buildFallbackEmbedUrl(vimeoVideoId);
+  const activeWatermarkPosition = WATERMARK_POSITIONS[watermarkIndex % WATERMARK_POSITIONS.length];
+  const secondaryWatermarkPosition = WATERMARK_POSITIONS[(watermarkIndex + 3) % WATERMARK_POSITIONS.length];
 
   const calculateWatchedPercentage = useCallback(() => {
     return Math.min(watchedSegmentsRef.current.size, 100);
@@ -81,8 +131,7 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
       iframe.title = isRTL ? 'مشغل فيديو Vimeo' : 'Vimeo video player';
       iframe.className = 'w-full h-full';
       iframe.setAttribute('frameborder', '0');
-      iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share');
-      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute('allow', 'autoplay; picture-in-picture; clipboard-write; encrypted-media; web-share');
       iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
       iframe.onload = () => {
         if (isCurrentInstance()) {
@@ -190,6 +239,54 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
     };
   }, [activeEmbedUrl, vimeoVideoId, calculateWatchedPercentage, isRTL, onProgressUpdate, sendProgress]);
 
+  useEffect(() => {
+    if (!viewerWatermark) {
+      return undefined;
+    }
+
+    const moveInterval = setInterval(() => {
+      setWatermarkIndex((current) => (current + 1) % WATERMARK_POSITIONS.length);
+    }, WATERMARK_MOVE_INTERVAL_MS);
+    const clockInterval = setInterval(() => {
+      setWatermarkTimestamp(new Date());
+    }, WATERMARK_CLOCK_INTERVAL_MS);
+
+    return () => {
+      clearInterval(moveInterval);
+      clearInterval(clockInterval);
+    };
+  }, [viewerWatermark]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(shellRef.current && document.fullscreenElement === shellRef.current));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const shell = shellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    try {
+      if (document.fullscreenElement === shell) {
+        await document.exitFullscreen?.();
+        return;
+      }
+
+      await shell.requestFullscreen?.();
+    } catch (error) {
+      console.error('Failed to toggle custom fullscreen mode:', error);
+      setPlayerError(isRTL ? 'تعذر فتح وضع ملء الشاشة المخصص.' : 'Failed to open custom fullscreen mode.');
+    }
+  }, [isRTL]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -198,8 +295,45 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
 
   return (
     <div>
-      <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden border border-gray-200 relative">
+      <div
+        ref={shellRef}
+        className={`aspect-video bg-gray-900 rounded-xl overflow-hidden border border-gray-200 relative select-none ${isFullscreen ? 'vimeo-shell-fullscreen' : ''}`}
+      >
         <div ref={containerRef} className="w-full h-full" />
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="absolute right-3 top-3 z-20 inline-flex items-center gap-2 rounded-full border border-white/18 bg-slate-950/46 px-3 py-2 text-xs font-semibold text-white/88 shadow-lg backdrop-blur-sm transition hover:bg-slate-950/65"
+          aria-label={isFullscreen ? (isRTL ? 'الخروج من ملء الشاشة' : 'Exit fullscreen') : (isRTL ? 'ملء الشاشة' : 'Enter fullscreen')}
+        >
+          <span aria-hidden="true">{isFullscreen ? '⤢' : '⤢'}</span>
+          <span>{isFullscreen ? (isRTL ? 'خروج' : 'Exit') : (isRTL ? 'ملء الشاشة' : 'Fullscreen')}</span>
+        </button>
+        {viewerWatermark && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {[activeWatermarkPosition, secondaryWatermarkPosition].map((position, index) => (
+              <div
+                key={`${position.top}-${position.left}-${index}`}
+                className={`watermark-badge absolute max-w-[68%] rounded-2xl border border-white/14 bg-slate-950/24 px-3 py-2 text-white/78 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.95)] backdrop-blur-[2px] transition-all duration-[1800ms] ease-out ${index === 1 ? 'opacity-45' : 'opacity-75'}`}
+                style={{
+                  top: position.top,
+                  left: position.left,
+                  transform: `translate(-50%, -50%) rotate(${position.rotate})`,
+                }}
+              >
+                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/58">
+                  {isRTL ? 'مشاهدة مرخصة' : 'Licensed View'}
+                </div>
+                <div className="mt-1 text-sm font-semibold leading-tight text-white/88">
+                  {viewerWatermark.name}
+                </div>
+                <div className="mt-1 text-[11px] font-medium tracking-[0.18em] text-white/60">
+                  {viewerWatermark.code} • {formatWatermarkTimestamp(watermarkTimestamp, isRTL ? 'ar' : 'en')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {!playerReady && !iframeLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center">

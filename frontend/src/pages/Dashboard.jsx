@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import { coursesAPI, subscriptionsAPI, analyticsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 
 function Dashboard() {
-  const { formatDate, isRTL } = useLocale();
+  const { formatDate, isRTL, locale } = useLocale();
   const { user } = useAuthStore();
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [subscription, setSubscription] = useState(null);
@@ -48,6 +49,9 @@ function Dashboard() {
     { to: '/dashboard/payments', icon: '📝', label: isRTL ? 'سجل المدفوعات' : 'Payment History' },
     { to: '/courses', icon: '🔍', label: isRTL ? 'تصفح الفصول' : 'Browse Chapters' },
   ];
+  const continueLearningEntry = progress?.recentActivity?.find((activity) => !activity.isQualified && activity.lesson?._id)
+    || progress?.recentActivity?.find((activity) => activity.lesson?._id)
+    || null;
 
   return (
     <motion.div
@@ -70,6 +74,61 @@ function Dashboard() {
             </h1>
             <p className="text-gray-500 text-lg">{isRTL ? 'تابع رحلتك التعليمية' : 'Continue your learning journey'}</p>
           </div>
+
+          {continueLearningEntry && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="card mb-8 relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-primary-500/8 via-white to-cyan-500/8 pointer-events-none" />
+              <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-primary-100 text-xs text-primary-500 font-medium mb-4">
+                    <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                    {isRTL ? 'تابع من حيث توقفت' : 'Pick Up Where You Left Off'}
+                  </div>
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                    {getLocalizedField(continueLearningEntry.lesson, 'title', locale)}
+                  </h2>
+                  <p className="text-gray-500 mb-4">
+                    {isRTL ? 'ضمن فصل' : 'Inside'}{' '}
+                    <span className="font-medium text-gray-700">
+                      {getLocalizedField(continueLearningEntry.course, 'title', locale)}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                    <span className="px-3 py-1 rounded-full bg-gray-50 border border-gray-200">
+                      {continueLearningEntry.watchPercentage}% {isRTL ? 'تمت مشاهدته' : 'watched'}
+                    </span>
+                    {continueLearningEntry.isQualified && (
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        {isRTL ? 'مكتمل' : 'Completed'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    to={`/learn/${continueLearningEntry.lesson._id}`}
+                    className="btn-primary justify-center"
+                  >
+                    {continueLearningEntry.isQualified
+                      ? (isRTL ? 'راجع المحتوى ←' : 'Review Content →')
+                      : (isRTL ? 'تابع التعلم ←' : 'Continue Learning →')}
+                  </Link>
+                  <Link
+                    to={`/courses/${continueLearningEntry.course?._id}`}
+                    className="btn-secondary justify-center"
+                  >
+                    {isRTL ? 'افتح الفصل' : 'Open Chapter'}
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-6 mb-10">
             <motion.div
@@ -171,16 +230,26 @@ function Dashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors truncate">
-                                {course.title}
+                                {getLocalizedField(course, 'title', locale)}
                               </h3>
                               <p className="text-sm text-gray-400">
-                                {course.instructor?.name}
+                                {getLocalizedField(course.instructor, 'name', locale)}
                               </p>
                               <div className="mt-2 progress-bar">
                                 <div
                                   className="progress-bar-fill"
                                   style={{ width: `${courseProgress?.progressPercentage || 0}%` }}
                                 />
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                                <span>
+                                  {Math.round(courseProgress?.progressPercentage || 0) >= 100
+                                    ? (isRTL ? 'الفصل مكتمل' : 'Chapter completed')
+                                    : (isRTL ? 'افتح الفصل لمتابعة مسارك' : 'Open chapter to continue your path')}
+                                </span>
+                                <span className="text-primary-500 font-medium">
+                                  {isRTL ? 'عرض المسار ←' : 'View Path →'}
+                                </span>
                               </div>
                             </div>
                             <div className="text-right">

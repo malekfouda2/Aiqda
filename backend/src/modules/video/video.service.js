@@ -13,6 +13,7 @@ const PLAYER_HARDENING_PARAMS = {
   portrait: '0',
   badge: '0',
   dnt: '1',
+  fullscreen: '0',
 };
 const vimeoVideoDetailsCache = new Map();
 let vimeoAccountInfoCache = null;

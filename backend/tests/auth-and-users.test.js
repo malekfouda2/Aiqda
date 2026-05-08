@@ -76,6 +76,7 @@ test('registration validates required fields and normalizes the email', async ()
   assert.equal(validResponse.body.user.platformNoticeAcknowledgement.version, 'POL-0016');
   assert.ok(validResponse.body.user.platformNoticeAcknowledgement.acceptedAt);
   assert.ok(validResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+  assert.ok(validResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_device=')));
 });
 
 test('login sets an auth cookie, profile reads from it, and logout clears it', async () => {
@@ -97,6 +98,7 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   assert.equal(loginResponse.body.user.email, 'cookie-user@example.com');
   assert.equal(loginResponse.body.token, undefined);
   assert.ok(loginResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+  assert.ok(loginResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_device=')));
 
   const profileResponse = await agent
     .get('/api/auth/profile');
@@ -111,6 +113,88 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   const afterLogoutProfileResponse = await agent
     .get('/api/auth/profile');
   assert.equal(afterLogoutProfileResponse.status, 401);
+});
+
+test('accounts cannot sign in on two different devices at the same time', async () => {
+  await createUser({
+    email: 'concurrent-device-user@example.com',
+    password: 'Password123!',
+  });
+
+  const firstDevice = request.agent(suite.app);
+  const secondDevice = request.agent(suite.app);
+
+  const firstLoginResponse = await firstDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'concurrent-device-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(firstLoginResponse.status, 200);
+
+  const secondLoginResponse = await secondDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'concurrent-device-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(secondLoginResponse.status, 403);
+  assert.equal(
+    secondLoginResponse.body.error,
+    'This account is already active on another device. Please sign out there first and try again.'
+  );
+});
+
+test('accounts can only be approved on up to two devices', async () => {
+  await createUser({
+    email: 'two-device-limit-user@example.com',
+    password: 'Password123!',
+  });
+
+  const firstDevice = request.agent(suite.app);
+  const secondDevice = request.agent(suite.app);
+  const thirdDevice = request.agent(suite.app);
+
+  const firstLoginResponse = await firstDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'two-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(firstLoginResponse.status, 200);
+
+  const firstLogoutResponse = await firstDevice
+    .post('/api/auth/logout');
+  assert.equal(firstLogoutResponse.status, 204);
+
+  const secondLoginResponse = await secondDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'two-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(secondLoginResponse.status, 200);
+
+  const secondLogoutResponse = await secondDevice
+    .post('/api/auth/logout');
+  assert.equal(secondLogoutResponse.status, 204);
+
+  const thirdLoginResponse = await thirdDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'two-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(thirdLoginResponse.status, 403);
+  assert.equal(
+    thirdLoginResponse.body.error,
+    'This account can only be used on up to 2 devices. Please sign in from one of your approved devices.'
+  );
 });
 
 test('login endpoint is rate limited after repeated failed attempts', async () => {

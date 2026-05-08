@@ -36,6 +36,65 @@ const platformNoticeAcknowledgementSchema = new mongoose.Schema({
   _id: false,
 });
 
+const authorizedDeviceSchema = new mongoose.Schema({
+  deviceId: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  firstSeenAt: {
+    type: Date,
+    default: Date.now,
+  },
+  lastSeenAt: {
+    type: Date,
+    default: null,
+  },
+  lastLoginAt: {
+    type: Date,
+    default: null,
+  },
+  lastUserAgent: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  lastIpAddress: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+}, {
+  _id: false,
+});
+
+const currentSessionSchema = new mongoose.Schema({
+  sessionId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  deviceId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  startedAt: {
+    type: Date,
+    default: null,
+  },
+  lastSeenAt: {
+    type: Date,
+    default: null,
+  },
+  expiresAt: {
+    type: Date,
+    default: null,
+  },
+}, {
+  _id: false,
+});
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -86,6 +145,14 @@ const userSchema = new mongoose.Schema({
     type: platformNoticeAcknowledgementSchema,
     default: null,
   },
+  authorizedDevices: {
+    type: [authorizedDeviceSchema],
+    default: [],
+  },
+  currentSession: {
+    type: currentSessionSchema,
+    default: null,
+  },
 }, {
   timestamps: true
 });
@@ -97,6 +164,8 @@ userSchema.methods.toJSON = function() {
   const user = this.toObject();
   delete user.password;
   delete user.authProviders;
+  delete user.authorizedDevices;
+  delete user.currentSession;
   return user;
 };
 

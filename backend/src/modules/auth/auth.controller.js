@@ -1,6 +1,7 @@
 import * as authService from './auth.service.js';
 import * as socialAuthService from './socialAuth.service.js';
-import { clearAuthCookie, setAuthCookie } from '../../utils/authCookie.js';
+import { buildDeviceContextFromRequest, CONCURRENT_SESSION_ERROR_MESSAGE, DEVICE_LIMIT_ERROR_MESSAGE } from './authSession.service.js';
+import { clearAuthCookie, getAuthTokenFromRequest, setAuthCookie, setDeviceCookie } from '../../utils/authCookie.js';
 
 const isAuthValidationError = (message) => [
   'Name is required',
@@ -10,6 +11,11 @@ const isAuthValidationError = (message) => [
   'Please provide a valid email address',
   'Social login token is required',
   'Social login session is invalid or has expired',
+].includes(message);
+
+const isAuthAccessRestrictionError = (message) => [
+  DEVICE_LIMIT_ERROR_MESSAGE,
+  CONCURRENT_SESSION_ERROR_MESSAGE,
 ].includes(message);
 
 const isSocialProviderError = (message) => [
@@ -24,26 +30,50 @@ const getFrontendBaseUrl = (req) => (process.env.FRONTEND_URL || getRequestOrigi
 export const register = async (req, res) => {
   try {
     const { email, password, name, role, platformNoticeAccepted } = req.body;
-    const result = await authService.register({ email, password, name, role, platformNoticeAccepted });
+    const result = await authService.register({
+      email,
+      password,
+      name,
+      role,
+      platformNoticeAccepted,
+      deviceContext: buildDeviceContextFromRequest(req),
+    });
     setAuthCookie(req, res, result.sessionToken);
+    setDeviceCookie(req, res, result.deviceId);
     res.status(201).json({ user: result.user });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(isAuthAccessRestrictionError(error.message) ? 403 : 400).json({ error: error.message });
   }
 };
 
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const result = await authService.login({ email, password });
+    const result = await authService.login({
+      email,
+      password,
+      deviceContext: buildDeviceContextFromRequest(req),
+    });
     setAuthCookie(req, res, result.sessionToken);
+    setDeviceCookie(req, res, result.deviceId);
     res.json({ user: result.user });
   } catch (error) {
-    res.status(isAuthValidationError(error.message) ? 400 : 401).json({ error: error.message });
+    if (isAuthValidationError(error.message)) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    if (isAuthAccessRestrictionError(error.message)) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+
+    res.status(401).json({ error: error.message });
   }
 };
 
 export const logout = async (req, res) => {
+  await authService.logout(getAuthTokenFromRequest(req));
   clearAuthCookie(req, res);
   res.status(204).send();
 };
@@ -108,13 +138,27 @@ export const handleSocialCallback = async (req, res) => {
 
 export const completeSocialLogin = async (req, res) => {
   try {
-    const result = await socialAuthService.completeSocialLogin(req.body);
+    const result = await socialAuthService.completeSocialLogin({
+      ...req.body,
+      deviceContext: buildDeviceContextFromRequest(req),
+    });
     setAuthCookie(req, res, result.sessionToken);
+    setDeviceCookie(req, res, result.deviceId);
     res.json({
       user: result.user,
       redirectPath: result.redirectPath,
     });
   } catch (error) {
-    res.status(isAuthValidationError(error.message) ? 400 : 401).json({ error: error.message });
+    if (isAuthValidationError(error.message)) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    if (isAuthAccessRestrictionError(error.message)) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+
+    res.status(401).json({ error: error.message });
   }
 };

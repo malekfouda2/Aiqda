@@ -140,6 +140,7 @@ test('google social sign-in can create a new student account and complete login'
   assert.equal(completeResponse.body.redirectPath, '/courses/welcome');
   assert.equal(completeResponse.body.token, undefined);
   assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+  assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_device=')));
 
   const profileResponse = await agent
     .get('/api/auth/profile');
@@ -215,6 +216,7 @@ test('linkedin social sign-in links an existing account and preserves its role',
   assert.equal(completeResponse.body.user.role, 'instructor');
   assert.equal(completeResponse.body.redirectPath, '/instructor');
   assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
+  assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_device=')));
 
   const linkedUser = await User.findById(existingInstructor.user._id).lean();
   assert.equal(linkedUser.authProviders.linkedin.subject, 'linkedin-user-789');

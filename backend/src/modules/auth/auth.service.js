@@ -1,7 +1,8 @@
 import User from '../users/user.model.js';
 import { hashPassword, comparePassword } from '../../utils/password.js';
-import { generateToken, verifyToken } from '../../utils/jwt.js';
+import { verifyToken } from '../../utils/jwt.js';
 import { getSocialOnlyLoginMessageForUser } from './socialAuth.service.js';
+import { clearAuthenticatedSessionForUser, createAuthenticatedSessionForUser } from './authSession.service.js';
 import {
   hasAcceptedPlatformNoticeInput,
   PLATFORM_NOTICE_ERROR_MESSAGE,
@@ -13,7 +14,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 const normalizeName = (value) => (typeof value === 'string' ? value.trim() : '');
 
-export const register = async ({ email, password, name, platformNoticeAccepted }) => {
+export const register = async ({ email, password, name, platformNoticeAccepted, deviceContext }) => {
   const normalizedEmail = normalizeEmail(email);
   const normalizedName = normalizeName(name);
 
@@ -54,13 +55,12 @@ export const register = async ({ email, password, name, platformNoticeAccepted }
     },
   });
 
-  await user.save();
-  const sessionToken = generateToken({ id: user._id, email: user.email, role: user.role });
+  const { sessionToken, deviceId } = await createAuthenticatedSessionForUser(user, deviceContext);
   
-  return { user, sessionToken };
+  return { user, sessionToken, deviceId };
 };
 
-export const login = async ({ email, password }) => {
+export const login = async ({ email, password, deviceContext }) => {
   const normalizedEmail = normalizeEmail(email);
 
   if (!normalizedEmail) {
@@ -97,9 +97,9 @@ export const login = async ({ email, password }) => {
     throw new Error('Invalid email or password');
   }
 
-  const sessionToken = generateToken({ id: user._id, email: user.email, role: user.role });
+  const { sessionToken, deviceId } = await createAuthenticatedSessionForUser(user, deviceContext);
   
-  return { user, sessionToken };
+  return { user, sessionToken, deviceId };
 };
 
 export const getProfile = async (userId) => {
@@ -141,4 +141,28 @@ export const acceptInstructorInvite = async ({ token, password }) => {
   return {
     message: 'Your instructor account is ready. You can now sign in.',
   };
+};
+
+export const logout = async (sessionToken) => {
+  if (!sessionToken) {
+    return;
+  }
+
+  let decodedToken = null;
+  try {
+    decodedToken = verifyToken(sessionToken);
+  } catch {
+    return;
+  }
+
+  if (!decodedToken?.sid) {
+    return;
+  }
+
+  const user = await User.findById(decodedToken.id);
+  if (!user) {
+    return;
+  }
+
+  await clearAuthenticatedSessionForUser(user, decodedToken);
 };

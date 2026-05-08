@@ -50,6 +50,10 @@ Recommended:
 - `AUTH_COOKIE_SAME_SITE`
 - `AUTH_COOKIE_DOMAIN`
 - `AUTH_COOKIE_MAX_AGE_MS`
+- `DEVICE_COOKIE_NAME`
+- `DEVICE_COOKIE_MAX_AGE_MS`
+- `MAX_AUTH_DEVICES`
+- `AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS`
 - `EBAA_REVIEWER_NAME`
 - `EBAA_REVIEWER_EMAIL`
 - `VIMEO_ACCESS_TOKEN`
@@ -71,6 +75,12 @@ If you enable social login, configure the provider redirect URIs to point to you
 
 - Google: `https://your-domain.com/api/auth/social/google/callback`
 - LinkedIn: `https://your-domain.com/api/auth/social/linkedin/callback`
+
+## Device Access Policy
+
+- `MAX_AUTH_DEVICES=2` keeps each account restricted to two approved browser devices.
+- `AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS=900000` means a session is treated as actively in use for 15 minutes after its last authenticated request, which prevents concurrent cross-device sign-ins while still allowing a stale device to time out naturally.
+- Users on a third browser/device receive a friendly login error instead of silently replacing an approved device.
 
 ## Vimeo Notes
 
