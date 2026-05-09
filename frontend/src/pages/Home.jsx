@@ -163,7 +163,7 @@ function Home() {
                     <span className={isRTL ? "mr-2" : "ml-2"}>{isRTL ? "←" : "→"}</span>
                   </Link>
                   <Link
-                    to="/courses"
+                    to="/chapters"
                     className="btn-secondary text-lg px-10 py-4"
                   >
                     {isRTL ? "تصفح الفصول" : "Browse Chapters"}
@@ -615,7 +615,7 @@ function Home() {
                 ))}
               </ul>
               <Link
-                to="/apply-instructor"
+                to="/apply-creator"
                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
               >
                 {isRTL ? "قدّم كصانع محتوى" : "Apply as Creator"}

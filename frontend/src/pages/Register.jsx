@@ -67,7 +67,7 @@ function Register() {
             <img src="/logo.png" alt={brandName} className="h-16 w-auto mx-auto" />
           </Link>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">{isRTL ? 'أنشئ حسابًا' : 'Create Account'}</h1>
-          <p className="text-gray-500 text-lg">{isRTL ? `انضم إلى ${brandName} وابدأ رحلتك اليوم` : `Join ${brandName} and start learning today`}</p>
+          <p className="text-gray-500 text-lg">{isRTL ? `انضم إلى ${brandName} وابدأ رحلة تطويرك اليوم` : `Join ${brandName} and start your development today`}</p>
         </div>
 
         <div className="card">
@@ -170,7 +170,7 @@ function Register() {
             </p>
             <p className="text-gray-400 text-sm">
               {isRTL ? 'هل أنت صانع محتوى؟ ' : 'Are you a creator? '}
-              <Link to="/apply-instructor" className="text-brand-teal hover:text-teal-600 font-medium transition-colors">
+              <Link to="/apply-creator" className="text-brand-teal hover:text-teal-600 font-medium transition-colors">
                 {isRTL ? 'قدّم من هنا' : 'Apply here'}
               </Link>
             </p>

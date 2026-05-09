@@ -13,7 +13,7 @@ export const canAccessMemberDashboard = (role) => MEMBER_DASHBOARD_ROLES.include
 
 export const getDefaultRouteForRole = (role) => {
   if (isApplicationsAdminRole(role)) {
-    return '/admin/instructor-applications';
+    return '/admin/creator-applications';
   }
 
   if (isAdminRole(role)) {
@@ -21,7 +21,7 @@ export const getDefaultRouteForRole = (role) => {
   }
 
   if (role === 'instructor') {
-    return '/instructor';
+    return '/creator';
   }
 
   return '/dashboard';

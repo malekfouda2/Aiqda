@@ -13,7 +13,7 @@ function DashboardSidebar({ type }) {
     { to: '/dashboard/subscription', icon: '💳', label: t('common.subscriptions') },
     { to: '/dashboard/payments', icon: '📝', label: t('common.payments') },
     { to: '/dashboard/consultations', icon: '🎯', label: t('common.consultations') },
-    { to: '/courses', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
+    { to: '/chapters', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
 
@@ -25,22 +25,22 @@ function DashboardSidebar({ type }) {
     { to: '/admin/payments', icon: '💳', label: t('common.payments') },
     { to: '/admin/subscriptions', icon: '📋', label: t('common.subscriptions') },
     { to: '/admin/users', icon: '👥', label: t('common.users') },
-    { to: '/admin/courses', icon: '📚', label: t('common.chapters') },
-    { to: '/admin/instructors', icon: '👨‍🏫', label: t('common.creators') },
-    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
+    { to: '/admin/chapters', icon: '📚', label: t('common.chapters') },
+    { to: '/admin/creators', icon: '👨‍🏫', label: t('common.creators') },
+    { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications' },
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
   ];
 
   const reviewerLinks = [
-    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications', end: true },
+    { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications', end: true },
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
   ];
 
   const instructorLinks = [
-    { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
-    { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
+    { to: '/creator', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/creator/chapters', icon: '📚', label: `My ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
 
@@ -122,7 +122,7 @@ function DashboardMobileNav({ type }) {
     { to: '/dashboard/subscription', icon: '💳', label: t('common.subscriptions') },
     { to: '/dashboard/payments', icon: '📝', label: t('common.payments') },
     { to: '/dashboard/consultations', icon: '🎯', label: t('common.consultations') },
-    { to: '/courses', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
+    { to: '/chapters', icon: '📚', label: `${t('common.browseMore')} ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
   const adminLinks = [
@@ -133,20 +133,20 @@ function DashboardMobileNav({ type }) {
     { to: '/admin/payments', icon: '💳', label: t('common.payments') },
     { to: '/admin/subscriptions', icon: '📋', label: t('common.subscriptions') },
     { to: '/admin/users', icon: '👥', label: t('common.users') },
-    { to: '/admin/courses', icon: '📚', label: t('common.chapters') },
-    { to: '/admin/instructors', icon: '👨‍🏫', label: t('common.creators') },
-    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications' },
+    { to: '/admin/chapters', icon: '📚', label: t('common.chapters') },
+    { to: '/admin/creators', icon: '👨‍🏫', label: t('common.creators') },
+    { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications' },
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
   ];
   const reviewerLinks = [
-    { to: '/admin/instructor-applications', icon: '🎓', label: 'Applications', end: true },
+    { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications', end: true },
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
   ];
   const instructorLinks = [
-    { to: '/instructor', icon: '📊', label: t('common.overview'), end: true },
-    { to: '/instructor/courses', icon: '📚', label: `My ${t('common.chapters')}` },
+    { to: '/creator', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/creator/chapters', icon: '📚', label: `My ${t('common.chapters')}` },
     { to: '/contact-us', icon: '✉️', label: t('common.contactUs') },
   ];
   const links = type === 'admin'

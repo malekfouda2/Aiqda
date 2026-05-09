@@ -332,7 +332,7 @@ function AdminSubscriptions() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Learning Mode *</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Development Mode *</label>
                     <input
                       type="text"
                       value={packageForm.learningMode}

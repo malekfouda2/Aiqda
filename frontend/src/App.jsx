@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { Navigate, Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route, useLocation, useParams } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -64,11 +64,24 @@ const renderLazyPage = (PageComponent) => (
   </Suspense>
 );
 
+function LegacyPathRedirect({ to }) {
+  const location = useLocation();
+
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />;
+}
+
+function LegacyEntityRedirect({ basePath }) {
+  const location = useLocation();
+  const { id } = useParams();
+
+  return <Navigate to={`${basePath}/${id}${location.search}${location.hash}`} replace />;
+}
+
 function AdminIndexRoute() {
   const role = useAuthStore((state) => state.user?.role);
 
   if (isApplicationsAdminRole(role)) {
-    return <Navigate to="instructor-applications" replace />;
+    return <Navigate to="creator-applications" replace />;
   }
 
   return renderLazyPage(AdminDashboard);
@@ -100,14 +113,24 @@ function App() {
         <Route path="/login" element={renderLazyPage(Login)} />
         <Route path="/register" element={renderLazyPage(Register)} />
         <Route path="/auth/social/callback" element={renderLazyPage(SocialAuthCallback)} />
-        <Route path="/instructor-setup" element={renderLazyPage(InstructorSetup)} />
-        <Route path="/apply-instructor" element={renderLazyPage(InstructorApplication)} />
+        <Route path="/instructor-setup" element={<LegacyPathRedirect to="/creator-setup" />} />
+        <Route path="/apply-instructor" element={<LegacyPathRedirect to="/apply-creator" />} />
+        <Route path="/courses" element={<LegacyPathRedirect to="/chapters" />} />
+        <Route path="/courses/:id" element={<LegacyEntityRedirect basePath="/chapters" />} />
+        <Route path="/learn/:id" element={<LegacyEntityRedirect basePath="/development" />} />
+        <Route path="/instructor/courses" element={<LegacyPathRedirect to="/creator/chapters" />} />
+        <Route path="/instructor" element={<LegacyPathRedirect to="/creator" />} />
+        <Route path="/admin/courses" element={<LegacyPathRedirect to="/admin/chapters" />} />
+        <Route path="/admin/instructors" element={<LegacyPathRedirect to="/admin/creators" />} />
+        <Route path="/admin/instructor-applications" element={<LegacyPathRedirect to="/admin/creator-applications" />} />
+        <Route path="/creator-setup" element={renderLazyPage(InstructorSetup)} />
+        <Route path="/apply-creator" element={renderLazyPage(InstructorApplication)} />
         <Route path="/apply-studio" element={renderLazyPage(StudioApplication)} />
         <Route path="/consultations" element={renderLazyPage(Consultations)} />
         <Route path="/consultations/:id" element={renderLazyPage(ConsultationDetail)} />
-        <Route path="/courses" element={renderLazyPage(Courses)} />
-        <Route path="/courses/:id" element={renderLazyPage(CourseDetail)} />
-        <Route path="/learn/:id" element={
+        <Route path="/chapters" element={renderLazyPage(Courses)} />
+        <Route path="/chapters/:id" element={renderLazyPage(CourseDetail)} />
+        <Route path="/development/:id" element={
           <ProtectedRoute>
             {renderLazyPage(LessonView)}
           </ProtectedRoute>
@@ -135,22 +158,22 @@ function App() {
           <Route path="partners" element={renderLazyPage(AdminPartners)} />
           <Route path="payments" element={renderLazyPage(AdminPayments)} />
           <Route path="users" element={renderLazyPage(AdminUsers)} />
-          <Route path="courses" element={renderLazyPage(AdminCourses)} />
+          <Route path="chapters" element={renderLazyPage(AdminCourses)} />
           <Route path="subscriptions" element={renderLazyPage(AdminSubscriptions)} />
-          <Route path="instructors" element={renderLazyPage(AdminInstructors)} />
-          <Route path="instructor-applications" element={renderLazyPage(AdminInstructorApplications)} />
+          <Route path="creators" element={renderLazyPage(AdminInstructors)} />
+          <Route path="creator-applications" element={renderLazyPage(AdminInstructorApplications)} />
           <Route path="studio-applications" element={renderLazyPage(AdminStudioApplications)} />
           <Route path="consultations" element={renderLazyPage(AdminConsultations)} />
           <Route path="consultation-bookings" element={renderLazyPage(AdminConsultationBookings)} />
         </Route>
 
-        <Route path="/instructor" element={
+        <Route path="/creator" element={
           <ProtectedRoute roles={INSTRUCTOR_PANEL_ROLES}>
             <DashboardLayout type="instructor" />
           </ProtectedRoute>
         }>
           <Route index element={renderLazyPage(InstructorDashboard)} />
-          <Route path="courses" element={renderLazyPage(InstructorCourses)} />
+          <Route path="chapters" element={renderLazyPage(InstructorCourses)} />
         </Route>
       </Route>
     </Routes>

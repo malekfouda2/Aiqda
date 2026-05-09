@@ -47,7 +47,7 @@ function Dashboard() {
   const quickLinks = [
     { to: '/dashboard/subscription', icon: '💳', label: isRTL ? 'الاشتراك' : 'Subscription' },
     { to: '/dashboard/payments', icon: '📝', label: isRTL ? 'سجل المدفوعات' : 'Payment History' },
-    { to: '/courses', icon: '🔍', label: isRTL ? 'تصفح الفصول' : 'Browse Chapters' },
+    { to: '/chapters', icon: '🔍', label: isRTL ? 'تصفح الفصول' : 'Browse Chapters' },
   ];
   const continueLearningEntry = progress?.recentActivity?.find((activity) => !activity.isQualified && activity.lesson?._id)
     || progress?.recentActivity?.find((activity) => activity.lesson?._id)
@@ -72,7 +72,7 @@ function Dashboard() {
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               {isRTL ? 'مرحبًا بعودتك، ' : 'Welcome back, '}<span className="gradient-text">{user?.name}</span>
             </h1>
-            <p className="text-gray-500 text-lg">{isRTL ? 'تابع رحلتك التعليمية' : 'Continue your learning journey'}</p>
+            <p className="text-gray-500 text-lg">{isRTL ? 'تابع رحلة تطويرك' : 'Continue your development journey'}</p>
           </div>
 
           {continueLearningEntry && (
@@ -112,15 +112,15 @@ function Dashboard() {
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
-                    to={`/learn/${continueLearningEntry.lesson._id}`}
+                    to={`/development/${continueLearningEntry.lesson._id}`}
                     className="btn-primary justify-center"
                   >
                     {continueLearningEntry.isQualified
                       ? (isRTL ? 'راجع المحتوى ←' : 'Review Content →')
-                      : (isRTL ? 'تابع التعلم ←' : 'Continue Learning →')}
+                      : (isRTL ? 'تابع التطوير ←' : 'Continue Development →')}
                   </Link>
                   <Link
-                    to={`/courses/${continueLearningEntry.course?._id}`}
+                    to={`/chapters/${continueLearningEntry.course?._id}`}
                     className="btn-secondary justify-center"
                   >
                     {isRTL ? 'افتح الفصل' : 'Open Chapter'}
@@ -193,7 +193,7 @@ function Dashboard() {
               >
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'فصولي' : 'My Chapters'}</h2>
-                  <Link to="/courses" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
+                  <Link to="/chapters" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
                     {isRTL ? 'تصفح المزيد ←' : 'Browse More →'}
                   </Link>
                 </div>
@@ -204,7 +204,7 @@ function Dashboard() {
                       <span className="text-4xl">📖</span>
                     </div>
                     <p className="text-gray-500 mb-6">{isRTL ? 'لم تسجّل في أي فصل بعد' : "You haven't enrolled in any chapters yet"}</p>
-                    <Link to="/courses" className="btn-primary">
+                    <Link to="/chapters" className="btn-primary">
                       {isRTL ? 'استكشف الفصول' : 'Explore Chapters'}
                     </Link>
                   </div>
@@ -222,7 +222,7 @@ function Dashboard() {
                           transition={{ delay: 0.5 + index * 0.1 }}
                         >
                           <Link
-                            to={`/courses/${course._id}`}
+                            to={`/chapters/${course._id}`}
                             className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
                           >
                             <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100 group-hover:scale-105 transition-transform duration-300">

@@ -153,7 +153,7 @@ function Courses() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + index * 0.1, duration: 0.5 }}
               >
-                <Link to={`/courses/${course._id}`} className="block card-hover h-full group">
+                <Link to={`/chapters/${course._id}`} className="block card-hover h-full group">
                   <div className="aspect-video rounded-xl mb-5 overflow-hidden relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary-900/60 via-brand-teal-dark/40 to-brand-blue-dark/60 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
                       <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-300">

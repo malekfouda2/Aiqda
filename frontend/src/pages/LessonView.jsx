@@ -247,7 +247,7 @@ function LessonView() {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div variants={fadeInUp}>
           <Link
-            to={`/courses/${lesson.course?._id}`}
+            to={`/chapters/${lesson.course?._id}`}
             className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors"
           >
             <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,7 +396,7 @@ function LessonView() {
                     </div>
 
                     {nextLessonAfterCompletion && (
-                      <Link to={`/learn/${nextLessonAfterCompletion._id}`} className="btn-primary justify-center whitespace-nowrap">
+                      <Link to={`/development/${nextLessonAfterCompletion._id}`} className="btn-primary justify-center whitespace-nowrap">
                         {isRTL ? 'انتقل إلى التالي ←' : 'Go To Next →'}
                       </Link>
                     )}
@@ -525,7 +525,7 @@ function LessonView() {
 
                   <div className="flex flex-col sm:flex-row gap-3">
                     {courseJourney.previousLesson ? (
-                      <Link to={`/learn/${courseJourney.previousLesson._id}`} className="btn-secondary justify-center whitespace-nowrap">
+                      <Link to={`/development/${courseJourney.previousLesson._id}`} className="btn-secondary justify-center whitespace-nowrap">
                         {isRTL ? '← السابق' : '← Previous'}
                       </Link>
                     ) : (
@@ -535,11 +535,11 @@ function LessonView() {
                     )}
 
                     {nextLessonAfterCompletion ? (
-                      <Link to={`/learn/${nextLessonAfterCompletion._id}`} className="btn-primary justify-center whitespace-nowrap">
+                      <Link to={`/development/${nextLessonAfterCompletion._id}`} className="btn-primary justify-center whitespace-nowrap">
                         {isRTL ? 'التالي ←' : 'Next →'}
                       </Link>
                     ) : (
-                      <Link to={`/courses/${lesson.course?._id}`} className="btn-primary justify-center whitespace-nowrap">
+                      <Link to={`/chapters/${lesson.course?._id}`} className="btn-primary justify-center whitespace-nowrap">
                         {isRTL ? 'العودة إلى الفصل ←' : 'Back To Chapter →'}
                       </Link>
                     )}
@@ -585,7 +585,7 @@ function LessonView() {
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {courseJourney.previousLesson ? (
-                    <Link to={`/learn/${courseJourney.previousLesson._id}`} className="btn-secondary justify-center text-sm">
+                    <Link to={`/development/${courseJourney.previousLesson._id}`} className="btn-secondary justify-center text-sm">
                       {isRTL ? 'السابق' : 'Previous'}
                     </Link>
                   ) : (
@@ -595,7 +595,7 @@ function LessonView() {
                   )}
 
                   {courseJourney.nextLesson ? (
-                    <Link to={`/learn/${courseJourney.nextLesson._id}`} className="btn-secondary justify-center text-sm">
+                    <Link to={`/development/${courseJourney.nextLesson._id}`} className="btn-secondary justify-center text-sm">
                       {isRTL ? 'التالي' : 'Next'}
                     </Link>
                   ) : (
@@ -613,7 +613,7 @@ function LessonView() {
                     <p className="font-semibold text-gray-900 mb-1">
                       {getLocalizedField(nextLessonAfterCompletion, 'title', locale)}
                     </p>
-                    <Link to={`/learn/${nextLessonAfterCompletion._id}`} className="text-sm text-primary-500 font-medium">
+                    <Link to={`/development/${nextLessonAfterCompletion._id}`} className="text-sm text-primary-500 font-medium">
                       {isRTL ? 'افتح المحتوى ←' : 'Open content →'}
                     </Link>
                   </div>
@@ -647,7 +647,7 @@ function LessonView() {
                     return (
                       <Link
                         key={courseLesson._id}
-                        to={`/learn/${courseLesson._id}`}
+                        to={`/development/${courseLesson._id}`}
                         className={`block rounded-2xl border p-3 transition-all ${
                           isCurrentLesson
                             ? 'border-primary-200 bg-gradient-to-r from-primary-500/8 via-white to-cyan-500/8'

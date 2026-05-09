@@ -26,7 +26,7 @@ const getInstructorSetupBaseUrl = () => {
 };
 
 const buildInstructorSetupLink = (token) => {
-  return `${getInstructorSetupBaseUrl()}/instructor-setup?token=${encodeURIComponent(token)}`;
+  return `${getInstructorSetupBaseUrl()}/creator-setup?token=${encodeURIComponent(token)}`;
 };
 
 export const create = async (data) => {

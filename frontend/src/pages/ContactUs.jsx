@@ -124,7 +124,7 @@ function ContactUs() {
             <p className="text-lg sm:text-xl text-gray-500 max-w-2xl leading-relaxed">
               {isRTL
                 ? `تواصل مع فريق ${brandName} للحصول على دعم تعليمي أو مناقشة الشراكات أو التعاون مع الاستوديوهات أو أي أمر آخر ترغب في استكشافه معنا.`
-                : `Reach out to the ${brandName} team for learning support, partnerships, studio collaboration, or anything else you would like to explore with us.`}
+                : `Reach out to the ${brandName} team for development support, partnerships, studio collaboration, or anything else you would like to explore with us.`}
             </p>
           </motion.div>
 
@@ -269,7 +269,7 @@ function ContactUs() {
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8">
                 <p className="text-xs uppercase tracking-[0.22em] text-gray-400 font-semibold mb-4">{isRTL ? 'روابط سريعة' : 'Quick Links'}</p>
                 <div className="space-y-3">
-                  <Link to="/courses" className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3 text-gray-700 hover:border-primary-200 hover:text-primary-600 transition-colors">
+                  <Link to="/chapters" className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3 text-gray-700 hover:border-primary-200 hover:text-primary-600 transition-colors">
                     <span>{isRTL ? 'استكشف الفصول' : 'Explore Chapters'}</span>
                     <span>{isRTL ? '←' : '→'}</span>
                   </Link>

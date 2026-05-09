@@ -13,7 +13,7 @@ function Navbar() {
 
   const navLinks = [
     { to: '/', label: t('common.home') },
-    { to: '/courses', label: t('navbar.chapters') },
+    { to: '/chapters', label: t('navbar.chapters') },
     { to: '/consultations', label: t('navbar.consultations') },
     { to: '/contact-us', label: t('common.contactUs') },
     { to: '/about', label: t('common.aboutUs') },
@@ -24,7 +24,7 @@ function Navbar() {
       navLinks.push({ to: '/dashboard', label: t('navbar.dashboard') });
     }
     if (canAccessAdminPanel()) navLinks.push({ to: '/admin', label: t('navbar.admin') });
-    if (isInstructor()) navLinks.push({ to: '/instructor', label: t('navbar.creator') });
+    if (isInstructor()) navLinks.push({ to: '/creator', label: t('navbar.creator') });
   }
 
   const handleLogout = () => {

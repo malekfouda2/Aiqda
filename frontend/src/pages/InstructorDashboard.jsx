@@ -354,7 +354,7 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
           return (
             <motion.div key={item.courseId} variants={cardVariants}>
               <Link
-                to={`/courses/${item.courseId}`}
+                to={`/chapters/${item.courseId}`}
                 className="group block overflow-hidden rounded-[28px] border border-slate-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-5 shadow-[0_20px_70px_-50px_rgba(15,23,42,0.35)] transition-transform duration-300 hover:-translate-y-1"
               >
                 <div className="flex items-start justify-between gap-4">

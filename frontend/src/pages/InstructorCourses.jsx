@@ -562,7 +562,7 @@ function InstructorCourses() {
                                   </div>
                                   <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
-                                    <textarea placeholder="What will members learn in this content?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
+                                    <textarea placeholder="How will this content support member development?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
                                   <div className="flex justify-end">
                                     <button type="button" onClick={() => goToStep(2)} className="btn-primary text-sm">Next: Upload Document</button>

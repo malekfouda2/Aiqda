@@ -6,7 +6,7 @@ import PlatformNoticeGate from '../components/PlatformNoticeGate';
 
 function MainLayout() {
   const location = useLocation();
-  const hideFooter = ['/dashboard', '/admin', '/instructor', '/learn'].some((prefix) =>
+  const hideFooter = ['/dashboard', '/admin', '/creator', '/development'].some((prefix) =>
     location.pathname.startsWith(prefix)
   );
 

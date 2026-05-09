@@ -97,11 +97,11 @@ const getDefaultRedirectPathForRole = (role) => {
   }
 
   if (role === APPLICATIONS_ADMIN_ROLE) {
-    return '/admin/instructor-applications';
+    return '/admin/creator-applications';
   }
 
   if (role === 'instructor') {
-    return '/instructor';
+    return '/creator';
   }
 
   return '/dashboard';

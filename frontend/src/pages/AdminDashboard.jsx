@@ -55,15 +55,15 @@ function AdminDashboard() {
     { key: 'totalCourses', label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-primary' },
     { key: 'totalEnrollments', label: isRTL ? 'التسجيلات' : 'Enrollments', icon: '👥', iconClass: 'icon-box-success' },
     { key: 'pendingPayments', label: isRTL ? 'مدفوعات قيد الانتظار' : 'Pending Payments', icon: '💳', iconClass: 'icon-box-warning' },
-    { key: 'activeStudentsNow', label: isRTL ? 'متعلمين نشطين الآن' : 'Active Learners Now', icon: '📡', iconClass: 'icon-box-accent' },
+    { key: 'activeStudentsNow', label: isRTL ? 'أعضاء نشطون الآن' : 'Active Members Now', icon: '📡', iconClass: 'icon-box-accent' },
   ];
 
   const quickActions = [
     { to: '/admin/payments', icon: '💳', iconClass: 'icon-box-warning', label: isRTL ? 'المدفوعات' : 'Payments', description: isRTL ? 'مراجعة واعتماد' : 'Review & approve' },
     { to: '/admin/subscriptions', icon: '📋', iconClass: 'icon-box-accent', label: isRTL ? 'الاشتراكات' : 'Subscriptions', description: isRTL ? 'إدارة الخطط' : 'Manage plans' },
     { to: '/admin/users', icon: '👥', iconClass: 'icon-box-success', label: isRTL ? 'المستخدمون' : 'Users', description: isRTL ? 'إدارة المستخدمين' : 'User management' },
-    { to: '/admin/courses', icon: '📚', iconClass: 'icon-box-primary', label: isRTL ? 'الفصول' : 'Chapters', description: isRTL ? 'كتالوج الفصول' : 'Chapter catalog' },
-    { to: '/admin/instructor-applications', icon: '🎓', iconClass: 'icon-box-accent', label: isRTL ? 'طلبات صنّاع المحتوى' : 'Creator Apps', description: isRTL ? 'مراجعة الطلبات' : 'Review applications' },
+    { to: '/admin/chapters', icon: '📚', iconClass: 'icon-box-primary', label: isRTL ? 'الفصول' : 'Chapters', description: isRTL ? 'كتالوج الفصول' : 'Chapter catalog' },
+    { to: '/admin/creator-applications', icon: '🎓', iconClass: 'icon-box-accent', label: isRTL ? 'طلبات صنّاع المحتوى' : 'Creator Apps', description: isRTL ? 'مراجعة الطلبات' : 'Review applications' },
     { to: '/admin/studio-applications', icon: '🎬', iconClass: 'icon-box-primary', label: isRTL ? 'طلبات الاستوديوهات' : 'Studio Apps', description: isRTL ? 'مراجعة الطلبات' : 'Review studio applications' },
     { to: '/admin/consultations', icon: '🎯', iconClass: 'icon-box-success', label: isRTL ? 'الاستشارات' : 'Consultations', description: isRTL ? 'إدارة الأنواع' : 'Manage types' },
     { to: '/admin/consultation-bookings', icon: '📅', iconClass: 'icon-box-warning', label: isRTL ? 'حجوزات الاستشارات' : 'Consult Bookings', description: isRTL ? 'مراجعة الحجوزات' : 'Review bookings' },

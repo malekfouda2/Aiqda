@@ -214,7 +214,7 @@ test('linkedin social sign-in links an existing account and preserves its role',
   assert.equal(completeResponse.status, 200);
   assert.equal(completeResponse.body.user.email, 'creator@example.com');
   assert.equal(completeResponse.body.user.role, 'instructor');
-  assert.equal(completeResponse.body.redirectPath, '/instructor');
+  assert.equal(completeResponse.body.redirectPath, '/creator');
   assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_auth=')));
   assert.ok(completeResponse.headers['set-cookie']?.some((value) => value.startsWith('aiqda_device=')));
 

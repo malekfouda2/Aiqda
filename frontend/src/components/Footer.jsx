@@ -10,7 +10,7 @@ function Footer() {
 
   const primaryLinks = [
     { to: '/', label: t('common.home') },
-    { to: '/courses', label: t('common.chapters') },
+    { to: '/chapters', label: t('common.chapters') },
     { to: '/consultations', label: t('common.consultations') },
     { to: '/contact-us', label: t('common.contactUs') },
     { to: '/about', label: t('common.aboutUs') },
@@ -28,7 +28,7 @@ function Footer() {
     ? [
         ...(canAccessMemberDashboard() ? [{ to: '/dashboard', label: t('common.dashboard') }] : []),
         ...(canAccessAdminPanel() ? [{ to: '/admin', label: `${t('common.admin')} Panel` }] : []),
-        ...(isInstructor() && !isAdmin() ? [{ to: '/instructor', label: `${t('common.creator')} Panel` }] : []),
+        ...(isInstructor() && !isAdmin() ? [{ to: '/creator', label: `${t('common.creator')} Panel` }] : []),
       ]
     : [
         { to: '/login', label: t('common.login') },

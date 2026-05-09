@@ -58,10 +58,10 @@ function AdminInstructorApplications() {
       if (response.data?.setupLink && navigator?.clipboard) {
         try {
           await navigator.clipboard.writeText(response.data.setupLink);
-          showSuccess('Application approved. The instructor setup link was copied to your clipboard.');
+          showSuccess('Application approved. The creator setup link was copied to your clipboard.');
         } catch (clipboardError) {
-          console.warn('Failed to copy instructor setup link:', clipboardError);
-          showSuccess('Application approved successfully. The instructor will also receive their setup link by email.');
+          console.warn('Failed to copy creator setup link:', clipboardError);
+          showSuccess('Application approved successfully. The creator will also receive their setup link by email.');
         }
       } else {
         showSuccess(response.data?.message || 'Application approved successfully!');

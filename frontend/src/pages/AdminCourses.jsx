@@ -181,8 +181,8 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
         <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-4">
           <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h6 className="text-sm font-semibold text-gray-900">Student watch progress</h6>
-              <p className="text-xs text-gray-400">Live Aiqda progress updates from this lesson player.</p>
+              <h6 className="text-sm font-semibold text-gray-900">Member watch progress</h6>
+              <p className="text-xs text-gray-400">Live Aiqda progress updates from this development player.</p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-gray-400">
               <span>Quiz pass rate {appAnalytics.quizPassRate}%</span>
@@ -192,7 +192,7 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
 
           {studentProgress.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-              No student activity has been recorded for this lesson yet.
+              No member activity has been recorded for this lesson yet.
             </div>
           ) : (
             <div className="space-y-3">
@@ -514,7 +514,7 @@ function AdminCourses() {
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
       <motion.div variants={fadeInUp} className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Chapter Management</h1>
-        <p className="text-gray-500">Chapters organized by creator with live student progress and Vimeo video metrics.</p>
+        <p className="text-gray-500">Chapters organized by creator with live member progress and Vimeo video metrics.</p>
         {lastUpdatedAt ? (
           <p className="text-xs text-gray-400 mt-3">
             Auto-refreshes every 15 seconds • Last updated {lastUpdatedAt.toLocaleTimeString()}

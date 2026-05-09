@@ -94,7 +94,7 @@ function CourseDetail() {
 
   const handleEnroll = async () => {
     if (!user) {
-      navigate('/login', { state: { from: { pathname: `/courses/${id}` } } });
+      navigate('/login', { state: { from: { pathname: `/chapters/${id}` } } });
       return;
     }
 
@@ -144,7 +144,7 @@ function CourseDetail() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{isRTL ? 'الفصل غير موجود' : 'Chapter not found'}</h2>
-          <Link to="/courses" className="btn-primary">{isRTL ? 'تصفح الفصول' : 'Browse Chapters'}</Link>
+          <Link to="/chapters" className="btn-primary">{isRTL ? 'تصفح الفصول' : 'Browse Chapters'}</Link>
         </div>
       </div>
     );
@@ -165,7 +165,7 @@ function CourseDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Link to="/courses" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors">
+          <Link to="/chapters" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 group transition-colors">
             <svg className={`w-5 h-5 transition-transform ${isRTL ? 'group-hover:translate-x-1 flip-in-rtl' : 'group-hover:-translate-x-1'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -294,16 +294,16 @@ function CourseDetail() {
 
                       <div className="space-y-3">
                         <Link
-                          to={recommendedLesson ? `/learn/${recommendedLesson._id}` : '#'}
+                          to={recommendedLesson ? `/development/${recommendedLesson._id}` : '#'}
                           className="btn-primary w-full px-5 py-3 text-base leading-tight"
                         >
                           {isCourseCompleted
                             ? (isRTL ? 'راجع الفصل ←' : 'Review Chapter →')
                             : recommendedLessonState?.hasStarted
-                              ? (isRTL ? 'تابع التعلم ←' : 'Continue Learning →')
+                              ? (isRTL ? 'تابع التطوير ←' : 'Continue Development →')
                               : (isRTL ? 'ابدأ الفصل ←' : 'Start Chapter →')}
                         </Link>
-                        <a href="#course-roadmap" className="btn-secondary w-full px-5 py-3 text-base leading-tight">
+                        <a href="#chapter-roadmap" className="btn-secondary w-full px-5 py-3 text-base leading-tight">
                           {isRTL ? 'استعرض المسار' : 'View Roadmap'}
                         </a>
                       </div>
@@ -314,7 +314,7 @@ function CourseDetail() {
                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-200">
                           <span className="text-3xl">🎓</span>
                         </div>
-                        <p className="text-gray-500 text-sm">{isRTL ? 'ابدأ رحلتك التعليمية' : 'Start your learning journey'}</p>
+                        <p className="text-gray-500 text-sm">{isRTL ? 'ابدأ رحلة تطويرك' : 'Start your development journey'}</p>
                       </div>
                       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-4">
                         <p className="font-medium text-gray-900 mb-1">
@@ -347,7 +347,7 @@ function CourseDetail() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="card"
-            id="course-roadmap"
+            id="chapter-roadmap"
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
@@ -459,7 +459,7 @@ function CourseDetail() {
 
                       {isEnrolled ? (
                         <Link
-                          to={`/learn/${lesson._id}`}
+                          to={`/development/${lesson._id}`}
                           className={`justify-center whitespace-nowrap ${
                             recommendedLesson?._id === lesson._id
                               ? 'btn-primary'
