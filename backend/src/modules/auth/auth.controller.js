@@ -24,7 +24,58 @@ const isSocialProviderError = (message) => [
   'Social login is not configured for LinkedIn',
 ].includes(message);
 
-const getRequestOrigin = (req) => `${req.protocol}://${req.get('host')}`;
+const normalizeConfiguredOrigin = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(value.trim()).origin;
+  } catch {
+    return null;
+  }
+};
+
+const getFirstForwardedValue = (value) => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.split(',')[0]?.trim() || '';
+};
+
+const getCloudflareForwardedProtocol = (req) => {
+  const visitorHeader = req.get('cf-visitor');
+  if (!visitorHeader) {
+    return '';
+  }
+
+  try {
+    const parsed = JSON.parse(visitorHeader);
+    return typeof parsed?.scheme === 'string' ? parsed.scheme.trim() : '';
+  } catch {
+    return '';
+  }
+};
+
+const getRequestOrigin = (req) => {
+  const configuredOrigin = normalizeConfiguredOrigin(
+    process.env.APP_URL
+    || process.env.BACKEND_PUBLIC_URL
+    || process.env.PUBLIC_BASE_URL
+  );
+
+  if (configuredOrigin) {
+    return configuredOrigin;
+  }
+
+  const forwardedProtocol = getFirstForwardedValue(req.get('x-forwarded-proto'))
+    || getCloudflareForwardedProtocol(req)
+    || req.protocol;
+  const forwardedHost = getFirstForwardedValue(req.get('x-forwarded-host')) || req.get('host');
+
+  return `${forwardedProtocol}://${forwardedHost}`;
+};
 const getFrontendBaseUrl = (req) => (process.env.FRONTEND_URL || getRequestOrigin(req)).replace(/\/$/, '');
 
 export const register = async (req, res) => {
