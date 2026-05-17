@@ -19,11 +19,12 @@ mongoose.connect(MONGODB_URI)
     const subscriptionRoadmapResult = await syncSubscriptionPackageRoadmap();
     if (
       subscriptionRoadmapResult.billingBackfills > 0
+      || subscriptionRoadmapResult.sixMonthBackfills > 0
       || subscriptionRoadmapResult.roadmapPackagesCreated > 0
       || subscriptionRoadmapResult.legacyPackagesArchived > 0
     ) {
       console.log(
-        `Subscription package sync completed. Billing backfills: ${subscriptionRoadmapResult.billingBackfills}, roadmap packages created: ${subscriptionRoadmapResult.roadmapPackagesCreated}, legacy packages archived: ${subscriptionRoadmapResult.legacyPackagesArchived}.`
+        `Subscription package sync completed. Billing backfills: ${subscriptionRoadmapResult.billingBackfills}, six-month backfills: ${subscriptionRoadmapResult.sixMonthBackfills}, roadmap packages created: ${subscriptionRoadmapResult.roadmapPackagesCreated}, legacy packages archived: ${subscriptionRoadmapResult.legacyPackagesArchived}.`
       );
     }
     const backfillResult = await backfillLegacyLessonPublishState();

@@ -1,6 +1,7 @@
 import { SubscriptionPackage } from '../modules/subscriptions/subscription.model.js';
 import {
   buildSelfServeBillingOptions,
+  DEFAULT_SIX_MONTH_DURATION_DAYS,
   LEGACY_SUBSCRIPTION_PACKAGE_NAMES,
   ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT,
   ROADMAP_PACKAGE_NAMES,
@@ -20,31 +21,68 @@ const needsLegacyBillingBackfill = (pkg) => (
   && Number(pkg.price) > 0
 );
 
+const needsSixMonthBackfill = (pkg) => {
+  if (!Array.isArray(pkg.billingOptions) || pkg.billingOptions.length === 0) {
+    return false;
+  }
+
+  const hasSixMonth = pkg.billingOptions.some(
+    (option) => option?.term === 'six_months' && option.isActive !== false
+  );
+
+  if (hasSixMonth) {
+    return false;
+  }
+
+  return pkg.billingOptions.some(
+    (option) => option?.term === 'monthly' && option.isActive !== false && Number(option.price) > 0
+  );
+};
+
 export const syncSubscriptionPackageRoadmap = async () => {
   const packages = await SubscriptionPackage.find({});
   if (packages.length === 0) {
     return {
       billingBackfills: 0,
+      sixMonthBackfills: 0,
       roadmapPackagesCreated: 0,
       legacyPackagesArchived: 0,
     };
   }
 
   let billingBackfills = 0;
+  let sixMonthBackfills = 0;
   for (const pkg of packages) {
     if (!needsLegacyBillingBackfill(pkg)) {
+      if (needsSixMonthBackfill(pkg)) {
+        const monthlyOption = pkg.billingOptions.find(
+          (option) => option?.term === 'monthly' && option.isActive !== false
+        );
+
+        pkg.billingOptions.push({
+          term: 'six_months',
+          label: '6 Months',
+          price: Number(monthlyOption.price) * 6,
+          durationDays: Number(monthlyOption.durationDays) > 0
+            ? Number(monthlyOption.durationDays) * 6
+            : DEFAULT_SIX_MONTH_DURATION_DAYS,
+          isActive: true,
+        });
+        await pkg.save();
+        sixMonthBackfills += 1;
+      }
       continue;
     }
 
-    pkg.billingOptions = [
-      {
-        term: 'monthly',
-        label: 'Monthly',
-        price: Number(pkg.price),
-        durationDays: Number(pkg.durationDays) || 30,
-        isActive: true,
-      },
-    ];
+    pkg.billingOptions = buildSelfServeBillingOptions(
+      Number(pkg.price),
+      undefined,
+      undefined,
+      Number(pkg.durationDays) || 30,
+      Number(pkg.durationDays) > 0
+        ? Number(pkg.durationDays) * 6
+        : DEFAULT_SIX_MONTH_DURATION_DAYS
+    );
     pkg.purchaseMode = pkg.purchaseMode || 'self_serve';
     pkg.includedPackages = Array.isArray(pkg.includedPackages) ? pkg.includedPackages : [];
     await pkg.save();
@@ -56,6 +94,7 @@ export const syncSubscriptionPackageRoadmap = async () => {
   if (roadmapPackages.length > 0) {
     return {
       billingBackfills,
+      sixMonthBackfills,
       roadmapPackagesCreated: 0,
       legacyPackagesArchived: 0,
     };
@@ -65,6 +104,7 @@ export const syncSubscriptionPackageRoadmap = async () => {
   if (legacyPackages.length === 0) {
     return {
       billingBackfills,
+      sixMonthBackfills,
       roadmapPackagesCreated: 0,
       legacyPackagesArchived: 0,
     };
@@ -150,6 +190,7 @@ export const syncSubscriptionPackageRoadmap = async () => {
 
   return {
     billingBackfills,
+    sixMonthBackfills,
     roadmapPackagesCreated,
     legacyPackagesArchived,
   };

@@ -203,6 +203,13 @@ export const createSubscriptionPackage = async (overrides = {}) => {
             isActive: true,
           },
           {
+            term: 'six_months',
+            label: '6 Months',
+            price: overrides.sixMonthPrice || (overrides.price || 499) * 6,
+            durationDays: overrides.sixMonthDurationDays || 180,
+            isActive: true,
+          },
+          {
             term: 'annual',
             label: 'Annual',
             price: overrides.annualPrice || (overrides.price || 499) * 10,

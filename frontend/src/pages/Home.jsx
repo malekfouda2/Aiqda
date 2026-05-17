@@ -14,6 +14,7 @@ import {
   formatMoney,
   getActiveBillingOptions,
   getAnnualSavings,
+  getBillingCadenceLabel,
   getBillingOption,
   getBillingTermLabel,
   getDefaultBillingTerm,
@@ -381,9 +382,7 @@ function Home() {
                           </span>
                           <span className="text-gray-500 ml-1">SAR</span>
                           <p className="text-sm text-gray-500 mt-2">
-                            {selectedOption.term === "annual"
-                              ? (isRTL ? "سنويًا" : "per year")
-                              : (isRTL ? "شهريًا" : "per month")}
+                            {getBillingCadenceLabel(selectedOption.term, locale)}
                           </p>
                           {selectedOption.term === "annual" && annualSavings && (
                             <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">

@@ -39,6 +39,89 @@ function ProgressBar({ value = 0, fillClass = 'from-primary-500 to-cyan-500' }) 
   );
 }
 
+function VimeoPreviewPanel({ preview, loading, error }) {
+  if (loading && !preview) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+        Loading Vimeo preview...
+      </div>
+    );
+  }
+
+  if (error && !preview) {
+    return (
+      <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-4 text-sm text-red-600">
+        {error}
+      </div>
+    );
+  }
+
+  if (!preview?.embedUrl) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        Assign or preview a Vimeo video ID to review the lesson video here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h6 className="text-sm font-semibold text-gray-900">Lesson video review</h6>
+          <p className="truncate text-xs text-gray-400">
+            {preview.title || 'Untitled Vimeo video'}{preview.vimeoId ? ` • Vimeo ${preview.vimeoId}` : ''}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+          {preview.privacy?.view ? (
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1">
+              View {preview.privacy.view}
+            </span>
+          ) : null}
+          {preview.privacy?.embed ? (
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1">
+              Embed {preview.privacy.embed}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-black">
+        <div className="aspect-video">
+          <iframe
+            src={preview.embedUrl}
+            title={preview.title || 'Vimeo lesson preview'}
+            className="h-full w-full"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; web-share"
+            allowFullScreen
+            frameBorder="0"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-2 text-xs text-gray-500 sm:grid-cols-3">
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+          <span className="font-medium text-gray-700">Duration:</span> {formatDuration(preview.duration)}
+        </div>
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+          <span className="font-medium text-gray-700">Playable:</span> {preview.isPlayable ? 'Yes' : 'No'}
+        </div>
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+          <span className="font-medium text-gray-700">Direct page:</span> {preview.security?.isDirectPageProtected ? 'Protected' : 'Open'}
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function formatRelativeTime(value) {
   if (!value) {
     return 'No activity yet';
@@ -391,6 +474,9 @@ function AdminCourses() {
   const [lessonAnalyticsById, setLessonAnalyticsById] = useState({});
   const [lessonAnalyticsLoadingById, setLessonAnalyticsLoadingById] = useState({});
   const [lessonAnalyticsErrorsById, setLessonAnalyticsErrorsById] = useState({});
+  const [videoPreviewByLesson, setVideoPreviewByLesson] = useState({});
+  const [videoPreviewLoadingByLesson, setVideoPreviewLoadingByLesson] = useState({});
+  const [videoPreviewErrorsByLesson, setVideoPreviewErrorsByLesson] = useState({});
 
   const fetchData = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -425,6 +511,30 @@ function AdminCourses() {
       setLessonAnalyticsErrorsById((prev) => ({ ...prev, [lessonId]: message }));
     } finally {
       setLessonAnalyticsLoadingById((prev) => ({ ...prev, [lessonId]: false }));
+    }
+  }, []);
+
+  const fetchLessonPreview = useCallback(async (lessonId, vimeoVideoId) => {
+    if (!lessonId || !vimeoVideoId?.trim()) {
+      setVideoPreviewByLesson((prev) => ({ ...prev, [lessonId]: null }));
+      setVideoPreviewErrorsByLesson((prev) => ({ ...prev, [lessonId]: null }));
+      return;
+    }
+
+    setVideoPreviewLoadingByLesson((prev) => ({ ...prev, [lessonId]: true }));
+    setVideoPreviewErrorsByLesson((prev) => ({ ...prev, [lessonId]: null }));
+
+    try {
+      const response = await videoAPI.getDetails(vimeoVideoId.trim());
+      setVideoPreviewByLesson((prev) => ({
+        ...prev,
+        [lessonId]: response.data,
+      }));
+    } catch (error) {
+      const message = error.response?.data?.error || 'Failed to load Vimeo preview';
+      setVideoPreviewErrorsByLesson((prev) => ({ ...prev, [lessonId]: message }));
+    } finally {
+      setVideoPreviewLoadingByLesson((prev) => ({ ...prev, [lessonId]: false }));
     }
   }, []);
 
@@ -469,6 +579,13 @@ function AdminCourses() {
       }
 
       setVideoInputs((prev) => ({ ...prev, [lessonId]: '' }));
+      if (response.data?.videoDetails) {
+        setVideoPreviewByLesson((prev) => ({
+          ...prev,
+          [lessonId]: response.data.videoDetails,
+        }));
+        setVideoPreviewErrorsByLesson((prev) => ({ ...prev, [lessonId]: null }));
+      }
       await Promise.all([
         fetchData({ silent: true }),
         fetchLessonAnalytics(lessonId, { silent: false }),
@@ -481,14 +598,29 @@ function AdminCourses() {
     }
   };
 
-  const toggleLesson = async (lessonId) => {
+  const handlePreviewVideo = async (lessonId, fallbackVideoId = '') => {
+    const requestedVideoId = (videoInputs[lessonId] || fallbackVideoId || '').trim();
+    if (!requestedVideoId) {
+      showError('Enter a Vimeo Video ID to preview');
+      return;
+    }
+
+    await fetchLessonPreview(lessonId, requestedVideoId);
+  };
+
+  const toggleLesson = async (lesson) => {
+    const lessonId = lesson._id;
+
     if (expandedLesson === lessonId) {
       setExpandedLesson(null);
       return;
     }
 
     setExpandedLesson(lessonId);
-    await fetchLessonAnalytics(lessonId, { silent: false });
+    await Promise.all([
+      fetchLessonAnalytics(lessonId, { silent: false }),
+      lesson.vimeoVideoId ? fetchLessonPreview(lessonId, lesson.vimeoVideoId) : Promise.resolve(),
+    ]);
   };
 
   const filtered = data.filter((item) => (
@@ -672,7 +804,7 @@ function AdminCourses() {
                                           <motion.div key={lesson._id} variants={cardVariants} className="rounded-lg border border-gray-100 bg-white p-3">
                                             <div
                                               className="cursor-pointer"
-                                              onClick={() => toggleLesson(lesson._id)}
+                                              onClick={() => toggleLesson(lesson)}
                                             >
                                               <div className="mb-3 flex items-center justify-between gap-3">
                                                 <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -703,7 +835,7 @@ function AdminCourses() {
                                                 </div>
                                               </div>
 
-                                              <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                                              <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
                                                 <input
                                                   type="text"
                                                   placeholder="Vimeo Video ID (e.g., 123456789)"
@@ -711,6 +843,12 @@ function AdminCourses() {
                                                   onChange={(event) => setVideoInputs((prev) => ({ ...prev, [lesson._id]: event.target.value }))}
                                                   className="input-field flex-1 !py-1.5 text-sm"
                                                 />
+                                                <button
+                                                  onClick={() => handlePreviewVideo(lesson._id, lesson.vimeoVideoId)}
+                                                  className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+                                                >
+                                                  Review
+                                                </button>
                                                 <button
                                                   onClick={() => handleAssignVideo(lesson._id)}
                                                   disabled={assigningVideo === lesson._id}
@@ -731,6 +869,13 @@ function AdminCourses() {
                                                   className="overflow-hidden"
                                                 >
                                                   <div className="mt-4 border-t border-gray-100 pt-4">
+                                                    <div className="mb-4">
+                                                      <VimeoPreviewPanel
+                                                        preview={videoPreviewByLesson[lesson._id]}
+                                                        loading={Boolean(videoPreviewLoadingByLesson[lesson._id])}
+                                                        error={videoPreviewErrorsByLesson[lesson._id]}
+                                                      />
+                                                    </div>
                                                     <LessonAnalyticsPanel
                                                       analytics={lessonAnalyticsById[lesson._id]}
                                                       loading={Boolean(lessonAnalyticsLoadingById[lesson._id])}

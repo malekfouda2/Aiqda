@@ -2,8 +2,18 @@ import { Subscription, SubscriptionPackage } from './subscription.model.js';
 
 const BILLING_TERM_LABELS = {
   monthly: 'Monthly',
+  six_months: '6 Months',
   annual: 'Annual',
 };
+
+const BILLING_TERM_ORDER = {
+  monthly: 0,
+  six_months: 1,
+  annual: 2,
+};
+
+const VALID_BILLING_TERMS = Object.keys(BILLING_TERM_LABELS);
+const DEFAULT_SIX_MONTH_DURATION_DAYS = 180;
 
 const PACKAGE_POPULATE = [
   { path: 'courses', select: 'title category level' },
@@ -68,10 +78,33 @@ const getActiveBillingOptions = (pkg = {}) => {
   return pkg.billingOptions
     .filter((option) => option && option.term && option.isActive !== false)
     .sort((a, b) => {
-      const aRank = a.term === 'monthly' ? 0 : 1;
-      const bRank = b.term === 'monthly' ? 0 : 1;
+      const aRank = BILLING_TERM_ORDER[a.term] ?? Number.MAX_SAFE_INTEGER;
+      const bRank = BILLING_TERM_ORDER[b.term] ?? Number.MAX_SAFE_INTEGER;
       return aRank - bRank;
     });
+};
+
+const ensureDefaultSixMonthOption = (billingOptions = []) => {
+  const optionsByTerm = new Map(
+    billingOptions
+      .filter((option) => option?.term)
+      .map((option) => [option.term, option])
+  );
+
+  const monthlyOption = optionsByTerm.get('monthly');
+  if (monthlyOption && !optionsByTerm.has('six_months')) {
+    optionsByTerm.set('six_months', {
+      term: 'six_months',
+      label: BILLING_TERM_LABELS.six_months,
+      price: Number(monthlyOption.price) * 6,
+      durationDays: Number(monthlyOption.durationDays) > 0
+        ? Number(monthlyOption.durationDays) * 6
+        : DEFAULT_SIX_MONTH_DURATION_DAYS,
+      isActive: true,
+    });
+  }
+
+  return getActiveBillingOptions({ billingOptions: [...optionsByTerm.values()] });
 };
 
 export const getBillingOptionForPackage = (pkg = {}, requestedTerm = null) => {
@@ -100,7 +133,13 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
         continue;
       }
 
-      const term = rawOption.term === 'annual' ? 'annual' : 'monthly';
+      const normalizedTerm = typeof rawOption.term === 'string'
+        ? rawOption.term.trim().toLowerCase()
+        : '';
+      const term = VALID_BILLING_TERMS.includes(normalizedTerm) ? normalizedTerm : null;
+      if (!term) {
+        continue;
+      }
       if (toBoolean(rawOption.isActive, true) === false) {
         continue;
       }
@@ -127,7 +166,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
       });
     }
 
-    return [...optionsByTerm.values()];
+    return ensureDefaultSixMonthOption([...optionsByTerm.values()]);
   }
 
   if (
@@ -135,7 +174,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
     && Array.isArray(existingPackage?.billingOptions)
     && existingPackage.billingOptions.length > 0
   ) {
-    return existingPackage.billingOptions
+    return ensureDefaultSixMonthOption(existingPackage.billingOptions
       .filter((option) => option && option.term && option.isActive !== false)
       .map((option) => ({
         term: option.term,
@@ -143,7 +182,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
         price: option.price,
         durationDays: option.durationDays,
         isActive: option.isActive !== false,
-      }));
+      })));
   }
 
   const legacyPrice = toNullableNumber(packageData.price ?? existingPackage?.price);
@@ -159,7 +198,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
     throw new Error('A valid duration in days is required.');
   }
 
-  return [
+  return ensureDefaultSixMonthOption([
     {
       term: 'monthly',
       label: BILLING_TERM_LABELS.monthly,
@@ -167,7 +206,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
       durationDays: legacyDuration,
       isActive: true,
     },
-  ];
+  ]);
 };
 
 const buildPackagePayload = (packageData = {}, existingPackage = null) => {
@@ -264,7 +303,7 @@ const normalizeBillingTerm = (pkg, requestedTerm = null) => {
     return getBillingOptionForPackage(pkg)?.term || null;
   }
 
-  if (!['monthly', 'annual'].includes(term)) {
+  if (!VALID_BILLING_TERMS.includes(term)) {
     throw new Error('Please select a valid billing term.');
   }
 

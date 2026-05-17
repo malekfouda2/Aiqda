@@ -14,10 +14,10 @@ import {
 } from '../content/subscriptionPolicy';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 import {
-  BILLING_TERM_LABELS,
   formatMoney,
   getActiveBillingOptions,
   getAnnualSavings,
+  getBillingCadenceLabel,
   getBillingOption,
   getBillingTermLabel,
   getDefaultBillingTerm,
@@ -410,7 +410,7 @@ function Subscription() {
                             <span className="text-3xl font-bold text-gray-900">{formatMoney(selectedOption.price, locale)}</span>
                             <span className="text-gray-500"> SAR</span>
                             <p className="text-sm text-gray-500 mt-1">
-                              {selectedOption.term === 'annual' ? (isRTL ? 'سنويًا' : 'per year') : (isRTL ? 'شهريًا' : 'per month')}
+                              {getBillingCadenceLabel(selectedOption.term, locale)}
                             </p>
                             {selectedOption.term === 'annual' && annualSavings && (
                               <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">

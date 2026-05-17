@@ -54,6 +54,45 @@ test('requesting an annual subscription stores the selected billing term and val
   assert.match(wrongAmountResponse.body.error, /2799/i);
 });
 
+test('requesting a 6-month subscription stores the selected billing term and validates the 6-month amount', async () => {
+  const student = await createUser({ role: 'student' });
+  const packageRecord = await createSubscriptionPackage({
+    billingOptions: [
+      { term: 'monthly', label: 'Monthly', price: 299, durationDays: 30, isActive: true },
+      { term: 'six_months', label: '6 Months', price: 1599, durationDays: 180, isActive: true },
+      { term: 'annual', label: 'Annual', price: 2799, durationDays: 365, isActive: true },
+    ],
+  });
+
+  const subscriptionResponse = await request(suite.app)
+    .post('/api/subscriptions/request')
+    .set(authHeader(student.token))
+    .send({
+      packageId: packageRecord._id.toString(),
+      billingTerm: 'six_months',
+    });
+
+  assert.equal(subscriptionResponse.status, 201);
+  assert.equal(subscriptionResponse.body.billingTerm, 'six_months');
+  assert.equal(subscriptionResponse.body.priceAtPurchase, 1599);
+  assert.equal(subscriptionResponse.body.durationDaysSnapshot, 180);
+
+  const wrongAmountResponse = await request(suite.app)
+    .post('/api/payments')
+    .set(authHeader(student.token))
+    .field('subscriptionId', subscriptionResponse.body._id)
+    .field('amount', '299')
+    .field('paymentReference', 'PAY-SIX-MONTH-001')
+    .field('checkoutDisclaimerAccepted', 'true')
+    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
+      filename: 'proof.pdf',
+      contentType: 'application/pdf'
+    });
+
+  assert.equal(wrongAmountResponse.status, 400);
+  assert.match(wrongAmountResponse.body.error, /1599/i);
+});
+
 test('payment submission validates proof and amount before creating a payment', async () => {
   const student = await createUser({ role: 'student' });
   const packageRecord = await createSubscriptionPackage({ price: 499 });

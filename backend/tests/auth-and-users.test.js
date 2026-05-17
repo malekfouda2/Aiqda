@@ -197,6 +197,53 @@ test('accounts can only be approved on up to two devices', async () => {
   );
 });
 
+test('admin-side accounts can sign in on multiple devices without device or concurrency limits', async () => {
+  await createUser({
+    email: 'admin-multi-device@example.com',
+    password: 'Password123!',
+    role: 'admin',
+  });
+
+  const firstDevice = request.agent(suite.app);
+  const secondDevice = request.agent(suite.app);
+  const thirdDevice = request.agent(suite.app);
+
+  const firstLoginResponse = await firstDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'admin-multi-device@example.com',
+      password: 'Password123!',
+    });
+  assert.equal(firstLoginResponse.status, 200);
+
+  const secondLoginResponse = await secondDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'admin-multi-device@example.com',
+      password: 'Password123!',
+    });
+  assert.equal(secondLoginResponse.status, 200);
+
+  const thirdLoginResponse = await thirdDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'admin-multi-device@example.com',
+      password: 'Password123!',
+    });
+  assert.equal(thirdLoginResponse.status, 200);
+
+  const profileResponses = await Promise.all([
+    firstDevice.get('/api/auth/profile'),
+    secondDevice.get('/api/auth/profile'),
+    thirdDevice.get('/api/auth/profile'),
+  ]);
+
+  profileResponses.forEach((response) => {
+    assert.equal(response.status, 200);
+    assert.equal(response.body.role, 'admin');
+  });
+});
+
 test('login endpoint is rate limited after repeated failed attempts', async () => {
   await createUser({
     email: 'rate-limit-user@example.com',

@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const billingOptionSchema = new mongoose.Schema({
   term: {
     type: String,
-    enum: ['monthly', 'annual'],
+    enum: ['monthly', 'six_months', 'annual'],
     required: true,
   },
   label: {
@@ -102,7 +102,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   billingTerm: {
     type: String,
-    enum: ['monthly', 'annual'],
+    enum: ['monthly', 'six_months', 'annual'],
     default: 'monthly'
   },
   priceAtPurchase: {

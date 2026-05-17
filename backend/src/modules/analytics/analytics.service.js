@@ -4,12 +4,16 @@ import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
 import Payment from '../payments/payment.model.js';
 import { Subscription, SubscriptionPackage } from '../subscriptions/subscription.model.js';
+import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 import { getVimeoAccountInfo, getVimeoVideoDetails } from '../video/video.service.js';
 
 const roundCurrency = (value) => Math.round(value * 100) / 100;
 const toIdString = (value) => value?.toString();
 const LIVE_ACTIVITY_WINDOW_MS = 2 * 60 * 1000;
 const LIVE_ACTIVITY_WINDOW_MINUTES = LIVE_ACTIVITY_WINDOW_MS / (60 * 1000);
+const MEMBER_REWARD_ACTIVITY_WINDOW_DAYS = 14;
+const MEMBER_REWARD_ACTIVITY_WINDOW_MS = MEMBER_REWARD_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const MEMBER_LEADERBOARD_LIMIT = 5;
 const VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS = [
   'impressions',
   'finishes',
@@ -28,6 +32,16 @@ const VIMEO_DASHBOARD_ONLY_ENGAGEMENT_METRICS = [
   'views_at_75_percent',
   'views_at_100_percent',
 ];
+const MEMBER_REWARD_LEVELS = [
+  { level: 1, minPoints: 0, title: 'Explorer' },
+  { level: 2, minPoints: 250, title: 'Momentum Builder' },
+  { level: 3, minPoints: 600, title: 'Skill Climber' },
+  { level: 4, minPoints: 1050, title: 'Chapter Challenger' },
+  { level: 5, minPoints: 1650, title: 'Creative Force' },
+  { level: 6, minPoints: 2400, title: 'Aiqda Trailblazer' },
+];
+const MEMBER_QUALIFIED_CONTENT_MILESTONES = [1, 3, 5, 8, 12, 16];
+const MEMBER_COMPLETED_CHAPTER_MILESTONES = [1, 2, 3, 5, 8];
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -106,6 +120,299 @@ const buildMonthlyCounts = (records = [], dateField) => {
   return [...monthlyCounts.values()]
     .sort((a, b) => b._id.year - a._id.year || b._id.month - a._id.month)
     .slice(0, 12);
+};
+
+const getMostRecentDate = (...dateValues) => {
+  const timestamps = dateValues
+    .flat()
+    .map((value) => (value ? new Date(value).getTime() : Number.NaN))
+    .filter((value) => Number.isFinite(value));
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.max(...timestamps));
+};
+
+const getRewardLevel = (points = 0) => {
+  const currentLevel = [...MEMBER_REWARD_LEVELS]
+    .reverse()
+    .find((level) => points >= level.minPoints) || MEMBER_REWARD_LEVELS[0];
+  const nextLevel = MEMBER_REWARD_LEVELS.find((level) => level.level === currentLevel.level + 1) || null;
+
+  if (!nextLevel) {
+    return {
+      ...currentLevel,
+      nextLevel: null,
+      pointsToNextLevel: 0,
+      progressPercentage: 100,
+    };
+  }
+
+  const progressWithinLevel = points - currentLevel.minPoints;
+  const pointsRequiredWithinLevel = nextLevel.minPoints - currentLevel.minPoints;
+
+  return {
+    ...currentLevel,
+    nextLevel,
+    pointsToNextLevel: Math.max(nextLevel.minPoints - points, 0),
+    progressPercentage: pointsRequiredWithinLevel > 0
+      ? Math.min(100, Math.round((progressWithinLevel / pointsRequiredWithinLevel) * 100))
+      : 100,
+  };
+};
+
+const getNextMilestoneTarget = (thresholds = [], currentValue = 0) => {
+  return thresholds.find((threshold) => currentValue < threshold) || currentValue;
+};
+
+const buildMemberRewardBadges = (summary) => {
+  const badgeDefinitions = [
+    {
+      id: 'first-step',
+      icon: 'Spark',
+      title: 'First Step',
+      description: 'Start your first content item.',
+      unlocked: summary.startedContentCount >= 1,
+    },
+    {
+      id: 'qualified-trio',
+      icon: 'Focus',
+      title: 'Qualified Trio',
+      description: 'Qualify 3 content items.',
+      unlocked: summary.qualifiedContentCount >= 3,
+    },
+    {
+      id: 'chapter-finisher',
+      icon: 'Flag',
+      title: 'Chapter Finisher',
+      description: 'Complete your first chapter.',
+      unlocked: summary.completedChapterCount >= 1,
+    },
+    {
+      id: 'momentum-mode',
+      icon: 'Bolt',
+      title: 'Momentum Mode',
+      description: 'Stay active across 3 content items in the last 14 days.',
+      unlocked: summary.recentlyActiveCount >= 3,
+    },
+    {
+      id: 'watch-master',
+      icon: 'Target',
+      title: 'Watch Master',
+      description: 'Maintain an 85% average watch rate.',
+      unlocked: summary.avgWatchPercentage >= 85 && summary.startedContentCount >= 3,
+    },
+    {
+      id: 'pathfinder',
+      icon: 'Compass',
+      title: 'Pathfinder',
+      description: 'Be enrolled across 3 chapters.',
+      unlocked: summary.enrolledChapterCount >= 3,
+    },
+  ];
+
+  return badgeDefinitions.map((badge) => ({
+    ...badge,
+    unlockedAt: badge.unlocked ? summary.lastActivityAt : null,
+  }));
+};
+
+const buildMemberRewardSummary = ({
+  hasActiveSubscription = false,
+  courseProgressEntries = [],
+  lessonProgressEntries = [],
+} = {}) => {
+  const enrolledChapterCount = courseProgressEntries.length;
+  const startedContentEntries = lessonProgressEntries.filter((entry) => Number(entry.watchPercentage || 0) > 0 || Number(entry.quizAttempts || 0) > 0);
+  const qualifiedContentEntries = lessonProgressEntries.filter((entry) => entry.isQualified);
+  const completedChapterEntries = courseProgressEntries.filter((entry) => entry.isCompleted);
+  const avgWatchPercentage = startedContentEntries.length > 0
+    ? Math.round(
+        startedContentEntries.reduce((sum, entry) => sum + Number(entry.watchPercentage || 0), 0) / startedContentEntries.length
+      )
+    : 0;
+  const recentlyActiveCount = lessonProgressEntries.filter((entry) => (
+    isRecentlyActive(entry.lastWatchedAt || entry.updatedAt || entry.completedAt, MEMBER_REWARD_ACTIVITY_WINDOW_MS)
+  )).length;
+  const engagementBonus = Math.min(recentlyActiveCount, 5) * 20;
+  const points = (
+    startedContentEntries.length * 30
+    + qualifiedContentEntries.length * 70
+    + completedChapterEntries.length * 250
+    + engagementBonus
+  );
+  const level = getRewardLevel(points);
+  const qualifiedTarget = getNextMilestoneTarget(MEMBER_QUALIFIED_CONTENT_MILESTONES, qualifiedContentEntries.length);
+  const chapterTarget = getNextMilestoneTarget(MEMBER_COMPLETED_CHAPTER_MILESTONES, completedChapterEntries.length);
+  const lastActivityAt = getMostRecentDate(
+    courseProgressEntries.map((entry) => entry.completedAt || entry.updatedAt || entry.startedAt),
+    lessonProgressEntries.map((entry) => entry.lastWatchedAt || entry.updatedAt || entry.completedAt)
+  );
+
+  const isEligible = Boolean(hasActiveSubscription && enrolledChapterCount > 0);
+  let reason = null;
+  if (!hasActiveSubscription) {
+    reason = 'Activate your subscription to unlock rankings, badges, and member rewards.';
+  } else if (enrolledChapterCount === 0) {
+    reason = 'Enroll in at least one chapter to start earning points and climbing the leaderboard.';
+  }
+
+  const summary = {
+    isEligible,
+    reason,
+    points,
+    level,
+    enrolledChapterCount,
+    startedContentCount: startedContentEntries.length,
+    qualifiedContentCount: qualifiedContentEntries.length,
+    completedChapterCount: completedChapterEntries.length,
+    avgWatchPercentage,
+    recentlyActiveCount,
+    engagementBonus,
+    activeWindowDays: MEMBER_REWARD_ACTIVITY_WINDOW_DAYS,
+    lastActivityAt,
+    milestones: [
+      {
+        id: 'next-level',
+        title: level.nextLevel ? `Reach ${level.nextLevel.title}` : 'Top level reached',
+        current: points,
+        target: level.nextLevel?.minPoints || points,
+        progressPercentage: level.progressPercentage,
+        reward: level.nextLevel ? `${level.pointsToNextLevel} pts to go` : 'You are at the top tier',
+      },
+      {
+        id: 'qualified-content',
+        title: 'Qualify more content',
+        current: qualifiedContentEntries.length,
+        target: qualifiedTarget,
+        progressPercentage: qualifiedTarget > 0
+          ? Math.min(100, Math.round((qualifiedContentEntries.length / qualifiedTarget) * 100))
+          : 100,
+        reward: qualifiedTarget > qualifiedContentEntries.length
+          ? `${qualifiedTarget - qualifiedContentEntries.length} more to unlock your next content milestone`
+          : 'Next content milestone reached',
+      },
+      {
+        id: 'completed-chapters',
+        title: 'Complete more chapters',
+        current: completedChapterEntries.length,
+        target: chapterTarget,
+        progressPercentage: chapterTarget > 0
+          ? Math.min(100, Math.round((completedChapterEntries.length / chapterTarget) * 100))
+          : 100,
+        reward: chapterTarget > completedChapterEntries.length
+          ? `${chapterTarget - completedChapterEntries.length} more to unlock your next chapter milestone`
+          : 'Next chapter milestone reached',
+      },
+    ],
+  };
+
+  return {
+    ...summary,
+    badges: buildMemberRewardBadges(summary),
+  };
+};
+
+const buildMemberRewardsLeaderboard = async () => {
+  const activeSubscriptions = await Subscription.find({
+    status: 'active',
+    endDate: { $gte: new Date() },
+  })
+    .select('user')
+    .lean();
+
+  const activeUserIds = [...new Set(
+    activeSubscriptions
+      .map((subscription) => toIdString(subscription.user))
+      .filter(Boolean)
+  )];
+
+  if (activeUserIds.length === 0) {
+    return {
+      leaderboard: [],
+      leaderboardByUserId: new Map(),
+      totalEligibleMembers: 0,
+    };
+  }
+
+  const [users, courseProgressEntries, lessonProgressEntries] = await Promise.all([
+    User.find({ _id: { $in: activeUserIds }, role: 'student', isActive: true })
+      .select('name avatar')
+      .lean(),
+    CourseProgress.find({ user: { $in: activeUserIds } })
+      .select('user completedLessons totalLessons progressPercentage isCompleted startedAt completedAt updatedAt')
+      .lean(),
+    LessonProgress.find({ user: { $in: activeUserIds } })
+      .select('user watchPercentage quizAttempts isQualified quizPassed completedAt lastWatchedAt updatedAt')
+      .lean(),
+  ]);
+
+  const courseProgressByUserId = new Map();
+  const lessonProgressByUserId = new Map();
+
+  for (const entry of courseProgressEntries) {
+    const userId = toIdString(entry.user);
+    const currentEntries = courseProgressByUserId.get(userId) || [];
+    currentEntries.push(entry);
+    courseProgressByUserId.set(userId, currentEntries);
+  }
+
+  for (const entry of lessonProgressEntries) {
+    const userId = toIdString(entry.user);
+    const currentEntries = lessonProgressByUserId.get(userId) || [];
+    currentEntries.push(entry);
+    lessonProgressByUserId.set(userId, currentEntries);
+  }
+
+  const rankedMembers = users
+    .map((user) => {
+      const userId = toIdString(user._id);
+      const rewards = buildMemberRewardSummary({
+        hasActiveSubscription: true,
+        courseProgressEntries: courseProgressByUserId.get(userId) || [],
+        lessonProgressEntries: lessonProgressByUserId.get(userId) || [],
+      });
+
+      if (!rewards.isEligible) {
+        return null;
+      }
+
+      return {
+        userId,
+        name: user.name,
+        avatar: user.avatar || null,
+        points: rewards.points,
+        level: rewards.level,
+        completedChapterCount: rewards.completedChapterCount,
+        qualifiedContentCount: rewards.qualifiedContentCount,
+        avgWatchPercentage: rewards.avgWatchPercentage,
+        lastActivityAt: rewards.lastActivityAt,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => (
+      right.points - left.points
+      || right.completedChapterCount - left.completedChapterCount
+      || right.qualifiedContentCount - left.qualifiedContentCount
+      || right.avgWatchPercentage - left.avgWatchPercentage
+      || new Date(right.lastActivityAt || 0).getTime() - new Date(left.lastActivityAt || 0).getTime()
+    ))
+    .map((entry, index) => ({
+      ...entry,
+      position: index + 1,
+    }));
+
+  const leaderboardByUserId = new Map(
+    rankedMembers.map((entry) => [entry.userId, entry])
+  );
+
+  return {
+    leaderboard: rankedMembers.slice(0, MEMBER_LEADERBOARD_LIMIT),
+    leaderboardByUserId,
+    totalEligibleMembers: rankedMembers.length,
+  };
 };
 
 const getCourseRevenueAllocation = async (courseIds = []) => {
@@ -295,15 +602,47 @@ const getInstructorCourseDataset = async ({ activeOnly = false } = {}) => {
 };
 
 export const getStudentProgress = async (userId) => {
-  const courseProgress = await CourseProgress.find({ user: userId })
-    .populate('course', 'title thumbnail')
-    .sort({ updatedAt: -1 });
+  const [accessContext, courseProgress, recentLessonProgress, allLessonProgress, leaderboardSnapshot] = await Promise.all([
+    getSubscriptionAccessContext(userId),
+    CourseProgress.find({ user: userId })
+      .populate('course', 'title thumbnail')
+      .sort({ updatedAt: -1 }),
+    LessonProgress.find({ user: userId })
+      .populate('lesson', 'title isPublished')
+      .populate('course', 'title isPublished enrolledStudents')
+      .sort({ lastWatchedAt: -1 })
+      .limit(25),
+    LessonProgress.find({ user: userId })
+      .select('watchPercentage quizAttempts isQualified quizPassed completedAt lastWatchedAt updatedAt')
+      .lean(),
+    buildMemberRewardsLeaderboard(),
+  ]);
 
-  const lessonProgress = await LessonProgress.find({ user: userId })
-    .populate('lesson', 'title')
-    .populate('course', 'title')
-    .sort({ lastWatchedAt: -1 })
-    .limit(10);
+  const accessibleCourseIds = new Set(
+    (accessContext?.accessibleCourseIds || []).map((courseId) => courseId.toString())
+  );
+  const lessonProgress = recentLessonProgress.filter((entry) => {
+    const lessonId = entry?.lesson?._id?.toString?.();
+    const courseId = entry?.course?._id?.toString?.();
+    const isEnrolledInCourse = (entry?.course?.enrolledStudents || []).some(
+      (studentId) => studentId.toString() === userId.toString()
+    );
+
+    if (!lessonId || !courseId) {
+      return false;
+    }
+
+    if (!accessContext?.hasActiveSubscription) {
+      return false;
+    }
+
+    return Boolean(
+      entry.lesson?.isPublished
+      && entry.course?.isPublished
+      && isEnrolledInCourse
+      && accessibleCourseIds.has(courseId)
+    );
+  }).slice(0, 10);
 
   const stats = {
     totalCourses: courseProgress.length,
@@ -314,7 +653,50 @@ export const getStudentProgress = async (userId) => {
       : 0
   };
 
-  return { courseProgress, recentActivity: lessonProgress, stats };
+  const rewards = buildMemberRewardSummary({
+    hasActiveSubscription: Boolean(accessContext?.hasActiveSubscription),
+    courseProgressEntries: courseProgress.map((entry) => entry.toObject()),
+    lessonProgressEntries: allLessonProgress,
+  });
+
+  const currentMemberStanding = leaderboardSnapshot.leaderboardByUserId.get(userId.toString()) || null;
+
+  return {
+    courseProgress,
+    recentActivity: lessonProgress,
+    stats,
+    rewards: {
+      ...rewards,
+      rank: rewards.isEligible && currentMemberStanding
+        ? {
+            position: currentMemberStanding.position,
+            totalEligibleMembers: leaderboardSnapshot.totalEligibleMembers,
+          }
+        : null,
+      leaderboard: leaderboardSnapshot.leaderboard.map((entry) => ({
+        position: entry.position,
+        userId: entry.userId,
+        name: entry.name,
+        avatar: entry.avatar,
+        points: entry.points,
+        level: {
+          level: entry.level.level,
+          title: entry.level.title,
+        },
+        completedChapterCount: entry.completedChapterCount,
+        qualifiedContentCount: entry.qualifiedContentCount,
+        avgWatchPercentage: entry.avgWatchPercentage,
+        isCurrentUser: entry.userId === userId.toString(),
+      })),
+      featuredMessage: rewards.isEligible
+        ? (
+            rewards.level.nextLevel
+              ? `You are ${rewards.level.pointsToNextLevel} points away from ${rewards.level.nextLevel.title}.`
+              : 'You have reached the top member level. Keep leading the way.'
+          )
+        : rewards.reason,
+    },
+  };
 };
 
 export const getCourseProgress = async (userId, courseId) => {

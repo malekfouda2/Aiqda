@@ -178,7 +178,21 @@ export const getCourseById = async (courseId, userId = null, userRole = null) =>
   if (!canAccessCourse(course, userId, userRole)) {
     throw new Error('Course not found');
   }
-  return attachAssignedPackages(course);
+
+  const enrichedCourse = await attachAssignedPackages(course);
+
+  if (userId && !['admin', 'instructor'].includes(userRole || '')) {
+    const accessContext = await getSubscriptionAccessContext(userId, courseId);
+    return {
+      ...enrichedCourse,
+      accessContext: {
+        hasActiveSubscription: accessContext.hasActiveSubscription,
+        hasCourseAccess: accessContext.hasCourseAccess,
+      },
+    };
+  }
+
+  return enrichedCourse;
 };
 
 export const updateCourse = async (courseId, updates, userId, userRole) => {

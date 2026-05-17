@@ -49,6 +49,10 @@ function CourseDetail() {
     : null;
   const isCourseCompleted = courseJourney.isCompleted || courseProgressPercentage >= 100;
   const enrolledCount = course?.enrolledStudents?.length || 0;
+  const courseAccessContext = course?.accessContext || null;
+  const hasActiveCourseSubscription = courseAccessContext?.hasActiveSubscription ?? hasSubscription;
+  const hasCurrentCourseAccess = courseAccessContext?.hasCourseAccess ?? false;
+  const canResumeEnrolledCourse = isEnrolled && hasActiveCourseSubscription && hasCurrentCourseAccess;
 
   const fetchData = async () => {
     setLoading(true);
@@ -292,17 +296,43 @@ function CourseDetail() {
                         </div>
                       )}
 
+                      {!canResumeEnrolledCourse && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-4">
+                          <p className="font-medium text-amber-800 mb-1">
+                            {hasActiveCourseSubscription
+                              ? (isRTL ? 'هذا الفصل غير مشمول في اشتراكك الحالي' : 'This chapter is not included in your current subscription')
+                              : (isRTL ? 'تحتاج إلى اشتراك نشط للمتابعة' : 'You need an active subscription to continue')}
+                          </p>
+                          <p className="text-sm text-amber-700/90">
+                            {hasActiveCourseSubscription
+                              ? (isRTL ? 'يمكنك تغيير باقتك أو العودة إلى الفصول المتاحة ضمن اشتراكك الحالي.' : 'You can switch your package or return to chapters included in your current subscription.')
+                              : (isRTL ? 'فعّل اشتراكك أو جدده ثم عد لإكمال هذا الفصل.' : 'Activate or renew your subscription, then return to continue this chapter.')}
+                          </p>
+                        </div>
+                      )}
+
                       <div className="space-y-3">
-                        <Link
-                          to={recommendedLesson ? `/development/${recommendedLesson._id}` : '#'}
-                          className="btn-primary w-full px-5 py-3 text-base leading-tight"
-                        >
-                          {isCourseCompleted
-                            ? (isRTL ? 'راجع الفصل ←' : 'Review Chapter →')
-                            : recommendedLessonState?.hasStarted
-                              ? (isRTL ? 'تابع التطوير ←' : 'Continue Development →')
-                              : (isRTL ? 'ابدأ الفصل ←' : 'Start Chapter →')}
-                        </Link>
+                        {canResumeEnrolledCourse ? (
+                          <Link
+                            to={recommendedLesson ? `/development/${recommendedLesson._id}` : '#'}
+                            className="btn-primary w-full px-5 py-3 text-base leading-tight"
+                          >
+                            {isCourseCompleted
+                              ? (isRTL ? 'راجع الفصل ←' : 'Review Chapter →')
+                              : recommendedLessonState?.hasStarted
+                                ? (isRTL ? 'تابع التطوير ←' : 'Continue Development →')
+                                : (isRTL ? 'ابدأ الفصل ←' : 'Start Chapter →')}
+                          </Link>
+                        ) : (
+                          <Link
+                            to="/dashboard/subscription"
+                            className="btn-primary w-full px-5 py-3 text-base leading-tight"
+                          >
+                            {hasActiveCourseSubscription
+                              ? (isRTL ? 'غيّر الباقة ←' : 'Change Package →')
+                              : (isRTL ? 'فعّل الاشتراك ←' : 'Activate Subscription →')}
+                          </Link>
+                        )}
                         <a href="#chapter-roadmap" className="btn-secondary w-full px-5 py-3 text-base leading-tight">
                           {isRTL ? 'استعرض المسار' : 'View Roadmap'}
                         </a>
@@ -457,7 +487,7 @@ function CourseDetail() {
                         </div>
                       </div>
 
-                      {isEnrolled ? (
+                      {canResumeEnrolledCourse ? (
                         <Link
                           to={`/development/${lesson._id}`}
                           className={`justify-center whitespace-nowrap ${
@@ -473,6 +503,15 @@ function CourseDetail() {
                             : getLessonProgressState(lesson, courseJourney.progressMap).hasStarted
                               ? (isRTL ? 'تابع ←' : 'Continue →')
                               : (isRTL ? 'ابدأ ←' : 'Start →')}
+                        </Link>
+                      ) : isEnrolled ? (
+                        <Link
+                          to="/dashboard/subscription"
+                          className="btn-secondary justify-center whitespace-nowrap"
+                        >
+                          {hasActiveCourseSubscription
+                            ? (isRTL ? 'غيّر الباقة ←' : 'Change Package →')
+                            : (isRTL ? 'فعّل الاشتراك ←' : 'Activate Subscription →')}
                         </Link>
                       ) : (
                         <div className="text-sm text-gray-400 whitespace-nowrap">

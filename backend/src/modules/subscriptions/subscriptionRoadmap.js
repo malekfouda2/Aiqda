@@ -1,6 +1,8 @@
 export const DEFAULT_ANNUAL_DURATION_DAYS = 365;
+export const DEFAULT_SIX_MONTH_DURATION_DAYS = 180;
 export const DEFAULT_MONTHLY_DURATION_DAYS = 30;
 export const DEFAULT_ANNUAL_MULTIPLIER = 10;
+export const DEFAULT_SIX_MONTH_MULTIPLIER = 6;
 
 export const LEGACY_SUBSCRIPTION_PACKAGE_NAMES = [
   'Engineering Starter',
@@ -22,7 +24,7 @@ export const ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS = [
     key: 'start-smart',
     name: 'Start Smart',
     monthlyPrice: 299,
-    scheduleDuration: 'Monthly / Annual',
+    scheduleDuration: 'Monthly / 6 Months / Annual',
     learningMode: 'Asset to Asset Project-based',
     focus: 'Industry orientation, tool awareness, foundational concepts',
     softwareExposure: [
@@ -39,7 +41,7 @@ export const ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS = [
     key: 'pro-artist',
     name: 'Pro Artist',
     monthlyPrice: 349,
-    scheduleDuration: 'Monthly / Annual',
+    scheduleDuration: 'Monthly / 6 Months / Annual',
     learningMode: 'Asset to Asset Project-based',
     focus: 'Applied fundamentals, skill combination',
     softwareExposure: ['Photoshop', 'Toon Boom', 'Blender/Maya', 'After Effects'],
@@ -49,7 +51,7 @@ export const ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS = [
     key: 'full-studio',
     name: 'Full Studio',
     monthlyPrice: 499,
-    scheduleDuration: 'Monthly / Annual',
+    scheduleDuration: 'Monthly / 6 Months / Annual',
     learningMode: 'Asset to Asset Project-based',
     focus: 'Studio workflows, pipeline execution, production discipline',
     softwareExposure: ['Maya/Blender', 'Unreal Engine', 'After Effects', 'Production pipeline tools'],
@@ -59,7 +61,7 @@ export const ROADMAP_SELF_SERVE_PACKAGE_BLUEPRINTS = [
     key: 'semester-track',
     name: 'Semester / Professional Track',
     monthlyPrice: 899,
-    scheduleDuration: 'Monthly / Annual',
+    scheduleDuration: 'Monthly / 6 Months / Annual',
     learningMode: 'Asset to Asset Project-based',
     focus: 'Professional readiness, specialization, portfolio development',
     softwareExposure: ['Full toolset based on specialization'],
@@ -79,8 +81,10 @@ export const ROADMAP_ENTERPRISE_PACKAGE_BLUEPRINT = {
 
 export const buildSelfServeBillingOptions = (
   monthlyPrice,
+  sixMonthPrice = monthlyPrice * DEFAULT_SIX_MONTH_MULTIPLIER,
   annualPrice = monthlyPrice * DEFAULT_ANNUAL_MULTIPLIER,
   monthlyDurationDays = DEFAULT_MONTHLY_DURATION_DAYS,
+  sixMonthDurationDays = DEFAULT_SIX_MONTH_DURATION_DAYS,
   annualDurationDays = DEFAULT_ANNUAL_DURATION_DAYS
 ) => ([
   {
@@ -88,6 +92,13 @@ export const buildSelfServeBillingOptions = (
     label: 'Monthly',
     price: monthlyPrice,
     durationDays: monthlyDurationDays,
+    isActive: true,
+  },
+  {
+    term: 'six_months',
+    label: '6 Months',
+    price: sixMonthPrice,
+    durationDays: sixMonthDurationDays,
     isActive: true,
   },
   {

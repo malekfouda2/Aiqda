@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { getDeviceIdFromRequest } from '../../utils/authCookie.js';
+import { isBackofficeRole } from '../../utils/roles.js';
 
 const DEFAULT_MAX_AUTH_DEVICES = 2;
 const DEFAULT_ACTIVE_SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -127,6 +128,8 @@ const clearExpiredSessionIfNeeded = (user, now = new Date()) => {
   return false;
 };
 
+const hasUnlimitedConcurrentAccess = (user) => isBackofficeRole(user?.role);
+
 export const buildDeviceContextFromRequest = (req) => ({
   deviceId: normalizeDeviceId(getDeviceIdFromRequest(req))
     || normalizeDeviceId(req?.deviceId)
@@ -137,9 +140,23 @@ export const buildDeviceContextFromRequest = (req) => ({
 
 export const createAuthenticatedSessionForUser = async (user, deviceContext = {}) => {
   const now = new Date();
-  clearExpiredSessionIfNeeded(user, now);
-
   const knownDeviceId = normalizeDeviceId(deviceContext.deviceId);
+
+  if (hasUnlimitedConcurrentAccess(user)) {
+    const deviceId = knownDeviceId || randomUUID();
+    const sessionToken = generateToken({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      sessionToken,
+      deviceId,
+    };
+  }
+
+  clearExpiredSessionIfNeeded(user, now);
   const existingDevice = findAuthorizedDevice(user, knownDeviceId);
 
   if (!existingDevice && Array.isArray(user.authorizedDevices) && user.authorizedDevices.length >= getMaxAuthDevices()) {

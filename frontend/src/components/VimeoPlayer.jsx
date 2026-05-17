@@ -314,20 +314,20 @@ function VimeoPlayer({ vimeoVideoId, embedUrl, onProgressUpdate, initialProgress
             {[activeWatermarkPosition, secondaryWatermarkPosition].map((position, index) => (
               <div
                 key={`${position.top}-${position.left}-${index}`}
-                className={`watermark-badge absolute max-w-[68%] rounded-2xl border border-white/14 bg-slate-950/24 px-3 py-2 text-white/78 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.95)] backdrop-blur-[2px] transition-all duration-[1800ms] ease-out ${index === 1 ? 'opacity-45' : 'opacity-75'}`}
+                className={`watermark-badge absolute max-w-[54%] rounded-xl border border-white/10 bg-slate-950/16 px-2.5 py-1.5 text-white/64 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.82)] backdrop-blur-[1px] transition-all duration-[1800ms] ease-out ${index === 1 ? 'opacity-28' : 'opacity-48'}`}
                 style={{
                   top: position.top,
                   left: position.left,
                   transform: `translate(-50%, -50%) rotate(${position.rotate})`,
                 }}
               >
-                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/58">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/44">
                   {isRTL ? 'مشاهدة مرخصة' : 'Licensed View'}
                 </div>
-                <div className="mt-1 text-sm font-semibold leading-tight text-white/88">
+                <div className="mt-0.5 text-xs font-semibold leading-tight text-white/72">
                   {viewerWatermark.name}
                 </div>
-                <div className="mt-1 text-[11px] font-medium tracking-[0.18em] text-white/60">
+                <div className="mt-0.5 text-[9px] font-medium tracking-[0.14em] text-white/44">
                   {viewerWatermark.code} • {formatWatermarkTimestamp(watermarkTimestamp, isRTL ? 'ar' : 'en')}
                 </div>
               </div>

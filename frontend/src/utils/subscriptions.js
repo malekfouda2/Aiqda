@@ -2,7 +2,20 @@ import { getLocalizedValue, text } from '../i18n/translations';
 
 export const BILLING_TERM_LABELS = {
   monthly: text('Monthly', 'شهري'),
+  six_months: text('6 Months', '6 أشهر'),
   annual: text('Annual', 'سنوي'),
+};
+
+const BILLING_TERM_ORDER = {
+  monthly: 0,
+  six_months: 1,
+  annual: 2,
+};
+
+export const BILLING_TERM_CADENCE_LABELS = {
+  monthly: text('per month', 'شهريًا'),
+  six_months: text('per 6 months', 'كل 6 أشهر'),
+  annual: text('per year', 'سنويًا'),
 };
 
 export const getBillingTermLabel = (term, locale = 'en') => {
@@ -21,8 +34,8 @@ export const getActiveBillingOptions = (pkg = {}) => {
   return pkg.billingOptions
     .filter((option) => option && option.term && option.isActive !== false)
     .sort((a, b) => {
-      const aRank = a.term === 'monthly' ? 0 : 1;
-      const bRank = b.term === 'monthly' ? 0 : 1;
+      const aRank = BILLING_TERM_ORDER[a.term] ?? Number.MAX_SAFE_INTEGER;
+      const bRank = BILLING_TERM_ORDER[b.term] ?? Number.MAX_SAFE_INTEGER;
       return aRank - bRank;
     });
 };
@@ -42,6 +55,10 @@ export const getBillingOption = (pkg = {}, billingTerm = null) => {
 
   return activeOptions.find((option) => option.term === billingTerm) || null;
 };
+
+export const getBillingCadenceLabel = (term, locale = 'en') => (
+  getLocalizedValue(BILLING_TERM_CADENCE_LABELS[term] || term, locale)
+);
 
 export const formatMoney = (value, locale = 'en') => {
   const numericValue = Number(value);

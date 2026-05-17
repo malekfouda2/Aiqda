@@ -7,6 +7,115 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 
+const rewardIconMap = {
+  Spark: '✨',
+  Focus: '🎯',
+  Flag: '🏁',
+  Bolt: '⚡',
+  Target: '👁️',
+  Compass: '🧭',
+};
+const rewardLevelLabels = {
+  Explorer: { en: 'Explorer', ar: 'المستكشف' },
+  'Momentum Builder': { en: 'Momentum Builder', ar: 'صانع الزخم' },
+  'Skill Climber': { en: 'Skill Climber', ar: 'متسلق المهارات' },
+  'Chapter Challenger': { en: 'Chapter Challenger', ar: 'متحدي الفصول' },
+  'Creative Force': { en: 'Creative Force', ar: 'القوة الإبداعية' },
+  'Aiqda Trailblazer': { en: 'Aiqda Trailblazer', ar: 'رائد اقدع' },
+};
+const rewardBadgeCopy = {
+  'first-step': {
+    title: { en: 'First Step', ar: 'الخطوة الأولى' },
+    description: { en: 'Start your first content item.', ar: 'ابدأ أول محتوى لك.' },
+  },
+  'qualified-trio': {
+    title: { en: 'Qualified Trio', ar: 'ثلاثية الإنجاز' },
+    description: { en: 'Qualify 3 content items.', ar: 'أكمل 3 محتويات بنجاح.' },
+  },
+  'chapter-finisher': {
+    title: { en: 'Chapter Finisher', ar: 'منهي الفصل' },
+    description: { en: 'Complete your first chapter.', ar: 'أكمل أول فصل لك.' },
+  },
+  'momentum-mode': {
+    title: { en: 'Momentum Mode', ar: 'وضع الزخم' },
+    description: { en: 'Stay active across 3 content items in the last 14 days.', ar: 'كن نشطًا في 3 محتويات خلال آخر 14 يومًا.' },
+  },
+  'watch-master': {
+    title: { en: 'Watch Master', ar: 'سيد المشاهدة' },
+    description: { en: 'Maintain an 85% average watch rate.', ar: 'حافظ على متوسط مشاهدة 85٪.' },
+  },
+  pathfinder: {
+    title: { en: 'Pathfinder', ar: 'مكتشف المسار' },
+    description: { en: 'Be enrolled across 3 chapters.', ar: 'سجّل في 3 فصول.' },
+  },
+};
+
+const getRewardLevelLabel = (title, isRTL) => {
+  const labels = rewardLevelLabels[title];
+  return labels ? (isRTL ? labels.ar : labels.en) : title;
+};
+
+const getRewardBadgeCopy = (badge, isRTL) => {
+  const copy = rewardBadgeCopy[badge.id];
+  return copy
+    ? {
+        title: isRTL ? copy.title.ar : copy.title.en,
+        description: isRTL ? copy.description.ar : copy.description.en,
+      }
+    : {
+        title: badge.title,
+        description: badge.description,
+      };
+};
+
+const getRewardFeatureMessage = (rewards, isRTL) => {
+  if (!rewards) {
+    return '';
+  }
+
+  if (!rewards.isEligible) {
+    return rewards.reason;
+  }
+
+  if (rewards.level?.nextLevel) {
+    return isRTL
+      ? `أنت على بُعد ${rewards.level.pointsToNextLevel} نقطة من مستوى ${getRewardLevelLabel(rewards.level.nextLevel.title, true)}.`
+      : `You are ${rewards.level.pointsToNextLevel} points away from ${getRewardLevelLabel(rewards.level.nextLevel.title, false)}.`;
+  }
+
+  return isRTL
+    ? 'لقد وصلت إلى أعلى مستوى بين الأعضاء. استمر في الحفاظ على الصدارة.'
+    : 'You have reached the top member level. Keep leading the way.';
+};
+
+const getMilestoneRewardCopy = (milestone, rewards, isRTL) => {
+  if (milestone.id === 'next-level') {
+    if (!rewards.level?.nextLevel) {
+      return isRTL ? 'أنت بالفعل في أعلى فئة.' : 'You are already in the top tier.';
+    }
+
+    return isRTL
+      ? `${rewards.level.pointsToNextLevel} نقطة تفصلك عن ${getRewardLevelLabel(rewards.level.nextLevel.title, true)}`
+      : `${rewards.level.pointsToNextLevel} points away from ${getRewardLevelLabel(rewards.level.nextLevel.title, false)}`;
+  }
+
+  if (milestone.id === 'qualified-content') {
+    const remaining = Math.max(milestone.target - milestone.current, 0);
+    return remaining > 0
+      ? (isRTL ? `أكمل ${remaining} محتوى إضافي لفتح الإنجاز التالي.` : `Qualify ${remaining} more content items to unlock the next milestone.`)
+      : (isRTL ? 'تم الوصول إلى هدف المحتوى الحالي.' : 'This content milestone is already reached.');
+  }
+
+  if (milestone.id === 'completed-chapters') {
+    const remaining = Math.max(milestone.target - milestone.current, 0);
+    return remaining > 0
+      ? (isRTL ? `أكمل ${remaining} فصل إضافي لفتح الإنجاز التالي.` : `Complete ${remaining} more chapters to unlock the next milestone.`)
+      : (isRTL ? 'تم الوصول إلى هدف الفصول الحالي.' : 'This chapter milestone is already reached.');
+  }
+
+  return milestone.reward;
+};
+
 function Dashboard() {
   const { formatDate, isRTL, locale } = useLocale();
   const { user } = useAuthStore();
@@ -14,27 +123,67 @@ function Dashboard() {
   const [subscription, setSubscription] = useState(null);
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    let active = true;
 
-  const fetchData = async () => {
-    try {
-      const [coursesRes, subRes, progressRes] = await Promise.all([
-        coursesAPI.getEnrolled(),
-        subscriptionsAPI.getActiveSubscription(),
-        analyticsAPI.getStudentProgress()
-      ]);
-      setEnrolledCourses(coursesRes.data);
-      setSubscription(subRes.data);
-      setProgress(progressRes.data);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchData = async () => {
+      setLoading(true);
+      setProgressLoading(true);
+
+      try {
+        const [coursesResult, subscriptionResult] = await Promise.allSettled([
+          coursesAPI.getEnrolled(),
+          subscriptionsAPI.getActiveSubscription(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        if (coursesResult.status === 'fulfilled') {
+          setEnrolledCourses(coursesResult.value.data);
+        } else {
+          console.error('Failed to fetch enrolled chapters:', coursesResult.reason);
+          setEnrolledCourses([]);
+        }
+
+        if (subscriptionResult.status === 'fulfilled') {
+          setSubscription(subscriptionResult.value.data);
+        } else {
+          console.error('Failed to fetch active subscription:', subscriptionResult.reason);
+          setSubscription(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+
+      try {
+        const progressRes = await analyticsAPI.getStudentProgress();
+        if (active) {
+          setProgress(progressRes.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard progress:', error);
+        if (active) {
+          setProgress(null);
+        }
+      } finally {
+        if (active) {
+          setProgressLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -52,6 +201,9 @@ function Dashboard() {
   const continueLearningEntry = progress?.recentActivity?.find((activity) => !activity.isQualified && activity.lesson?._id)
     || progress?.recentActivity?.find((activity) => activity.lesson?._id)
     || null;
+  const rewards = progress?.rewards || null;
+  const rewardBadges = rewards?.badges || [];
+  const eligibleLeaderboard = rewards?.leaderboard || [];
 
   return (
     <motion.div
@@ -75,7 +227,7 @@ function Dashboard() {
             <p className="text-gray-500 text-lg">{isRTL ? 'تابع رحلة تطويرك' : 'Continue your development journey'}</p>
           </div>
 
-          {continueLearningEntry && (
+          {!progressLoading && continueLearningEntry && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -159,7 +311,7 @@ function Dashboard() {
                   <span>✅</span>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900">{progress?.stats?.completedCourses || 0}</p>
+                  <p className="text-3xl font-bold text-gray-900">{progressLoading ? '…' : (progress?.stats?.completedCourses || 0)}</p>
                   <p className="text-gray-500 text-sm">{isRTL ? 'الفصول المكتملة' : 'Completed Chapters'}</p>
                 </div>
               </div>
@@ -176,12 +328,302 @@ function Dashboard() {
                   <span>🎯</span>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900">{progress?.stats?.totalLessonsCompleted || 0}</p>
+                  <p className="text-3xl font-bold text-gray-900">{progressLoading ? '…' : (progress?.stats?.totalLessonsCompleted || 0)}</p>
                   <p className="text-gray-500 text-sm">{isRTL ? 'المحتويات المكتملة' : 'Contents Completed'}</p>
                 </div>
               </div>
             </motion.div>
           </div>
+
+          {!progressLoading && rewards && (
+            <div className="grid xl:grid-cols-[1.35fr_0.95fr] gap-6 mb-10">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="card relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.11),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.12),transparent_34%)] pointer-events-none" />
+                <div className="relative">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
+                    <div>
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-primary-100 text-xs text-primary-500 font-medium mb-4">
+                        <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                        {isRTL ? 'نظام التقدم والتحفيز' : 'Member Momentum'}
+                      </div>
+                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                        {rewards.isEligible
+                          ? (isRTL ? 'كل خطوة الآن تكسبك نقاطًا ومكانة' : 'Every step now earns momentum')
+                          : (isRTL ? 'افتح التصنيف والمكافآت' : 'Unlock rankings and rewards')}
+                      </h2>
+                      <p className="text-gray-500 max-w-2xl">
+                        {getRewardFeatureMessage(rewards, isRTL) || (isRTL ? 'حافظ على تقدمك لتصعد في الترتيب بين الأعضاء.' : 'Keep progressing to climb the member leaderboard.')}
+                      </p>
+                    </div>
+
+                    {rewards.rank ? (
+                      <div className="rounded-2xl bg-slate-950 text-white px-5 py-4 min-w-[220px] shadow-lg shadow-slate-900/10">
+                        <p className="text-xs uppercase tracking-[0.3em] text-white/60 mb-2">
+                          {isRTL ? 'ترتيبك الحالي' : 'Your Standing'}
+                        </p>
+                        <p className="text-3xl font-bold">
+                          #{rewards.rank.position}
+                        </p>
+                        <p className="text-sm text-white/70 mt-1">
+                          {isRTL
+                            ? `من بين ${rewards.rank.totalEligibleMembers} عضوًا مؤهلًا`
+                            : `of ${rewards.rank.totalEligibleMembers} eligible members`}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-gray-200 bg-white/80 px-5 py-4 min-w-[220px]">
+                        <p className="text-xs uppercase tracking-[0.3em] text-gray-400 mb-2">
+                          {isRTL ? 'الحالة' : 'Status'}
+                        </p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {rewards.isEligible
+                            ? (isRTL ? 'جارٍ حساب الترتيب' : 'Ranking in progress')
+                            : (isRTL ? 'غير مؤهل بعد' : 'Not eligible yet')}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {rewards.reason || (isRTL ? 'سيظهر ترتيبك بعد استيفاء الشروط.' : 'Your ranking appears once you qualify.')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {rewards.isEligible ? (
+                    <>
+                      <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-6 mb-6">
+                        <div className="rounded-3xl bg-slate-950 text-white p-6 shadow-xl shadow-slate-900/10">
+                          <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-white/55 mb-2">
+                                {isRTL ? 'إجمالي النقاط' : 'Reward Points'}
+                              </p>
+                              <p className="text-5xl font-bold leading-none">{rewards.points}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs uppercase tracking-[0.35em] text-white/55 mb-2">
+                                {isRTL ? 'مستواك الحالي' : 'Current Level'}
+                              </p>
+                              <p className="text-xl font-semibold">{getRewardLevelLabel(rewards.level.title, isRTL)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-sm text-white/70 mb-2">
+                            <span>
+                              {isRTL ? 'التقدم للمستوى التالي' : 'Progress to next level'}
+                            </span>
+                            <span>
+                              {rewards.level.nextLevel
+                                ? `${rewards.level.pointsToNextLevel} ${isRTL ? 'نقطة متبقية' : 'pts to go'}`
+                                : (isRTL ? 'تم بلوغ أعلى مستوى' : 'Top tier reached')}
+                            </span>
+                          </div>
+                          <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-primary-400 via-brand-teal to-brand-blue transition-all duration-700"
+                              style={{ width: `${rewards.level.progressPercentage}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="rounded-2xl border border-gray-200 bg-white/90 p-4">
+                            <p className="text-xs uppercase tracking-[0.28em] text-gray-400 mb-2">
+                              {isRTL ? 'المحتويات المؤهلة' : 'Qualified Content'}
+                            </p>
+                            <p className="text-3xl font-bold text-gray-900">{rewards.qualifiedContentCount}</p>
+                            <p className="text-sm text-gray-500 mt-2">{isRTL ? 'تدفع ترتيبك للأمام' : 'Drives your ranking up'}</p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-white/90 p-4">
+                            <p className="text-xs uppercase tracking-[0.28em] text-gray-400 mb-2">
+                              {isRTL ? 'الفصول المكتملة' : 'Completed Chapters'}
+                            </p>
+                            <p className="text-3xl font-bold text-gray-900">{rewards.completedChapterCount}</p>
+                            <p className="text-sm text-gray-500 mt-2">{isRTL ? 'تفتح قفزات كبيرة بالنقاط' : 'Unlocks major point boosts'}</p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-white/90 p-4">
+                            <p className="text-xs uppercase tracking-[0.28em] text-gray-400 mb-2">
+                              {isRTL ? 'متوسط المشاهدة' : 'Average Watch'}
+                            </p>
+                            <p className="text-3xl font-bold text-gray-900">{rewards.avgWatchPercentage}%</p>
+                            <p className="text-sm text-gray-500 mt-2">{isRTL ? 'كلما ارتفع زادت فرص الشارات' : 'Higher rates unlock stronger badges'}</p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-white/90 p-4">
+                            <p className="text-xs uppercase tracking-[0.28em] text-gray-400 mb-2">
+                              {isRTL ? 'نشاط آخر 14 يومًا' : 'Active in 14 Days'}
+                            </p>
+                            <p className="text-3xl font-bold text-gray-900">{rewards.recentlyActiveCount}</p>
+                            <p className="text-sm text-gray-500 mt-2">{isRTL ? 'يحافظ على زخمك' : 'Keeps your momentum bonus alive'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white/85 p-5">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {isRTL ? 'شاراتك الحالية' : 'Unlocked Badges'}
+                            </h3>
+                            <span className="text-sm text-gray-500">
+                              {rewardBadges.filter((badge) => badge.unlocked).length}/{rewardBadges.length}
+                            </span>
+                          </div>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {rewardBadges.map((badge) => (
+                              <div
+                                key={badge.id}
+                                className={`rounded-2xl border p-4 transition-all duration-300 ${badge.unlocked ? 'border-primary-100 bg-gradient-to-br from-primary-50 to-cyan-50' : 'border-gray-200 bg-gray-50/70 opacity-75'}`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <span className={`text-2xl ${badge.unlocked ? '' : 'grayscale'}`}>{rewardIconMap[badge.icon] || '🏅'}</span>
+                                  <div>
+                                    <p className="font-semibold text-gray-900">{getRewardBadgeCopy(badge, isRTL).title}</p>
+                                    <p className="text-sm text-gray-500 mt-1">{getRewardBadgeCopy(badge, isRTL).description}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-200 bg-white/85 p-5">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {isRTL ? 'أهدافك التالية' : 'Next Milestones'}
+                            </h3>
+                            <span className="text-sm text-gray-500">
+                              {isRTL ? 'خطوات واضحة' : 'Clear next steps'}
+                            </span>
+                          </div>
+                          <div className="space-y-4">
+                            {rewards.milestones.map((milestone) => (
+                              <div key={milestone.id} className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4">
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                  <p className="font-medium text-gray-900">
+                                    {milestone.id === 'next-level'
+                                      ? (isRTL ? 'المستوى التالي' : 'Next Level')
+                                      : milestone.id === 'qualified-content'
+                                        ? (isRTL ? 'تأهيل المحتوى' : 'Qualified Content Goal')
+                                        : milestone.id === 'completed-chapters'
+                                          ? (isRTL ? 'إكمال الفصول' : 'Chapter Completion Goal')
+                                          : milestone.title}
+                                  </p>
+                                  <span className="text-sm text-gray-500">
+                                    {milestone.current}/{milestone.target}
+                                  </span>
+                                </div>
+                                <div className="h-2 rounded-full bg-white overflow-hidden mb-2">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-primary-500 via-brand-teal to-brand-blue transition-all duration-700"
+                                    style={{ width: `${milestone.progressPercentage}%` }}
+                                  />
+                                </div>
+                                <p className="text-sm text-gray-500">{getMilestoneRewardCopy(milestone, rewards, isRTL)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-primary-200 bg-gradient-to-br from-primary-50 via-white to-cyan-50 p-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                        {isRTL ? 'أنت قريب من الدخول إلى لوحة الترتيب' : 'You are close to joining the leaderboard'}
+                      </h3>
+                      <p className="text-gray-500 mb-5 max-w-2xl">
+                        {rewards.reason}
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        {!subscription ? (
+                          <Link to="/dashboard/subscription" className="btn-primary justify-center">
+                            {isRTL ? 'فعّل الاشتراك' : 'Activate Subscription'}
+                          </Link>
+                        ) : (
+                          <Link to="/chapters" className="btn-primary justify-center">
+                            {isRTL ? 'ابدأ التسجيل في فصل' : 'Enroll in a Chapter'}
+                          </Link>
+                        )}
+                        <Link to="/chapters" className="btn-secondary justify-center">
+                          {isRTL ? 'استكشف الفصول' : 'Browse Chapters'}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 }}
+                className="card"
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {isRTL ? 'لوحة المتصدرين' : 'Leaderboard'}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {isRTL ? 'للأعضاء النشطين والمؤهلين فقط' : 'Only active, enrolled members are ranked here'}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-50 to-cyan-50 border border-primary-100 flex items-center justify-center text-2xl">
+                    🏆
+                  </div>
+                </div>
+
+                {eligibleLeaderboard.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-6 text-center text-gray-500">
+                    {isRTL ? 'سيظهر التصنيف بمجرد وجود أعضاء مؤهلين نشطين.' : 'The leaderboard appears once eligible active members are progressing.'}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {eligibleLeaderboard.map((entry) => (
+                      <div
+                        key={entry.userId}
+                        className={`rounded-2xl border p-4 transition-all duration-300 ${entry.isCurrentUser ? 'border-primary-200 bg-gradient-to-r from-primary-50 to-cyan-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-semibold ${entry.position === 1 ? 'bg-amber-100 text-amber-700' : entry.position === 2 ? 'bg-slate-100 text-slate-700' : entry.position === 3 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                            #{entry.position}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-gray-900 truncate">{entry.name}</p>
+                              {entry.isCurrentUser && (
+                                <span className="px-2 py-0.5 rounded-full bg-white border border-primary-200 text-xs text-primary-500">
+                                  {isRTL ? 'أنت' : 'You'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {getRewardLevelLabel(entry.level.title, isRTL)} • {entry.completedChapterCount} {isRTL ? 'فصل مكتمل' : 'completed chapters'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-900">{entry.points}</p>
+                            <p className="text-xs text-gray-500">{isRTL ? 'نقطة' : 'points'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {rewards.rank && !eligibleLeaderboard.some((entry) => entry.isCurrentUser) && (
+                  <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50/70 p-4">
+                    <p className="text-sm font-medium text-primary-600">
+                      {isRTL
+                        ? `ترتيبك الحالي #${rewards.rank.position} من ${rewards.rank.totalEligibleMembers}`
+                        : `Your current rank is #${rewards.rank.position} of ${rewards.rank.totalEligibleMembers}`}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
@@ -265,7 +707,7 @@ function Dashboard() {
                 )}
               </motion.div>
 
-              {progress?.recentActivity?.length > 0 && (
+              {!progressLoading && progress?.recentActivity?.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -295,6 +737,27 @@ function Dashboard() {
             </div>
 
             <div className="space-y-6">
+              {progressLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 }}
+                  className="card"
+                >
+                  <div className="flex items-center gap-3">
+                    <LoadingSpinner size="sm" />
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        {isRTL ? 'جارٍ تجهيز تقدمك...' : 'Preparing your progress...'}
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {isRTL ? 'سيظهر آخر نشاطك والتصنيف خلال لحظات.' : 'Your recent activity and ranking will appear shortly.'}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
