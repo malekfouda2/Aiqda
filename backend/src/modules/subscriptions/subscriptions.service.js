@@ -62,6 +62,22 @@ const toNullableNumber = (value) => {
   return Number.isFinite(normalized) ? normalized : null;
 };
 
+const getEffectiveBillingPrice = (option = {}) => {
+  const basePrice = Number(option?.price);
+  const salePrice = Number(option?.salePrice);
+
+  if (
+    Number.isFinite(basePrice)
+    && Number.isFinite(salePrice)
+    && salePrice > 0
+    && salePrice < basePrice
+  ) {
+    return salePrice;
+  }
+
+  return basePrice;
+};
+
 const normalizePurchaseMode = (value = 'self_serve') => {
   if (typeof value !== 'string') {
     return 'self_serve';
@@ -161,6 +177,22 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
           ? rawOption.label.trim()
           : BILLING_TERM_LABELS[term],
         price,
+        salePrice: (() => {
+          const normalizedSalePrice = toNullableNumber(rawOption.salePrice);
+          if (normalizedSalePrice === null) {
+            return null;
+          }
+
+          if (normalizedSalePrice <= 0) {
+            throw new Error(`A valid ${term} sale price must be greater than zero.`);
+          }
+
+          if (normalizedSalePrice >= price) {
+            throw new Error(`The ${term} sale price must be lower than the base price.`);
+          }
+
+          return normalizedSalePrice;
+        })(),
         durationDays,
         isActive: true,
       });
@@ -180,6 +212,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
         term: option.term,
         label: option.label || BILLING_TERM_LABELS[option.term] || option.term,
         price: option.price,
+        salePrice: option.salePrice ?? null,
         durationDays: option.durationDays,
         isActive: option.isActive !== false,
       })));
@@ -203,6 +236,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
       term: 'monthly',
       label: BILLING_TERM_LABELS.monthly,
       price: legacyPrice,
+      salePrice: null,
       durationDays: legacyDuration,
       isActive: true,
     },
@@ -228,7 +262,7 @@ const buildPackagePayload = (packageData = {}, existingPackage = null) => {
 
   const payload = {
     name: typeof packageData.name === 'string' ? packageData.name.trim() : existingPackage?.name,
-    price: defaultBillingOption?.price ?? null,
+    price: defaultBillingOption ? getEffectiveBillingPrice(defaultBillingOption) : null,
     billingOptions,
     scheduleDuration: typeof packageData.scheduleDuration === 'string'
       ? packageData.scheduleDuration.trim()
@@ -291,7 +325,7 @@ const getPackageSortValue = (pkg) => {
 
   const preferredOption = getBillingOptionForPackage(pkg);
   if (preferredOption) {
-    return preferredOption.price;
+    return getEffectiveBillingPrice(preferredOption);
   }
 
   return Number.MAX_SAFE_INTEGER - 1;
@@ -471,7 +505,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
     package: packageId,
     status: 'pending',
     billingTerm: billingOption.term,
-    priceAtPurchase: billingOption.price,
+    priceAtPurchase: getEffectiveBillingPrice(billingOption),
     durationDaysSnapshot: billingOption.durationDays,
     purchaseModeSnapshot: pkg.purchaseMode,
   });

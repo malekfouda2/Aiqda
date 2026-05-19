@@ -18,7 +18,12 @@ import {
   getBillingOption,
   getBillingTermLabel,
   getDefaultBillingTerm,
+  getEffectiveBillingPrice,
+  getBillingSaleAmount,
+  getBillingSalePercentage,
   getPackageAccessNames,
+  getPackageSaleSummary,
+  hasBillingSale,
 } from "../utils/subscriptions";
 
 function Home() {
@@ -306,6 +311,8 @@ function Home() {
                 const selectedOption = getBillingOption(pkg, selectedTerm);
                 const annualSavings = getAnnualSavings(pkg);
                 const accessNames = getPackageAccessNames(pkg);
+                const packageSaleSummary = getPackageSaleSummary(pkg);
+                const selectedOptionOnSale = hasBillingSale(selectedOption);
 
                 return (
                   <motion.div
@@ -337,11 +344,18 @@ function Home() {
                           </p>
                         )}
                       </div>
-                      {isContactOnly && (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                          {isRTL ? "مخصص" : "Custom"}
-                        </span>
-                      )}
+                      <div className="flex flex-col items-end gap-2">
+                        {packageSaleSummary && !isContactOnly && (
+                          <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
+                            {isRTL ? `خصم حتى ${packageSaleSummary.bestSalePercentage}%` : `Up to ${packageSaleSummary.bestSalePercentage}% Off`}
+                          </span>
+                        )}
+                        {isContactOnly && (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                            {isRTL ? "مخصص" : "Custom"}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {!isContactOnly && activeBillingOptions.length > 1 && (
@@ -357,7 +371,12 @@ function Home() {
                                 : "text-gray-500 hover:text-gray-700"
                             }`}
                           >
-                            {getBillingTermLabel(option.term, locale) || option.label || option.term}
+                            <span className="block">{getBillingTermLabel(option.term, locale) || option.label || option.term}</span>
+                            {hasBillingSale(option) && (
+                              <span className="mt-1 block text-[11px] font-semibold text-rose-500">
+                                {isRTL ? `${getBillingSalePercentage(option)}% خصم` : `${getBillingSalePercentage(option)}% OFF`}
+                              </span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -377,8 +396,20 @@ function Home() {
                         </>
                       ) : selectedOption ? (
                         <>
+                          {selectedOptionOnSale && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
+                                {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ريال` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} SAR`}
+                              </span>
+                            </div>
+                          )}
+                          {selectedOptionOnSale && (
+                            <p className="text-sm text-gray-400 line-through">
+                              {formatMoney(selectedOption.price, locale)} SAR
+                            </p>
+                          )}
                           <span className="text-4xl font-bold text-gray-900">
-                            {formatMoney(selectedOption.price, locale)}
+                            {formatMoney(getEffectiveBillingPrice(selectedOption), locale)}
                           </span>
                           <span className="text-gray-500 ml-1">SAR</span>
                           <p className="text-sm text-gray-500 mt-2">

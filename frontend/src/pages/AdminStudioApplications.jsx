@@ -268,7 +268,7 @@ function AdminStudioApplications() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: 12 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="app-modal-panel max-w-3xl max-h-[90vh] overflow-hidden"
+              className="app-modal-panel max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {detailLoading ? (
@@ -300,7 +300,7 @@ function AdminStudioApplications() {
                     </button>
                   </div>
 
-                  <div className="app-modal-scroll overflow-y-auto max-h-[calc(90vh-80px)] px-6 py-5 space-y-8">
+                  <div className="app-modal-scroll overflow-y-auto max-h-[calc(100dvh-7rem)] sm:max-h-[calc(100dvh-8rem)] px-6 py-5 space-y-8">
                     {/* Section 1 */}
                     <div>
                       <SectionTitle>Section 1: Studio Identity & Structure</SectionTitle>

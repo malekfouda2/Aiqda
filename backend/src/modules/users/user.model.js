@@ -153,6 +153,10 @@ const userSchema = new mongoose.Schema({
     type: currentSessionSchema,
     default: null,
   },
+  currentSessions: {
+    type: [currentSessionSchema],
+    default: [],
+  },
 }, {
   timestamps: true
 });
@@ -166,6 +170,7 @@ userSchema.methods.toJSON = function() {
   delete user.authProviders;
   delete user.authorizedDevices;
   delete user.currentSession;
+  delete user.currentSessions;
   return user;
 };
 

@@ -282,7 +282,7 @@ function AdminInstructorApplications() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: 12 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="app-modal-panel max-w-3xl max-h-[85vh] overflow-hidden"
+              className="app-modal-panel max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {detailLoading ? (
@@ -314,7 +314,7 @@ function AdminInstructorApplications() {
                     </button>
                   </div>
 
-                  <div className="app-modal-scroll overflow-y-auto max-h-[calc(85vh-80px)] px-6 py-5 space-y-6">
+                  <div className="app-modal-scroll overflow-y-auto max-h-[calc(100dvh-7rem)] sm:max-h-[calc(100dvh-8rem)] px-6 py-5 space-y-6">
                     <div>
                       <SectionTitle>Personal Information</SectionTitle>
                       <div className="grid sm:grid-cols-2 gap-x-6">

@@ -61,9 +61,9 @@ function DashboardSidebar({ type }) {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}
-      className="w-64 shrink-0 hidden lg:block"
+      className="hidden w-64 shrink-0 lg:block"
     >
-      <div className="sticky top-24 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="sticky top-28 xl:top-32 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="p-5 border-b border-gray-100">
           <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse text-right' : ''}`}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
@@ -156,8 +156,8 @@ function DashboardMobileNav({ type }) {
       : studentLinks;
 
   return (
-    <div className="lg:hidden mb-6 overflow-x-auto">
-      <div className="flex gap-2 min-w-max pb-2">
+    <div className="mb-4 overflow-x-auto lg:hidden sm:mb-6">
+      <div className="flex min-w-max gap-2 pb-2">
         {links.map((link) => (
           <NavLink
             key={link.to}

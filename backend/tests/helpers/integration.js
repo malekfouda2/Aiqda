@@ -199,6 +199,7 @@ export const createSubscriptionPackage = async (overrides = {}) => {
             term: 'monthly',
             label: 'Monthly',
             price: overrides.price || 499,
+            salePrice: overrides.monthlySalePrice ?? null,
             durationDays: overrides.durationDays || 30,
             isActive: true,
           },
@@ -206,6 +207,7 @@ export const createSubscriptionPackage = async (overrides = {}) => {
             term: 'six_months',
             label: '6 Months',
             price: overrides.sixMonthPrice || (overrides.price || 499) * 6,
+            salePrice: overrides.sixMonthSalePrice ?? null,
             durationDays: overrides.sixMonthDurationDays || 180,
             isActive: true,
           },
@@ -213,6 +215,7 @@ export const createSubscriptionPackage = async (overrides = {}) => {
             term: 'annual',
             label: 'Annual',
             price: overrides.annualPrice || (overrides.price || 499) * 10,
+            salePrice: overrides.annualSalePrice ?? null,
             durationDays: overrides.annualDurationDays || 365,
             isActive: true,
           },
@@ -247,12 +250,19 @@ export const createSubscription = async (overrides = {}) => {
   const billingOption = packageRecord?.billingOptions?.find((option) => option.term === billingTerm)
     || packageRecord?.billingOptions?.[0]
     || null;
+  const effectiveBillingPrice = (
+    Number.isFinite(Number(billingOption?.salePrice))
+    && Number(billingOption.salePrice) > 0
+    && Number(billingOption.salePrice) < Number(billingOption?.price)
+  )
+    ? Number(billingOption.salePrice)
+    : billingOption?.price;
 
   return Subscription.create({
     user: overrides.user,
     package: overrides.package,
     billingTerm,
-    priceAtPurchase: overrides.priceAtPurchase ?? billingOption?.price ?? packageRecord?.price ?? null,
+    priceAtPurchase: overrides.priceAtPurchase ?? effectiveBillingPrice ?? packageRecord?.price ?? null,
     durationDaysSnapshot: overrides.durationDaysSnapshot ?? billingOption?.durationDays ?? packageRecord?.durationDays ?? null,
     purchaseModeSnapshot: overrides.purchaseModeSnapshot ?? packageRecord?.purchaseMode ?? 'self_serve',
     status: overrides.status || 'pending',

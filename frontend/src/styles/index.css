@@ -10,6 +10,7 @@
   body {
     @apply bg-gray-50 text-gray-800 antialiased;
     font-family: 'Inter', 'Noto Sans Arabic', system-ui, sans-serif;
+    overflow-x: hidden;
   }
 
   html[dir='rtl'] body {
@@ -46,15 +47,15 @@
   }
 
   .card {
-    @apply bg-white border border-gray-100 rounded-2xl p-6 shadow-sm;
+    @apply bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm;
   }
 
   .card-hover {
-    @apply bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/5 transition-all duration-500 cursor-pointer;
+    @apply bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/5 transition-all duration-500 cursor-pointer;
   }
 
   .card-glow {
-    @apply bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden;
+    @apply bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm relative overflow-hidden;
   }
 
   .card-glow::before {
@@ -199,6 +200,10 @@
 
   .app-modal-shell {
     @apply fixed inset-0 flex items-center justify-center p-4;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overscroll-behavior: contain;
   }
 
   .app-modal-backdrop {
@@ -210,11 +215,13 @@
     transform: translateZ(0);
     will-change: transform, opacity;
     backface-visibility: hidden;
+    max-height: calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
   }
 
   .app-modal-scroll {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .vimeo-shell-fullscreen,
@@ -239,6 +246,14 @@
 
 html[dir='rtl'] .flip-in-rtl {
   transform: scaleX(-1);
+}
+
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 @keyframes shimmer {

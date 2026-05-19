@@ -40,7 +40,7 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className={`flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 ${isRTL ? 'lg:flex-row-reverse text-right' : ''}`}>
           <div className="space-y-3 max-w-sm">
-            <img src="/logo.png" alt={brandName} className="h-28 w-auto" />
+            <img src="/logo.png" alt={brandName} className="h-16 sm:h-20 xl:h-24 w-auto" />
             <p className="text-sm text-gray-500 leading-relaxed">
               {t('footer.about')}
             </p>
@@ -59,10 +59,10 @@ function Footer() {
                 </p>
               </div>
             </div>
-            <LanguageToggle className={isRTL ? 'justify-center' : ''} />
+            <LanguageToggle className={`w-full sm:w-auto ${isRTL ? 'justify-center sm:justify-start' : 'justify-center sm:justify-start'}`} />
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-8 lg:gap-12">
+          <div className="grid gap-8 sm:grid-cols-3 lg:gap-12">
             <div>
               <h2 className="text-sm font-semibold tracking-[0.2em] uppercase text-gray-400 mb-4">
                 {t('common.explore')}

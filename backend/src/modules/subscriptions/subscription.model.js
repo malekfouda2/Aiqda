@@ -15,6 +15,10 @@ const billingOptionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  salePrice: {
+    type: Number,
+    default: null,
+  },
   durationDays: {
     type: Number,
     required: true,

@@ -729,7 +729,7 @@ function InstructorCourses() {
         {showQuizEditor && quizData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="app-modal-shell z-50" onClick={() => { setShowQuizEditor(null); setQuizData(null); }}>
             <div className="app-modal-backdrop" />
-            <motion.div initial={{ scale: 0.99, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.99, opacity: 0, y: 10 }} transition={{ duration: 0.16, ease: 'easeOut' }} className="app-modal-panel max-w-2xl max-h-[85vh] overflow-y-auto app-modal-scroll" onClick={(e) => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0.99, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.99, opacity: 0, y: 10 }} transition={{ duration: 0.16, ease: 'easeOut' }} className="app-modal-panel max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto app-modal-scroll" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-100 p-6 rounded-t-2xl z-10">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-gray-900">{quizData.isNew ? 'Create Quiz' : 'Edit Quiz'}</h3>

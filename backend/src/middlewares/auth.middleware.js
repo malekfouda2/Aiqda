@@ -22,7 +22,7 @@ export const authenticate = async (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession authorizedDevices');
+    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession currentSessions authorizedDevices');
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Invalid or expired token.' });
     }
@@ -47,7 +47,7 @@ export const authenticateOptional = async (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession authorizedDevices');
+    const user = await User.findById(decoded.id).select('_id email role isActive platformNoticeAcknowledgement currentSession currentSessions authorizedDevices');
     const hasValidSession = user && user.isActive
       ? await validateAuthenticatedSessionForUser(user, decoded)
       : false;

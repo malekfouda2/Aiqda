@@ -4,17 +4,29 @@ import { subscriptionsAPI, coursesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn, fadeInScale, expandVariants } from '../utils/animations';
-import { formatMoney, getActiveBillingOptions, getBillingTermLabel, getPackageAccessNames } from '../utils/subscriptions';
+import {
+  formatMoney,
+  getActiveBillingOptions,
+  getBillingTermLabel,
+  getBillingSalePercentage,
+  getEffectiveBillingPrice,
+  getPackageAccessNames,
+  getPackageSaleSummary,
+  hasBillingSale,
+} from '../utils/subscriptions';
 
 const emptyForm = {
   name: '',
   scheduleDuration: '',
   purchaseMode: 'self_serve',
   monthlyPrice: '',
+  monthlySalePrice: '',
   monthlyDurationDays: 30,
   sixMonthPrice: '',
+  sixMonthSalePrice: '',
   sixMonthDurationDays: 180,
   annualPrice: '',
+  annualSalePrice: '',
   annualDurationDays: 365,
   learningMode: '',
   focus: '',
@@ -67,6 +79,7 @@ function AdminSubscriptions() {
               term: 'monthly',
               label: 'Monthly',
               price: parseFloat(packageForm.monthlyPrice),
+              salePrice: packageForm.monthlySalePrice ? parseFloat(packageForm.monthlySalePrice) : null,
               durationDays: parseInt(packageForm.monthlyDurationDays) || 30,
             }
           : null,
@@ -75,6 +88,7 @@ function AdminSubscriptions() {
               term: 'six_months',
               label: '6 Months',
               price: parseFloat(packageForm.sixMonthPrice),
+              salePrice: packageForm.sixMonthSalePrice ? parseFloat(packageForm.sixMonthSalePrice) : null,
               durationDays: parseInt(packageForm.sixMonthDurationDays) || 180,
             }
           : null,
@@ -83,6 +97,7 @@ function AdminSubscriptions() {
               term: 'annual',
               label: 'Annual',
               price: parseFloat(packageForm.annualPrice),
+              salePrice: packageForm.annualSalePrice ? parseFloat(packageForm.annualSalePrice) : null,
               durationDays: parseInt(packageForm.annualDurationDays) || 365,
             }
           : null,
@@ -126,10 +141,13 @@ function AdminSubscriptions() {
       scheduleDuration: pkg.scheduleDuration || '',
       purchaseMode: pkg.purchaseMode || 'self_serve',
       monthlyPrice: monthlyOption?.price?.toString() || '',
+      monthlySalePrice: monthlyOption?.salePrice?.toString() || '',
       monthlyDurationDays: monthlyOption?.durationDays || 30,
       sixMonthPrice: sixMonthOption?.price?.toString() || '',
+      sixMonthSalePrice: sixMonthOption?.salePrice?.toString() || '',
       sixMonthDurationDays: sixMonthOption?.durationDays || 180,
       annualPrice: annualOption?.price?.toString() || '',
+      annualSalePrice: annualOption?.salePrice?.toString() || '',
       annualDurationDays: annualOption?.durationDays || 365,
       learningMode: pkg.learningMode || '',
       focus: pkg.focus || '',
@@ -292,6 +310,17 @@ function AdminSubscriptions() {
                         />
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Monthly Sale Price (Optional)</label>
+                        <input
+                          type="number"
+                          value={packageForm.monthlySalePrice}
+                          onChange={(e) => setPackageForm(f => ({ ...f, monthlySalePrice: e.target.value }))}
+                          className="input-field"
+                          placeholder="e.g. 249"
+                          min="0"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-600 mb-2">Monthly Duration in Days</label>
                         <input
                           type="number"
@@ -316,6 +345,17 @@ function AdminSubscriptions() {
                           onChange={(e) => setPackageForm(f => ({ ...f, sixMonthPrice: e.target.value }))}
                           className="input-field"
                           placeholder="e.g. 1599"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">6-Month Sale Price (Optional)</label>
+                        <input
+                          type="number"
+                          value={packageForm.sixMonthSalePrice}
+                          onChange={(e) => setPackageForm(f => ({ ...f, sixMonthSalePrice: e.target.value }))}
+                          className="input-field"
+                          placeholder="e.g. 1299"
                           min="0"
                         />
                       </div>
@@ -348,6 +388,17 @@ function AdminSubscriptions() {
                         />
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Annual Sale Price (Optional)</label>
+                        <input
+                          type="number"
+                          value={packageForm.annualSalePrice}
+                          onChange={(e) => setPackageForm(f => ({ ...f, annualSalePrice: e.target.value }))}
+                          className="input-field"
+                          placeholder="e.g. 2199"
+                          min="0"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-600 mb-2">Annual Duration in Days</label>
                         <input
                           type="number"
@@ -361,7 +412,9 @@ function AdminSubscriptions() {
                     </div>
 
                     {packageForm.monthlyPrice && packageForm.annualPrice && (() => {
-                      const savings = (Number(packageForm.monthlyPrice) * 12) - Number(packageForm.annualPrice);
+                      const effectiveMonthly = Number(packageForm.monthlySalePrice || packageForm.monthlyPrice);
+                      const effectiveAnnual = Number(packageForm.annualSalePrice || packageForm.annualPrice);
+                      const savings = (effectiveMonthly * 12) - effectiveAnnual;
                       return Number.isFinite(savings) && savings > 0 ? (
                         <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                           Annual savings preview: {formatMoney(savings)} SAR compared to paying monthly for 12 months.
@@ -583,11 +636,29 @@ function AdminSubscriptions() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900 text-lg">{pkg.name}</h3>
+                        {getPackageSaleSummary(pkg) && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
+                              Sale up to {getPackageSaleSummary(pkg).bestSalePercentage}% off
+                            </span>
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-3 mt-2">
                           {getActiveBillingOptions(pkg).length > 0 ? (
                             getActiveBillingOptions(pkg).map((option) => (
                               <span key={option.term} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-medium text-primary-700 border border-primary-100">
-                                {getBillingTermLabel(option.term, 'en') || option.label || option.term}: {formatMoney(option.price)} SAR
+                                {getBillingTermLabel(option.term, 'en') || option.label || option.term}:
+                                {hasBillingSale(option) ? (
+                                  <>
+                                    <span className="text-gray-400 line-through">{formatMoney(option.price)} SAR</span>
+                                    <span>{formatMoney(getEffectiveBillingPrice(option))} SAR</span>
+                                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 border border-rose-100">
+                                      {getBillingSalePercentage(option)}% OFF
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span>{formatMoney(option.price)} SAR</span>
+                                )}
                               </span>
                             ))
                           ) : (

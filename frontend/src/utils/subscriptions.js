@@ -60,6 +60,69 @@ export const getBillingCadenceLabel = (term, locale = 'en') => (
   getLocalizedValue(BILLING_TERM_CADENCE_LABELS[term] || term, locale)
 );
 
+export const getEffectiveBillingPrice = (option = {}) => {
+  const basePrice = Number(option?.price);
+  const salePrice = Number(option?.salePrice);
+
+  if (
+    Number.isFinite(basePrice)
+    && Number.isFinite(salePrice)
+    && salePrice > 0
+    && salePrice < basePrice
+  ) {
+    return salePrice;
+  }
+
+  return basePrice;
+};
+
+export const hasBillingSale = (option = {}) => (
+  getEffectiveBillingPrice(option) !== Number(option?.price)
+);
+
+export const getBillingSalePercentage = (option = {}) => {
+  if (!hasBillingSale(option)) {
+    return 0;
+  }
+
+  const basePrice = Number(option.price);
+  const salePrice = getEffectiveBillingPrice(option);
+  const percentage = Math.round(((basePrice - salePrice) / basePrice) * 100);
+
+  return Number.isFinite(percentage) && percentage > 0 ? percentage : 0;
+};
+
+export const getBillingSaleAmount = (option = {}) => {
+  if (!hasBillingSale(option)) {
+    return 0;
+  }
+
+  return Number(option.price) - getEffectiveBillingPrice(option);
+};
+
+export const getPackageSaleSummary = (pkg = {}) => {
+  const saleOptions = getActiveBillingOptions(pkg)
+    .filter((option) => hasBillingSale(option))
+    .map((option) => ({
+      ...option,
+      salePercentage: getBillingSalePercentage(option),
+    }));
+
+  if (saleOptions.length === 0) {
+    return null;
+  }
+
+  const bestSale = saleOptions.reduce((currentBest, option) => (
+    option.salePercentage > currentBest.salePercentage ? option : currentBest
+  ), saleOptions[0]);
+
+  return {
+    count: saleOptions.length,
+    bestSalePercentage: bestSale.salePercentage,
+    terms: saleOptions.map((option) => option.term),
+  };
+};
+
 export const formatMoney = (value, locale = 'en') => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -80,8 +143,8 @@ export const getAnnualSavings = (pkg = {}) => {
     return null;
   }
 
-  const yearlyMonthlyCost = monthlyOption.price * 12;
-  const savings = yearlyMonthlyCost - annualOption.price;
+  const yearlyMonthlyCost = getEffectiveBillingPrice(monthlyOption) * 12;
+  const savings = yearlyMonthlyCost - getEffectiveBillingPrice(annualOption);
   if (!Number.isFinite(savings) || savings <= 0) {
     return null;
   }
@@ -89,7 +152,7 @@ export const getAnnualSavings = (pkg = {}) => {
   return {
     savings,
     yearlyMonthlyCost,
-    monthlyEquivalent: annualOption.price / 12,
+    monthlyEquivalent: getEffectiveBillingPrice(annualOption) / 12,
   };
 };
 

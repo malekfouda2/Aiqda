@@ -93,6 +93,30 @@ test('requesting a 6-month subscription stores the selected billing term and val
   assert.match(wrongAmountResponse.body.error, /1599/i);
 });
 
+test('requesting a subscription with a sale stores the discounted purchase amount', async () => {
+  const student = await createUser({ role: 'student' });
+  const packageRecord = await createSubscriptionPackage({
+    billingOptions: [
+      { term: 'monthly', label: 'Monthly', price: 299, salePrice: 249, durationDays: 30, isActive: true },
+      { term: 'six_months', label: '6 Months', price: 1599, salePrice: 1299, durationDays: 180, isActive: true },
+      { term: 'annual', label: 'Annual', price: 2799, salePrice: 2199, durationDays: 365, isActive: true },
+    ],
+  });
+
+  const subscriptionResponse = await request(suite.app)
+    .post('/api/subscriptions/request')
+    .set(authHeader(student.token))
+    .send({
+      packageId: packageRecord._id.toString(),
+      billingTerm: 'six_months',
+    });
+
+  assert.equal(subscriptionResponse.status, 201);
+  assert.equal(subscriptionResponse.body.billingTerm, 'six_months');
+  assert.equal(subscriptionResponse.body.priceAtPurchase, 1299);
+  assert.equal(subscriptionResponse.body.durationDaysSnapshot, 180);
+});
+
 test('payment submission validates proof and amount before creating a payment', async () => {
   const student = await createUser({ role: 'student' });
   const packageRecord = await createSubscriptionPackage({ price: 499 });

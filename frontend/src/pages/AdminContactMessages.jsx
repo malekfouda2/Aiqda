@@ -275,7 +275,7 @@ function AdminContactMessages() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: 12 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="app-modal-panel max-w-3xl max-h-[90vh] overflow-hidden flex flex-col rounded-[2rem]"
+              className="app-modal-panel max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] overflow-hidden flex flex-col rounded-[2rem]"
               onClick={(event) => event.stopPropagation()}
             >
               {detailLoading ? (

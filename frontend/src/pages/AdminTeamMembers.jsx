@@ -416,7 +416,7 @@ function AdminTeamMembers() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: 12 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="app-modal-panel max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+              className="app-modal-panel max-w-4xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] overflow-hidden flex flex-col"
             >
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">

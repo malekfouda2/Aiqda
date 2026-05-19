@@ -115,7 +115,7 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   assert.equal(afterLogoutProfileResponse.status, 401);
 });
 
-test('accounts cannot sign in on two different devices at the same time', async () => {
+test('accounts can stay signed in on two approved devices at the same time', async () => {
   await createUser({
     email: 'concurrent-device-user@example.com',
     password: 'Password123!',
@@ -140,14 +140,20 @@ test('accounts cannot sign in on two different devices at the same time', async 
       password: 'Password123!',
     });
 
-  assert.equal(secondLoginResponse.status, 403);
-  assert.equal(
-    secondLoginResponse.body.error,
-    'This account is already active on another device. Please sign out there first and try again.'
-  );
+  assert.equal(secondLoginResponse.status, 200);
+
+  const profileResponses = await Promise.all([
+    firstDevice.get('/api/auth/profile'),
+    secondDevice.get('/api/auth/profile'),
+  ]);
+
+  profileResponses.forEach((response) => {
+    assert.equal(response.status, 200);
+    assert.equal(response.body.email, 'concurrent-device-user@example.com');
+  });
 });
 
-test('accounts can only be approved on up to two devices', async () => {
+test('accounts can only be approved on up to two devices even when both approved devices stay active', async () => {
   await createUser({
     email: 'two-device-limit-user@example.com',
     password: 'Password123!',
@@ -166,10 +172,6 @@ test('accounts can only be approved on up to two devices', async () => {
 
   assert.equal(firstLoginResponse.status, 200);
 
-  const firstLogoutResponse = await firstDevice
-    .post('/api/auth/logout');
-  assert.equal(firstLogoutResponse.status, 204);
-
   const secondLoginResponse = await secondDevice
     .post('/api/auth/login')
     .send({
@@ -178,10 +180,6 @@ test('accounts can only be approved on up to two devices', async () => {
     });
 
   assert.equal(secondLoginResponse.status, 200);
-
-  const secondLogoutResponse = await secondDevice
-    .post('/api/auth/logout');
-  assert.equal(secondLogoutResponse.status, 204);
 
   const thirdLoginResponse = await thirdDevice
     .post('/api/auth/login')
@@ -195,6 +193,16 @@ test('accounts can only be approved on up to two devices', async () => {
     thirdLoginResponse.body.error,
     'This account can only be used on up to 2 devices. Please sign in from one of your approved devices.'
   );
+
+  const profileResponses = await Promise.all([
+    firstDevice.get('/api/auth/profile'),
+    secondDevice.get('/api/auth/profile'),
+  ]);
+
+  profileResponses.forEach((response) => {
+    assert.equal(response.status, 200);
+    assert.equal(response.body.email, 'two-device-limit-user@example.com');
+  });
 });
 
 test('admin-side accounts can sign in on multiple devices without device or concurrency limits', async () => {

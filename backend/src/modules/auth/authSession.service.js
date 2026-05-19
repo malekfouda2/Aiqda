@@ -4,11 +4,9 @@ import { getDeviceIdFromRequest } from '../../utils/authCookie.js';
 import { isBackofficeRole } from '../../utils/roles.js';
 
 const DEFAULT_MAX_AUTH_DEVICES = 2;
-const DEFAULT_ACTIVE_SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
 
 export const DEVICE_LIMIT_ERROR_MESSAGE = 'This account can only be used on up to 2 devices. Please sign in from one of your approved devices.';
-export const CONCURRENT_SESSION_ERROR_MESSAGE = 'This account is already active on another device. Please sign out there first and try again.';
 
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -16,10 +14,6 @@ const parsePositiveInteger = (value, fallback) => {
 };
 
 const getMaxAuthDevices = () => parsePositiveInteger(process.env.MAX_AUTH_DEVICES, DEFAULT_MAX_AUTH_DEVICES);
-const getActiveSessionIdleTimeoutMs = () => parsePositiveInteger(
-  process.env.AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS,
-  DEFAULT_ACTIVE_SESSION_IDLE_TIMEOUT_MS
-);
 
 const normalizeDeviceId = (value) => {
   if (typeof value !== 'string') {
@@ -69,19 +63,6 @@ const isSessionExpired = (session, now = new Date()) => {
   return !expiresAt || expiresAt <= now;
 };
 
-const isSessionActivelyInUse = (session, now = new Date()) => {
-  if (!session?.sessionId || isSessionExpired(session, now)) {
-    return false;
-  }
-
-  const lastSeenAt = toDate(session.lastSeenAt) || toDate(session.startedAt);
-  if (!lastSeenAt) {
-    return false;
-  }
-
-  return now.getTime() - lastSeenAt.getTime() <= getActiveSessionIdleTimeoutMs();
-};
-
 const findAuthorizedDevice = (user, deviceId) => {
   if (!Array.isArray(user.authorizedDevices) || !deviceId) {
     return null;
@@ -119,16 +100,48 @@ const upsertAuthorizedDevice = (user, deviceId, metadata = {}, now = new Date())
   }
 };
 
-const clearExpiredSessionIfNeeded = (user, now = new Date()) => {
-  if (user?.currentSession?.sessionId && isSessionExpired(user.currentSession, now)) {
-    user.currentSession = null;
-    return true;
+const hasUnlimitedConcurrentAccess = (user) => isBackofficeRole(user?.role);
+
+const normalizeCurrentSessions = (user, now = new Date()) => {
+  const sessions = Array.isArray(user.currentSessions) ? user.currentSessions : [];
+  const uniqueSessions = [];
+  const seenSessionIds = new Set();
+
+  sessions.forEach((session) => {
+    if (!session?.sessionId || seenSessionIds.has(session.sessionId) || isSessionExpired(session, now)) {
+      return;
+    }
+
+    seenSessionIds.add(session.sessionId);
+    uniqueSessions.push(session);
+  });
+
+  const legacySession = user.currentSession;
+  if (legacySession?.sessionId && !seenSessionIds.has(legacySession.sessionId) && !isSessionExpired(legacySession, now)) {
+    uniqueSessions.push(legacySession);
   }
 
-  return false;
+  user.currentSessions = uniqueSessions;
+
+  if (legacySession?.sessionId && (
+    seenSessionIds.has(legacySession.sessionId)
+    || isSessionExpired(legacySession, now)
+    || uniqueSessions.some((session) => session.sessionId === legacySession.sessionId)
+  )) {
+    user.currentSession = null;
+  }
+
+  return user.currentSessions;
 };
 
-const hasUnlimitedConcurrentAccess = (user) => isBackofficeRole(user?.role);
+const findSessionById = (user, sessionId, now = new Date()) => {
+  if (!sessionId) {
+    return null;
+  }
+
+  const sessions = normalizeCurrentSessions(user, now);
+  return sessions.find((session) => session.sessionId === sessionId) || null;
+};
 
 export const buildDeviceContextFromRequest = (req) => ({
   deviceId: normalizeDeviceId(getDeviceIdFromRequest(req))
@@ -156,15 +169,11 @@ export const createAuthenticatedSessionForUser = async (user, deviceContext = {}
     };
   }
 
-  clearExpiredSessionIfNeeded(user, now);
+  normalizeCurrentSessions(user, now);
   const existingDevice = findAuthorizedDevice(user, knownDeviceId);
 
   if (!existingDevice && Array.isArray(user.authorizedDevices) && user.authorizedDevices.length >= getMaxAuthDevices()) {
     throw new Error(DEVICE_LIMIT_ERROR_MESSAGE);
-  }
-
-  if (user.currentSession?.sessionId && user.currentSession.deviceId !== knownDeviceId && isSessionActivelyInUse(user.currentSession, now)) {
-    throw new Error(CONCURRENT_SESSION_ERROR_MESSAGE);
   }
 
   const deviceId = existingDevice ? existingDevice.deviceId : (knownDeviceId || randomUUID());
@@ -179,14 +188,16 @@ export const createAuthenticatedSessionForUser = async (user, deviceContext = {}
     did: deviceId,
   });
 
-  user.currentSession = {
+  user.currentSessions = user.currentSessions.filter((session) => session.deviceId !== deviceId);
+  user.currentSessions.push({
     sessionId,
     deviceId,
     startedAt: now,
     lastSeenAt: now,
     expiresAt: getTokenExpiryDate(sessionToken),
-  };
+  });
 
+  user.currentSession = null;
   await user.save();
 
   return {
@@ -201,9 +212,9 @@ export const validateAuthenticatedSessionForUser = async (user, decodedToken) =>
   }
 
   const now = new Date();
-  const session = user.currentSession;
+  const session = findSessionById(user, decodedToken.sid, now);
 
-  if (!session?.sessionId || session.sessionId !== decodedToken.sid) {
+  if (!session) {
     return false;
   }
 
@@ -212,7 +223,10 @@ export const validateAuthenticatedSessionForUser = async (user, decodedToken) =>
   }
 
   if (isSessionExpired(session, now)) {
-    user.currentSession = null;
+    user.currentSessions = (user.currentSessions || []).filter((entry) => entry.sessionId !== session.sessionId);
+    if (user.currentSession?.sessionId === session.sessionId) {
+      user.currentSession = null;
+    }
     await user.save();
     return false;
   }
@@ -233,14 +247,21 @@ export const validateAuthenticatedSessionForUser = async (user, decodedToken) =>
 };
 
 export const clearAuthenticatedSessionForUser = async (user, decodedToken) => {
-  if (!user?.currentSession?.sessionId || !decodedToken?.sid) {
+  if (!decodedToken?.sid) {
     return;
   }
 
-  if (user.currentSession.sessionId !== decodedToken.sid) {
+  const hadLegacySession = user.currentSession?.sessionId === decodedToken.sid;
+  const existingCount = Array.isArray(user.currentSessions) ? user.currentSessions.length : 0;
+  user.currentSessions = normalizeCurrentSessions(user).filter((session) => session.sessionId !== decodedToken.sid);
+
+  if (hadLegacySession) {
+    user.currentSession = null;
+  }
+
+  if (user.currentSessions.length === existingCount && !hadLegacySession) {
     return;
   }
 
-  user.currentSession = null;
   await user.save();
 };
