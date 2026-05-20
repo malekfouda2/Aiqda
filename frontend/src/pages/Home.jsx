@@ -58,12 +58,6 @@ function Home() {
     }));
   };
 
-  const heroStats = [
-    { value: "10K+", label: isRTL ? "عضو" : "Members" },
-    { value: "200+", label: isRTL ? "فصل" : "Chapters" },
-    { value: "50+", label: isRTL ? "صانع محتوى" : "Creators" },
-  ];
-
   const featureCards = [
     {
       icon: "🎯",
@@ -184,26 +178,6 @@ function Home() {
               )}
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.8 }}
-              className="mt-20 flex items-center justify-center gap-12 text-center"
-            >
-              {heroStats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.9 + index * 0.1 }}
-                >
-                  <p className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">
-                    {stat.value}
-                  </p>
-                  <p className="text-sm text-gray-500">{stat.label}</p>
-                </motion.div>
-              ))}
-            </motion.div>
           </motion.div>
         </div>
 
