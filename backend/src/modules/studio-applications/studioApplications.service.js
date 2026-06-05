@@ -1,7 +1,9 @@
 import StudioApplication from './studioApplication.model.js';
 import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
   buildStudioApplicationReceivedEmail,
+  buildStudioApplicationAdminNotificationEmail,
   buildStudioApprovalEmail,
   buildStudioRejectionEmail
 } from '../../utils/emailTemplates.js';
@@ -38,6 +40,26 @@ export const create = async (data) => {
     });
   } catch (error) {
     console.error('Failed to send studio application acknowledgement email:', error.message);
+  }
+
+  const adminNotificationEmail = buildStudioApplicationAdminNotificationEmail({
+    studioName: application.studioName,
+    contactEmail: application.contactEmail,
+    contactName: application.contactName,
+    country: application.country,
+    city: application.city,
+    websitePortfolio: application.websitePortfolio,
+  });
+
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: application.contactEmail,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send studio application admin notification email:', error.message);
   }
 
   return application;

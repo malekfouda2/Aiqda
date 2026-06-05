@@ -1,4 +1,11 @@
 import { Subscription, SubscriptionPackage } from './subscription.model.js';
+import User from '../users/user.model.js';
+import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
+import {
+  buildSubscriptionRequestReceivedEmail,
+  buildSubscriptionRequestAdminNotificationEmail,
+} from '../../utils/emailTemplates.js';
 
 const BILLING_TERM_LABELS = {
   monthly: 'Monthly',
@@ -84,6 +91,19 @@ const normalizePurchaseMode = (value = 'self_serve') => {
   }
 
   return value === 'contact_only' ? 'contact_only' : 'self_serve';
+};
+
+const normalizePublicVisibility = (value = 'visible') => {
+  if (typeof value !== 'string') {
+    return 'visible';
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['visible', 'coming_soon', 'hidden'].includes(normalized)) {
+    return normalized;
+  }
+
+  return 'visible';
 };
 
 const getActiveBillingOptions = (pkg = {}) => {
@@ -276,6 +296,9 @@ const buildPackagePayload = (packageData = {}, existingPackage = null) => {
     softwareExposure: packageData.softwareExposure ?? existingPackage?.softwareExposure ?? [],
     outcome: typeof packageData.outcome === 'string' ? packageData.outcome.trim() : existingPackage?.outcome,
     purchaseMode,
+    publicVisibility: normalizePublicVisibility(
+      packageData.publicVisibility ?? existingPackage?.publicVisibility
+    ),
     includedPackages,
     isActive: toBoolean(packageData.isActive, existingPackage?.isActive ?? true),
   };
@@ -470,6 +493,14 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
     throw new Error('Invalid or inactive package');
   }
 
+  if (pkg.publicVisibility === 'hidden') {
+    throw new Error('This package is currently unavailable.');
+  }
+
+  if (pkg.publicVisibility === 'coming_soon') {
+    throw new Error('This package is coming soon and is not open for subscriptions yet.');
+  }
+
   if (pkg.purchaseMode === 'contact_only') {
     throw new Error('This package is available through appointment or direct contact only.');
   }
@@ -511,9 +542,52 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
   });
 
   await subscription.save();
-  return populateSubscriptionQuery(
+  const populatedSubscription = await populateSubscriptionQuery(
     Subscription.findById(subscription._id)
   );
+  const user = await User.findById(userId).select('name email');
+  const billingLabel = billingOption.label || BILLING_TERM_LABELS[billingOption.term] || billingOption.term;
+
+  if (user?.email) {
+    const memberEmail = buildSubscriptionRequestReceivedEmail({
+      recipientName: user.name,
+      packageName: pkg.name,
+      billingLabel,
+      amount: subscription.priceAtPurchase,
+    });
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: memberEmail.subject,
+        text: memberEmail.text,
+        html: memberEmail.html,
+      });
+    } catch (error) {
+      console.error('Failed to send subscription request acknowledgement email:', error.message);
+    }
+
+    const adminNotificationEmail = buildSubscriptionRequestAdminNotificationEmail({
+      recipientName: user.name,
+      recipientEmail: user.email,
+      packageName: pkg.name,
+      billingLabel,
+      amount: subscription.priceAtPurchase,
+    });
+
+    try {
+      await sendAdminNotificationEmail({
+        replyTo: user.email,
+        subject: adminNotificationEmail.subject,
+        text: adminNotificationEmail.text,
+        html: adminNotificationEmail.html,
+      });
+    } catch (error) {
+      console.error('Failed to send subscription request admin notification email:', error.message);
+    }
+  }
+
+  return populatedSubscription;
 };
 
 export const getUserSubscriptions = async (userId) => {

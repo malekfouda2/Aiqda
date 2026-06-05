@@ -69,7 +69,7 @@ export const approveApplication = async (req, res) => {
     res.json({
       ...result,
       message: result.setupLink
-        ? 'Application approved. A setup link was generated for the new instructor account.'
+        ? 'Application approved. A setup link was generated for the new creator account.'
         : 'Application approved. The existing user was promoted to instructor.',
     });
   } catch (error) {

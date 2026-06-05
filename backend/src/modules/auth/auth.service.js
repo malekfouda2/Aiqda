@@ -3,6 +3,8 @@ import { hashPassword, comparePassword } from '../../utils/password.js';
 import { verifyToken } from '../../utils/jwt.js';
 import { getSocialOnlyLoginMessageForUser } from './socialAuth.service.js';
 import { clearAuthenticatedSessionForUser, createAuthenticatedSessionForUser } from './authSession.service.js';
+import { sendEmail } from '../../utils/email.js';
+import { buildInstructorAccountReadyEmail, buildWelcomeEmail } from '../../utils/emailTemplates.js';
 import {
   hasAcceptedPlatformNoticeInput,
   PLATFORM_NOTICE_ERROR_MESSAGE,
@@ -56,6 +58,18 @@ export const register = async ({ email, password, name, platformNoticeAccepted, 
   });
 
   const { sessionToken, deviceId } = await createAuthenticatedSessionForUser(user, deviceContext);
+
+  const welcomeEmail = buildWelcomeEmail({ fullName: user.name });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: welcomeEmail.subject,
+      text: welcomeEmail.text,
+      html: welcomeEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send welcome email after registration:', error.message);
+  }
   
   return { user, sessionToken, deviceId };
 };
@@ -138,8 +152,25 @@ export const acceptInstructorInvite = async ({ token, password }) => {
   user.isActive = true;
   await user.save();
 
+  const loginUrl = `${(process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5000').replace(/\/$/, '')}/login`;
+  const accountReadyEmail = buildInstructorAccountReadyEmail({
+    fullName: user.name,
+    loginUrl,
+  });
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: accountReadyEmail.subject,
+      text: accountReadyEmail.text,
+      html: accountReadyEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send instructor account ready email:', error.message);
+  }
+
   return {
-    message: 'Your instructor account is ready. You can now sign in.',
+    message: 'Your creator account is ready. You can now sign in.',
   };
 };
 

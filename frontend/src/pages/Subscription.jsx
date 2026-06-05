@@ -17,6 +17,7 @@ import {
   formatMoney,
   getActiveBillingOptions,
   getAnnualSavings,
+  getSixMonthSavings,
   getBillingCadenceLabel,
   getBillingOption,
   getBillingTermLabel,
@@ -50,6 +51,10 @@ function Subscription() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showCheckoutDisclaimer, setShowCheckoutDisclaimer] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const displayPackages = packages.filter((pkg) => (
+    pkg.publicVisibility === 'coming_soon'
+    || (pkg.publicVisibility !== 'hidden' && pkg.isActive !== false)
+  ));
 
   useEffect(() => {
     if (hasAcceptedCurrentPlatformNotice()) {
@@ -63,7 +68,7 @@ function Subscription() {
   const fetchData = async () => {
     try {
       const [packagesRes, subRes, bankRes, userSubsRes] = await Promise.all([
-        subscriptionsAPI.getPackages(),
+        subscriptionsAPI.getPackages(false),
         subscriptionsAPI.getActiveSubscription(),
         paymentsAPI.getBankDetails(),
         subscriptionsAPI.getUserSubscriptions()
@@ -350,12 +355,14 @@ function Subscription() {
 
           {!activeSubscription && !pendingSubscription && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {packages.map((pkg, index) => {
+              {displayPackages.map((pkg, index) => {
                 const isContactOnly = pkg.purchaseMode === 'contact_only';
+                const isComingSoon = pkg.publicVisibility === 'coming_soon';
                 const activeBillingOptions = getActiveBillingOptions(pkg);
                 const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
                 const selectedOption = getBillingOption(pkg, selectedTerm);
                 const annualSavings = getAnnualSavings(pkg);
+                const sixMonthSavings = getSixMonthSavings(pkg);
                 const accessNames = getPackageAccessNames(pkg);
                 const packageSaleSummary = getPackageSaleSummary(pkg);
                 const selectedOptionOnSale = hasBillingSale(selectedOption);
@@ -379,6 +386,11 @@ function Subscription() {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-2">
+                          {isComingSoon && (
+                            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
+                              {isRTL ? 'قريبًا' : 'Coming Soon'}
+                            </span>
+                          )}
                           {packageSaleSummary && !isContactOnly && (
                             <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
                               {isRTL ? `خصم حتى ${packageSaleSummary.bestSalePercentage}%` : `Up to ${packageSaleSummary.bestSalePercentage}% Off`}
@@ -443,6 +455,16 @@ function Subscription() {
                             <p className="text-sm text-gray-500 mt-1">
                               {getBillingCadenceLabel(selectedOption.term, locale)}
                             </p>
+                            {selectedOption.term === 'six_months' && sixMonthSavings && (
+                              <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                <p className="text-sm font-semibold text-emerald-700">
+                                  {isRTL ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر` : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
+                                </p>
+                                <p className="text-xs text-emerald-600 mt-1">
+                                  {isRTL ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
+                                </p>
+                              </div>
+                            )}
                             {selectedOption.term === 'annual' && annualSavings && (
                               <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                                 <p className="text-sm font-semibold text-emerald-700">
@@ -502,7 +524,13 @@ function Subscription() {
                       </div>
                     </div>
 
-                    {isContactOnly ? (
+                    {isComingSoon ? (
+                      <div className="mt-auto rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-center">
+                        <p className="text-sm font-semibold text-amber-700">
+                          {isRTL ? 'هذه الباقة ستتوفر قريبًا.' : 'This package will be available soon.'}
+                        </p>
+                      </div>
+                    ) : isContactOnly ? (
                       <button
                         type="button"
                         onClick={() => navigate('/contact-us')}
@@ -527,9 +555,9 @@ function Subscription() {
                 );
               })}
 
-              {packages.length === 0 && (
+              {displayPackages.length === 0 && (
                 <div className="col-span-full text-center py-10">
-                  <p className="text-gray-500">{isRTL ? 'لا توجد باقات اشتراك متاحة بعد.' : 'No subscription packages available yet.'}</p>
+                  <p className="text-gray-500">{isRTL ? 'لا توجد باقات اشتراك متاحة للعرض حاليًا.' : 'No subscription packages are currently available for display.'}</p>
                 </div>
               )}
             </div>

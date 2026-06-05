@@ -9,10 +9,12 @@ import {
 import { sendEmail } from '../../utils/email.js';
 import {
   buildPaymentSubmittedEmail,
+  buildPaymentSubmittedAdminNotificationEmail,
   buildPaymentApprovedEmail,
   buildPaymentRejectedEmail
 } from '../../utils/emailTemplates.js';
 import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 
 export const submitPayment = async (userId, paymentData) => {
   const { subscriptionId, amount, paymentReference, proofFile, checkoutDisclaimerAccepted } = paymentData;
@@ -93,6 +95,25 @@ export const submitPayment = async (userId, paymentData) => {
     });
   } catch (error) {
     console.error('Failed to send payment submission acknowledgement email:', error.message);
+  }
+
+  const adminNotificationEmail = buildPaymentSubmittedAdminNotificationEmail({
+    recipientName: populatedPayment.user.name,
+    recipientEmail: populatedPayment.user.email,
+    packageName: populatedPayment.subscription?.package?.name || 'subscription',
+    amount: normalizedAmount,
+    paymentReference: payment.paymentReference,
+  });
+
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: populatedPayment.user.email,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send payment submission admin notification email:', error.message);
   }
 
   return populatedPayment;

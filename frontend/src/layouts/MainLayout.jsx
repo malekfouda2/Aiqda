@@ -3,10 +3,14 @@ import Navbar from '../components/Navbar';
 import Notification from '../components/Notification';
 import Footer from '../components/Footer';
 import PlatformNoticeGate from '../components/PlatformNoticeGate';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 function MainLayout() {
   const location = useLocation();
   const hideFooter = ['/dashboard', '/admin', '/creator', '/development'].some((prefix) =>
+    location.pathname.startsWith(prefix)
+  );
+  const showGlobalWhatsApp = !['/dashboard', '/admin', '/creator'].some((prefix) =>
     location.pathname.startsWith(prefix)
   );
 
@@ -19,6 +23,7 @@ function MainLayout() {
         <Outlet />
       </main>
       {!hideFooter && <Footer />}
+      {showGlobalWhatsApp && <WhatsAppButton />}
     </div>
   );
 }

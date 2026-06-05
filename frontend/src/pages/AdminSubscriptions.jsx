@@ -19,6 +19,7 @@ const emptyForm = {
   name: '',
   scheduleDuration: '',
   purchaseMode: 'self_serve',
+  publicVisibility: 'visible',
   monthlyPrice: '',
   monthlySalePrice: '',
   monthlyDurationDays: 30,
@@ -107,6 +108,7 @@ function AdminSubscriptions() {
         name: packageForm.name,
         scheduleDuration: packageForm.scheduleDuration,
         purchaseMode: packageForm.purchaseMode,
+        publicVisibility: packageForm.publicVisibility,
         billingOptions: packageForm.purchaseMode === 'contact_only' ? [] : billingOptions,
         learningMode: packageForm.learningMode,
         focus: packageForm.focus,
@@ -140,6 +142,7 @@ function AdminSubscriptions() {
       name: pkg.name || '',
       scheduleDuration: pkg.scheduleDuration || '',
       purchaseMode: pkg.purchaseMode || 'self_serve',
+      publicVisibility: pkg.publicVisibility || 'visible',
       monthlyPrice: monthlyOption?.price?.toString() || '',
       monthlySalePrice: monthlyOption?.salePrice?.toString() || '',
       monthlyDurationDays: monthlyOption?.durationDays || 30,
@@ -269,6 +272,30 @@ function AdminSubscriptions() {
                       <option value="self_serve">Self-Serve Subscription</option>
                       <option value="contact_only">Contact / Appointment Only</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Homepage Visibility *</label>
+                    <select
+                      value={packageForm.publicVisibility}
+                      onChange={(e) => setPackageForm(f => ({ ...f, publicVisibility: e.target.value }))}
+                      className="input-field"
+                      required
+                    >
+                      <option value="visible">Visible</option>
+                      <option value="coming_soon">Coming Soon</option>
+                      <option value="hidden">Hidden</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 h-full">
+                      <p className="text-sm font-medium text-gray-700 mb-1">Public Display</p>
+                      <p className="text-sm text-gray-500 leading-6">
+                        Visible packages show normally, Coming Soon packages stay on the homepage with a disabled CTA, and Hidden packages are removed from the public pricing sections.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -636,6 +663,23 @@ function AdminSubscriptions() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900 text-lg">{pkg.name}</h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border ${
+                              pkg.publicVisibility === 'hidden'
+                                ? 'bg-gray-100 text-gray-600 border-gray-200'
+                                : pkg.publicVisibility === 'coming_soon'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            }`}
+                          >
+                            {pkg.publicVisibility === 'hidden'
+                              ? 'Hidden'
+                              : pkg.publicVisibility === 'coming_soon'
+                                ? 'Coming Soon'
+                                : 'Visible'}
+                          </span>
+                        </div>
                         {getPackageSaleSummary(pkg) && (
                           <div className="mt-2">
                             <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
@@ -679,6 +723,16 @@ function AdminSubscriptions() {
                       <div>
                         <span className="text-gray-400">Type:</span>{' '}
                         <span className="text-gray-700">{pkg.purchaseMode === 'contact_only' ? 'Contact-only' : 'Self-serve'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Homepage:</span>{' '}
+                        <span className="text-gray-700">
+                          {pkg.publicVisibility === 'hidden'
+                            ? 'Hidden'
+                            : pkg.publicVisibility === 'coming_soon'
+                              ? 'Coming Soon'
+                              : 'Visible'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Schedule:</span>{' '}

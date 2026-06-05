@@ -124,18 +124,27 @@ The backend now validates runtime configuration at startup and will refuse to bo
 
 Production mail templates now exist for:
 
+- member welcome after direct registration
+- member welcome after first social sign-in account creation
+- creator account ready after invitation password setup
 - instructor application received
+- instructor application admin notification
 - instructor approval with invite setup
 - instructor approval for an existing user account
 - instructor rejection
 - studio application received
+- studio application admin notification
 - studio approval
 - studio rejection
+- subscription request received
+- subscription request admin notification
 - consultation booking received
+- consultation booking admin notification
 - consultation booking confirmed
 - consultation booking rejected
 - consultation booking cancelled
 - payment submitted
+- payment submitted admin notification
 - payment approved
 - payment rejected
 - contact form acknowledgement

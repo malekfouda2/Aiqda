@@ -14,6 +14,7 @@ import {
   formatMoney,
   getActiveBillingOptions,
   getAnnualSavings,
+  getSixMonthSavings,
   getBillingCadenceLabel,
   getBillingOption,
   getBillingTermLabel,
@@ -34,7 +35,7 @@ function Home() {
 
   useEffect(() => {
     subscriptionsAPI
-      .getPackages(true)
+      .getPackages(false)
       .then((res) => {
         const nextPackages = res.data || [];
         setPackages(nextPackages);
@@ -84,6 +85,11 @@ function Home() {
         : "Monitor your skills improvement journey with detailed analytics and insights.",
     },
   ];
+
+  const displayPackages = packages.filter((pkg) => (
+    pkg.publicVisibility === "coming_soon"
+    || (pkg.publicVisibility !== "hidden" && pkg.isActive !== false)
+  ));
 
   return (
     <div className="min-h-screen bg-white">
@@ -235,7 +241,7 @@ function Home() {
         </div>
       </section>
 
-      {packages.length > 0 && (
+      {displayPackages.length > 0 && (
         <section className="content-auto relative py-32 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" />
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -276,14 +282,16 @@ function Home() {
             </motion.div>
 
             <div
-              className={`grid gap-8 ${packages.length === 1 ? "max-w-md mx-auto" : packages.length === 2 ? "md:grid-cols-2 max-w-3xl mx-auto" : "md:grid-cols-2 lg:grid-cols-3"}`}
+              className={`grid gap-8 ${displayPackages.length === 1 ? "max-w-md mx-auto" : displayPackages.length === 2 ? "md:grid-cols-2 max-w-3xl mx-auto" : "md:grid-cols-2 lg:grid-cols-3"}`}
             >
-              {packages.map((pkg, index) => {
+              {displayPackages.map((pkg, index) => {
                 const isContactOnly = pkg.purchaseMode === "contact_only";
+                const isComingSoon = pkg.publicVisibility === "coming_soon";
                 const activeBillingOptions = getActiveBillingOptions(pkg);
                 const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
                 const selectedOption = getBillingOption(pkg, selectedTerm);
                 const annualSavings = getAnnualSavings(pkg);
+                const sixMonthSavings = getSixMonthSavings(pkg);
                 const accessNames = getPackageAccessNames(pkg);
                 const packageSaleSummary = getPackageSaleSummary(pkg);
                 const selectedOptionOnSale = hasBillingSale(selectedOption);
@@ -297,7 +305,7 @@ function Home() {
                     transition={{ delay: index * 0.15, duration: 0.6 }}
                     className="relative bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
                   >
-                    {index === 1 && packages.length > 1 && !isContactOnly && (
+                    {index === 1 && displayPackages.length > 1 && !isContactOnly && !isComingSoon && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                         <span className="bg-gradient-to-r from-primary-500 to-brand-teal text-white text-xs font-semibold px-4 py-1.5 rounded-full">
                           {isRTL ? "الأكثر شيوعًا" : "Most Popular"}
@@ -319,6 +327,11 @@ function Home() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2">
+                        {isComingSoon && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
+                            {isRTL ? "قريبًا" : "Coming Soon"}
+                          </span>
+                        )}
                         {packageSaleSummary && !isContactOnly && (
                           <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
                             {isRTL ? `خصم حتى ${packageSaleSummary.bestSalePercentage}%` : `Up to ${packageSaleSummary.bestSalePercentage}% Off`}
@@ -389,6 +402,20 @@ function Home() {
                           <p className="text-sm text-gray-500 mt-2">
                             {getBillingCadenceLabel(selectedOption.term, locale)}
                           </p>
+                          {selectedOption.term === "six_months" && sixMonthSavings && (
+                            <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                              <p className="text-sm font-semibold text-emerald-700">
+                                {isRTL
+                                  ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر`
+                                  : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
+                              </p>
+                              <p className="text-xs text-emerald-600 mt-1">
+                                {isRTL
+                                  ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.`
+                                  : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
+                              </p>
+                            </div>
+                          )}
                           {selectedOption.term === "annual" && annualSavings && (
                             <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                               <p className="text-sm font-semibold text-emerald-700">
@@ -498,16 +525,24 @@ function Home() {
                       )}
                     </div>
 
-                    <Link
-                      to={isContactOnly ? "/contact-us" : user ? "/dashboard/subscription" : "/register"}
-                      className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
-                        index === 1 && packages.length > 1 && !isContactOnly
-                          ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25"
-                          : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                      }`}
-                    >
-                      {isContactOnly ? (isRTL ? "احجز موعدًا" : "Book Appointment") : (isRTL ? "ابدأ الآن" : "Get Started")}
-                    </Link>
+                    {isComingSoon ? (
+                      <div className="mt-auto">
+                        <div className="block text-center font-semibold py-3 px-6 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 cursor-not-allowed">
+                          {isRTL ? "قريبًا" : "Coming Soon"}
+                        </div>
+                      </div>
+                    ) : (
+                      <Link
+                        to={isContactOnly ? "/contact-us" : user ? "/dashboard/subscription" : "/register"}
+                        className={`block text-center font-semibold py-3 px-6 rounded-xl transition-all duration-300 ${
+                          index === 1 && displayPackages.length > 1 && !isContactOnly
+                            ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/25"
+                            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                        }`}
+                      >
+                        {isContactOnly ? (isRTL ? "احجز موعدًا" : "Book Appointment") : (isRTL ? "ابدأ الآن" : "Get Started")}
+                      </Link>
+                    )}
                   </motion.div>
                 );
               })}

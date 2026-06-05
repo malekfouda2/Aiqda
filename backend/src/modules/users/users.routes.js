@@ -10,6 +10,7 @@ router.use(authenticate);
 router.get('/', isAdmin, usersController.getAllUsers);
 router.patch('/:id/toggle-status', isAdmin, usersController.toggleUserStatus);
 router.patch('/:id/role', isAdmin, usersController.updateUserRole);
+router.delete('/:id', isAdmin, usersController.deleteUser);
 router.post('/me/platform-notice-acknowledgement', usersController.acknowledgePlatformNotice);
 
 const selfOrAdmin = (req, res, next) => {

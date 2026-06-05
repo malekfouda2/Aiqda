@@ -5,9 +5,38 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+const BRAND = {
+  primary: '#ec4899',
+  primaryDark: '#db2777',
+  teal: '#2dd4bf',
+  blue: '#3b82f6',
+  ink: '#111827',
+  body: '#4b5563',
+  muted: '#6b7280',
+  surface: '#ffffff',
+  surfaceSoft: '#f8fafc',
+  border: '#e5e7eb',
+};
+
+const getPublicBaseUrl = () => {
+  const configured = process.env.APP_URL || process.env.FRONTEND_URL || 'https://aiqda.pro';
+
+  try {
+    const url = new URL(configured);
+    if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+      return 'https://aiqda.pro';
+    }
+    return configured.replace(/\/$/, '');
+  } catch {
+    return 'https://aiqda.pro';
+  }
+};
+
+const getLogoUrl = () => `${getPublicBaseUrl()}/logo.png`;
+
 const buildParagraphs = (lines = []) => lines
   .filter(Boolean)
-  .map((line) => `<p style="margin:0 0 16px;color:#4b5563;line-height:1.7;">${escapeHtml(line)}</p>`)
+  .map((line) => `<p style="margin:0 0 16px;color:${BRAND.body};line-height:1.7;">${escapeHtml(line)}</p>`)
   .join('');
 
 const buildHtmlList = (items = []) => {
@@ -16,7 +45,7 @@ const buildHtmlList = (items = []) => {
   }
 
   return `
-    <ul style="margin:0 0 20px;padding-left:18px;color:#4b5563;line-height:1.7;">
+    <ul style="margin:0 0 20px;padding-left:18px;color:${BRAND.body};line-height:1.7;">
       ${items.map((item) => `<li style="margin-bottom:8px;">${escapeHtml(item)}</li>`).join('')}
     </ul>
   `;
@@ -31,29 +60,53 @@ const buildHtmlMessage = ({
   ctaUrl,
   footerLines = [],
 }) => `
-  <div style="margin:0;padding:32px 16px;background:#f8fafc;font-family:Arial,sans-serif;">
-    <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden;">
-      <div style="padding:32px;background:linear-gradient(135deg,#eef6ff 0%,#ecfeff 100%);border-bottom:1px solid #e5e7eb;">
-        <p style="margin:0 0 10px;color:#0891b2;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Aiqda</p>
-        <h1 style="margin:0;color:#111827;font-size:28px;line-height:1.2;">${escapeHtml(headline)}</h1>
-      </div>
-      <div style="padding:32px;">
-        <p style="margin:0 0 16px;color:#111827;line-height:1.7;">${escapeHtml(greeting)}</p>
-        ${buildParagraphs(bodyLines)}
-        ${buildHtmlList(listItems)}
-        ${ctaLabel && ctaUrl ? `
-          <div style="margin:28px 0;">
-            <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;padding:14px 22px;background:#0f766e;color:#ffffff;text-decoration:none;border-radius:14px;font-weight:700;">
-              ${escapeHtml(ctaLabel)}
-            </a>
-          </div>
-          <p style="margin:0 0 16px;color:#6b7280;font-size:13px;line-height:1.6;">If the button does not work, copy and paste this link into your browser:<br>${escapeHtml(ctaUrl)}</p>
-        ` : ''}
-        ${buildParagraphs(footerLines)}
-        <p style="margin:20px 0 0;color:#111827;line-height:1.7;">Aiqda Team</p>
-      </div>
-    </div>
-  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0;padding:0;background-color:${BRAND.surfaceSoft};font-family:Arial,sans-serif;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:680px;background-color:${BRAND.surface};border:1px solid ${BRAND.border};border-radius:28px;overflow:hidden;">
+          <tr>
+            <td bgcolor="#ffffff" style="padding:28px 32px 24px;background-color:#ffffff;border-bottom:1px solid ${BRAND.border};">
+              <img src="cid:aiqda-logo" alt="Aiqda" width="118" style="display:block;width:118px;max-width:118px;height:auto;border:0;outline:none;text-decoration:none;" />
+              <div style="margin-top:22px;font-size:34px;line-height:1.08;font-weight:800;letter-spacing:-0.03em;color:${BRAND.ink};">
+                ${escapeHtml(headline)}
+              </div>
+              <div style="margin-top:18px;width:118px;height:5px;border-radius:999px;background:${BRAND.primary};background-image:linear-gradient(90deg, ${BRAND.primaryDark} 0%, ${BRAND.primary} 58%, ${BRAND.teal} 100%);"></div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;color:${BRAND.ink};line-height:1.7;font-size:16px;">${escapeHtml(greeting)}</p>
+              ${buildParagraphs(bodyLines)}
+              ${buildHtmlList(listItems)}
+              ${ctaLabel && ctaUrl ? `
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 18px;">
+                  <tr>
+                    <td bgcolor="${BRAND.primary}" style="border-radius:14px;background-color:${BRAND.primary};">
+                      <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;padding:14px 24px;color:#ffffff;text-decoration:none;font-weight:700;border-radius:14px;background:${BRAND.primary};">
+                        ${escapeHtml(ctaLabel)}
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 16px;color:${BRAND.muted};font-size:13px;line-height:1.6;">If the button does not work, copy and paste this link into your browser:<br>${escapeHtml(ctaUrl)}</p>
+              ` : ''}
+              ${buildParagraphs(footerLines)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:26px;border-top:1px solid ${BRAND.border};">
+                <tr>
+                  <td style="padding-top:18px;">
+                    <p style="margin:0;color:${BRAND.ink};line-height:1.7;font-weight:700;">Aiqda Team</p>
+                    <p style="margin:8px 0 0;color:${BRAND.muted};font-size:13px;line-height:1.6;">
+                      This message was sent from info@aiqda.pro. For platform support, our team monitors contact@aiqda.pro.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 `;
 
 const buildTextMessage = ({
@@ -96,47 +149,47 @@ const buildEmailTemplate = ({ subject, greeting, headline, bodyLines, listItems,
 });
 
 export const buildInstructorApprovalInviteEmail = ({ fullName, setupLink }) => buildEmailTemplate({
-  subject: 'Aiqda Instructor Application Approved',
+  subject: 'Aiqda Creator Application Approved',
   greeting: `Hello ${fullName},`,
-  headline: 'Your Instructor Application Was Approved',
+  headline: 'Your Creator Application Was Approved',
   bodyLines: [
-    'Your instructor application has been approved by the Aiqda team.',
-    'Use the link below to set your password and activate your instructor account.',
+    'Your creator application has been approved by the Aiqda team.',
+    'Use the link below to set your password and activate your creator account.',
     'This invitation link expires in 7 days.',
   ],
-  ctaLabel: 'Set Up Your Instructor Account',
+  ctaLabel: 'Set Up Your Creator Account',
   ctaUrl: setupLink,
 });
 
 export const buildInstructorApplicationReceivedEmail = ({ fullName }) => buildEmailTemplate({
-  subject: 'We Received Your Aiqda Instructor Application',
+  subject: 'We Received Your Aiqda Creator Application',
   greeting: `Hello ${fullName},`,
-  headline: 'Your Instructor Application Is In Review',
+  headline: 'Your Creator Application Is In Review',
   bodyLines: [
-    'Thank you for applying to join Aiqda as an instructor.',
+    'Thank you for applying to join Aiqda as a creator.',
     'Our team received your application and will review your portfolio, materials, and experience.',
     'We will follow up by email once the review is complete.',
   ],
 });
 
 export const buildInstructorExistingAccountApprovalEmail = ({ fullName, loginUrl }) => buildEmailTemplate({
-  subject: 'Aiqda Instructor Access Activated',
+  subject: 'Aiqda Creator Access Activated',
   greeting: `Hello ${fullName},`,
-  headline: 'Your Instructor Access Is Ready',
+  headline: 'Your Creator Access Is Ready',
   bodyLines: [
-    'Your instructor application has been approved by the Aiqda team.',
-    'We attached instructor access to your existing account, so you can sign in with your current password.',
+    'Your creator application has been approved by the Aiqda team.',
+    'We attached creator access to your existing account, so you can sign in with your current password.',
   ],
   ctaLabel: 'Sign In to Aiqda',
   ctaUrl: loginUrl,
 });
 
 export const buildInstructorRejectionEmail = ({ fullName, reason }) => buildEmailTemplate({
-  subject: 'Update on Your Aiqda Instructor Application',
+  subject: 'Update on Your Aiqda Creator Application',
   greeting: `Hello ${fullName},`,
-  headline: 'Your Instructor Application Was Reviewed',
+  headline: 'Your Creator Application Was Reviewed',
   bodyLines: [
-    'Thank you for applying to join Aiqda as an instructor.',
+    'Thank you for applying to join Aiqda as a creator.',
     'At the moment, we are not moving forward with this application.',
     reason ? `Review note: ${reason}` : 'You are welcome to apply again in the future when your profile or portfolio changes.',
   ],
@@ -276,4 +329,150 @@ export const buildContactMessageAdminNotificationEmail = ({ fullName, email, pho
     `Subject: ${subjectLine}`,
     `Message: ${message}`,
   ],
+});
+
+export const buildWelcomeEmail = ({ fullName }) => buildEmailTemplate({
+  subject: 'Welcome to Aiqda',
+  greeting: `Hello ${fullName},`,
+  headline: 'Welcome to Aiqda',
+  bodyLines: [
+    'Your account is ready and you can start exploring chapters, consultations, and development content right away.',
+    'We are excited to support your growth journey.',
+  ],
+});
+
+export const buildInstructorAccountReadyEmail = ({ fullName, loginUrl }) => buildEmailTemplate({
+  subject: 'Your Aiqda Creator Account Is Ready',
+  greeting: `Hello ${fullName},`,
+  headline: 'Your Creator Account Is Active',
+  bodyLines: [
+    'Your password has been set and your creator account is now ready to use.',
+    'You can sign in anytime from the link below.',
+  ],
+  ctaLabel: 'Sign In to Aiqda',
+  ctaUrl: loginUrl,
+});
+
+export const buildSubscriptionRequestReceivedEmail = ({ recipientName, packageName, billingLabel, amount }) => buildEmailTemplate({
+  subject: 'We Received Your Aiqda Subscription Request',
+  greeting: `Hello ${recipientName},`,
+  headline: 'Your Subscription Request Is Pending Payment',
+  bodyLines: [
+    `We received your request for "${packageName}".`,
+    'Please complete the payment submission flow so our team can review and activate your access.',
+  ],
+  listItems: [
+    billingLabel ? `Billing term: ${billingLabel}` : null,
+    amount != null ? `Amount due: ${amount} SAR` : null,
+  ].filter(Boolean),
+});
+
+export const buildSubscriptionRequestAdminNotificationEmail = ({ recipientName, recipientEmail, packageName, billingLabel, amount }) => buildEmailTemplate({
+  subject: `New Subscription Request: ${packageName}`,
+  greeting: 'Hello team,',
+  headline: 'A New Subscription Request Was Submitted',
+  bodyLines: [
+    'A member created a new pending subscription and should submit payment next.',
+  ],
+  listItems: [
+    `Member: ${recipientName}`,
+    `Email: ${recipientEmail}`,
+    `Package: ${packageName}`,
+    billingLabel ? `Billing term: ${billingLabel}` : null,
+    amount != null ? `Expected amount: ${amount} SAR` : null,
+  ].filter(Boolean),
+});
+
+export const buildInstructorApplicationAdminNotificationEmail = ({
+  fullName,
+  email,
+  country,
+  city,
+  specialization,
+  websiteOrPortfolio,
+}) => buildEmailTemplate({
+  subject: `New Creator Application: ${fullName}`,
+  greeting: 'Hello team,',
+  headline: 'A New Creator Application Was Submitted',
+  bodyLines: [
+    'A new creator application was submitted and is ready for review.',
+  ],
+  listItems: [
+    `Name: ${fullName}`,
+    `Email: ${email}`,
+    country ? `Country: ${country}` : null,
+    city ? `City: ${city}` : null,
+    specialization ? `Specialization: ${specialization}` : null,
+    websiteOrPortfolio ? `Portfolio: ${websiteOrPortfolio}` : null,
+  ].filter(Boolean),
+});
+
+export const buildStudioApplicationAdminNotificationEmail = ({
+  studioName,
+  contactEmail,
+  contactName,
+  country,
+  city,
+  websitePortfolio,
+}) => buildEmailTemplate({
+  subject: `New Studio Application: ${studioName}`,
+  greeting: 'Hello team,',
+  headline: 'A New Studio Application Was Submitted',
+  bodyLines: [
+    'A studio application was submitted and is ready for review.',
+  ],
+  listItems: [
+    `Studio: ${studioName}`,
+    contactName ? `Contact: ${contactName}` : null,
+    `Email: ${contactEmail}`,
+    country ? `Country: ${country}` : null,
+    city ? `City: ${city}` : null,
+    websitePortfolio ? `Portfolio: ${websitePortfolio}` : null,
+  ].filter(Boolean),
+});
+
+export const buildConsultationBookingAdminNotificationEmail = ({
+  recipientName,
+  recipientEmail,
+  consultationTitle,
+  amount,
+  priceType,
+  paymentReference,
+}) => buildEmailTemplate({
+  subject: `New Consultation Booking: ${consultationTitle}`,
+  greeting: 'Hello team,',
+  headline: 'A New Consultation Booking Was Submitted',
+  bodyLines: [
+    'A member submitted a new consultation booking request.',
+  ],
+  listItems: [
+    `Member: ${recipientName}`,
+    `Email: ${recipientEmail}`,
+    `Consultation: ${consultationTitle}`,
+    priceType ? `Price type: ${priceType}` : null,
+    amount != null ? `Amount: ${amount} SAR` : null,
+    paymentReference ? `Payment reference: ${paymentReference}` : null,
+  ].filter(Boolean),
+});
+
+export const buildPaymentSubmittedAdminNotificationEmail = ({
+  recipientName,
+  recipientEmail,
+  packageName,
+  amount,
+  paymentReference,
+}) => buildEmailTemplate({
+  subject: `New Payment Submission: ${packageName}`,
+  greeting: 'Hello team,',
+  headline: 'A New Payment Submission Is Ready For Review',
+  bodyLines: [
+    'A member submitted payment proof for a pending subscription.',
+  ],
+  listItems: [
+    `Member: ${recipientName}`,
+    `Email: ${recipientEmail}`,
+    `Package: ${packageName}`,
+    amount != null ? `Amount: ${amount} SAR` : null,
+    paymentReference ? `Reference: ${paymentReference}` : null,
+  ].filter(Boolean),
 });

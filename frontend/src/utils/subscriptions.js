@@ -156,6 +156,27 @@ export const getAnnualSavings = (pkg = {}) => {
   };
 };
 
+export const getSixMonthSavings = (pkg = {}) => {
+  const monthlyOption = getBillingOption(pkg, 'monthly');
+  const sixMonthOption = getBillingOption(pkg, 'six_months');
+
+  if (!monthlyOption || !sixMonthOption) {
+    return null;
+  }
+
+  const sixMonthMonthlyCost = getEffectiveBillingPrice(monthlyOption) * 6;
+  const savings = sixMonthMonthlyCost - getEffectiveBillingPrice(sixMonthOption);
+  if (!Number.isFinite(savings) || savings <= 0) {
+    return null;
+  }
+
+  return {
+    savings,
+    sixMonthMonthlyCost,
+    monthlyEquivalent: getEffectiveBillingPrice(sixMonthOption) / 6,
+  };
+};
+
 export const getPackageAccessNames = (pkg = {}) => {
   const visited = new Set();
   const names = [];

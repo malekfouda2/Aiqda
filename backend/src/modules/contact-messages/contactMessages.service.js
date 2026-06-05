@@ -1,5 +1,6 @@
 import ContactMessage from './contactMessage.model.js';
 import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
   buildContactMessageAcknowledgementEmail,
   buildContactMessageAdminNotificationEmail
@@ -8,11 +9,6 @@ import {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
-const parseNotificationRecipients = (value = process.env.CONTACT_NOTIFICATION_TO || '') => value
-  .split(',')
-  .map((email) => email.trim())
-  .filter(Boolean);
-
 const validateContactMessagePayload = (data = {}) => {
   const fullName = normalizeString(data.fullName);
   const email = normalizeString(data.email).toLowerCase();
@@ -86,27 +82,23 @@ export const create = async (data) => {
     console.error('Failed to send contact acknowledgement email:', error.message);
   }
 
-  const notificationRecipients = parseNotificationRecipients();
-  if (notificationRecipients.length > 0) {
-    const adminNotificationEmail = buildContactMessageAdminNotificationEmail({
-      fullName: payload.fullName,
-      email: payload.email,
-      phone: payload.phone,
-      subjectLine: payload.subject,
-      message: payload.message,
-    });
+  const adminNotificationEmail = buildContactMessageAdminNotificationEmail({
+    fullName: payload.fullName,
+    email: payload.email,
+    phone: payload.phone,
+    subjectLine: payload.subject,
+    message: payload.message,
+  });
 
-    try {
-      await sendEmail({
-        to: notificationRecipients.join(', '),
-        replyTo: payload.email,
-        subject: adminNotificationEmail.subject,
-        text: adminNotificationEmail.text,
-        html: adminNotificationEmail.html,
-      });
-    } catch (error) {
-      console.error('Failed to send contact notification email:', error.message);
-    }
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: payload.email,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send contact notification email:', error.message);
   }
 
   return contactMessage;

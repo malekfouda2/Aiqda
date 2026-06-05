@@ -85,6 +85,11 @@ const subscriptionPackageSchema = new mongoose.Schema({
     enum: ['self_serve', 'contact_only'],
     default: 'self_serve'
   },
+  publicVisibility: {
+    type: String,
+    enum: ['visible', 'coming_soon', 'hidden'],
+    default: 'visible'
+  },
   isActive: {
     type: Boolean,
     default: true

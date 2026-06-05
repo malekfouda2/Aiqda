@@ -1,8 +1,10 @@
 import ConsultationBooking from './consultationBooking.model.js';
 import Consultation from './consultation.model.js';
 import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
   buildConsultationBookingReceivedEmail,
+  buildConsultationBookingAdminNotificationEmail,
   buildConsultationBookingConfirmedEmail,
   buildConsultationBookingRejectedEmail,
   buildConsultationBookingCancelledEmail
@@ -27,6 +29,26 @@ export const create = async (data) => {
     });
   } catch (error) {
     console.error('Failed to send consultation booking acknowledgement email:', error.message);
+  }
+
+  const adminNotificationEmail = buildConsultationBookingAdminNotificationEmail({
+    recipientName: populatedBooking.user.name,
+    recipientEmail: populatedBooking.user.email,
+    consultationTitle: populatedBooking.consultation.title,
+    amount: populatedBooking.amount,
+    priceType: populatedBooking.priceType,
+    paymentReference: populatedBooking.paymentReference,
+  });
+
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: populatedBooking.user.email,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation booking admin notification email:', error.message);
   }
 
   return populatedBooking;

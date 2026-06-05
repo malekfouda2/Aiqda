@@ -4,6 +4,8 @@ import User from '../users/user.model.js';
 import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { APPLICATIONS_ADMIN_ROLE } from '../../utils/roles.js';
 import { createAuthenticatedSessionForUser } from './authSession.service.js';
+import { sendEmail } from '../../utils/email.js';
+import { buildWelcomeEmail } from '../../utils/emailTemplates.js';
 
 const SOCIAL_STATE_PURPOSE = 'social-auth-state';
 const SOCIAL_COMPLETE_PURPOSE = 'social-auth-complete';
@@ -269,6 +271,19 @@ const upsertUserFromSocialProfile = async (profile) => {
   });
 
   await user.save();
+
+  const welcomeEmail = buildWelcomeEmail({ fullName: user.name });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: welcomeEmail.subject,
+      text: welcomeEmail.text,
+      html: welcomeEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send welcome email after social sign-in account creation:', error.message);
+  }
+
   return user;
 };
 

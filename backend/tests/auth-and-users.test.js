@@ -3,6 +3,11 @@ import test from 'node:test';
 import request from 'supertest';
 
 import User from '../src/modules/users/user.model.js';
+import Course from '../src/modules/courses/course.model.js';
+import Lesson from '../src/modules/lessons/lesson.model.js';
+import Quiz from '../src/modules/quizzes/quiz.model.js';
+import { LessonProgress, CourseProgress } from '../src/modules/analytics/progress.model.js';
+import { SubscriptionPackage } from '../src/modules/subscriptions/subscription.model.js';
 import { authHeader, createUser, setupIntegrationSuite } from './helpers/integration.js';
 
 const suite = setupIntegrationSuite();
@@ -250,6 +255,104 @@ test('admin-side accounts can sign in on multiple devices without device or conc
     assert.equal(response.status, 200);
     assert.equal(response.body.role, 'admin');
   });
+});
+
+test('admins can permanently delete a user and their creator-owned content', async () => {
+  const admin = await createUser({ role: 'admin' });
+  const creator = await createUser({ role: 'instructor', email: 'creator-delete@example.com' });
+
+  const course = await Course.create({
+    title: 'Deletion Test Chapter',
+    description: 'Creator-owned chapter',
+    instructor: creator.user._id,
+    category: 'General',
+    level: 'beginner',
+    isPublished: true,
+  });
+
+  const lesson = await Lesson.create({
+    title: 'Deletion Test Lesson',
+    course: course._id,
+    order: 1,
+  });
+
+  await Quiz.create({
+    lesson: lesson._id,
+    questions: [
+      {
+        question: 'What is 2 + 2?',
+        options: ['3', '4', '5'],
+        correctAnswer: 1,
+      },
+    ],
+    passingScore: 1,
+  });
+
+  await LessonProgress.create({
+    user: creator.user._id,
+    lesson: lesson._id,
+    course: course._id,
+    watchPercentage: 100,
+    isQualified: true,
+  });
+
+  await CourseProgress.create({
+    user: creator.user._id,
+    course: course._id,
+    completedLessons: 1,
+    totalLessons: 1,
+    progressPercentage: 100,
+    isCompleted: true,
+  });
+
+  await SubscriptionPackage.create({
+    name: 'Deletion Package',
+    price: 499,
+    billingOptions: [
+      {
+        term: 'monthly',
+        label: 'Monthly',
+        price: 499,
+        durationDays: 30,
+        isActive: true,
+      },
+    ],
+    scheduleDuration: '1 month',
+    durationDays: 30,
+    learningMode: 'Online',
+    focus: 'Skill building',
+    courses: [course._id],
+    softwareExposure: ['AutoCAD'],
+    outcome: 'Confident learner',
+  });
+
+  const response = await request(suite.app)
+    .delete(`/api/users/${creator.user._id}`)
+    .set(authHeader(admin.token));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.message, 'User deleted permanently');
+  assert.equal(await User.countDocuments({ _id: creator.user._id }), 0);
+  assert.equal(await Course.countDocuments({ _id: course._id }), 0);
+  assert.equal(await Lesson.countDocuments({ _id: lesson._id }), 0);
+  assert.equal(await Quiz.countDocuments({ lesson: lesson._id }), 0);
+  assert.equal(await LessonProgress.countDocuments({ user: creator.user._id }), 0);
+  assert.equal(await CourseProgress.countDocuments({ user: creator.user._id }), 0);
+
+  const packageAfterDelete = await SubscriptionPackage.findOne({ name: 'Deletion Package' });
+  assert.deepEqual(packageAfterDelete.courses.map((id) => id.toString()), []);
+});
+
+test('admins cannot permanently delete their own account', async () => {
+  const admin = await createUser({ role: 'admin', email: 'self-delete-admin@example.com' });
+
+  const response = await request(suite.app)
+    .delete(`/api/users/${admin.user._id}`)
+    .set(authHeader(admin.token));
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'Admins cannot permanently delete their own account.');
+  assert.equal(await User.countDocuments({ _id: admin.user._id }), 1);
 });
 
 test('login endpoint is rate limited after repeated failed attempts', async () => {

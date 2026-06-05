@@ -52,6 +52,7 @@ export const usersAPI = {
   update: (id, data) => api.put(`/users/${id}`, data),
   toggleStatus: (id) => api.patch(`/users/${id}/toggle-status`),
   updateRole: (id, role) => api.patch(`/users/${id}/role`, { role }),
+  remove: (id) => api.delete(`/users/${id}`),
   acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement')
 };
 
@@ -166,6 +167,12 @@ export const partnersAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   remove: (id) => api.delete(`/partners/${id}`)
+};
+
+export const whatsappSettingsAPI = {
+  getPublic: () => api.get('/whatsapp-settings'),
+  getAdmin: () => api.get('/whatsapp-settings/admin'),
+  update: (data) => api.put('/whatsapp-settings/admin', data),
 };
 
 export const instructorApplicationsAPI = {

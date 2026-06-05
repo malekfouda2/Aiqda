@@ -46,6 +46,15 @@ export const updateUserRole = async (req, res) => {
   }
 };
 
+export const deleteUser = async (req, res) => {
+  try {
+    const result = await usersService.deleteUser(req.params.id, req.user);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const acknowledgePlatformNotice = async (req, res) => {
   try {
     const user = await usersService.acknowledgePlatformNotice(req.user.id);

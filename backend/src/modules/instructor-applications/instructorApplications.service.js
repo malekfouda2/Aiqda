@@ -4,6 +4,7 @@ import User from '../users/user.model.js';
 import { hashPassword } from '../../utils/password.js';
 import { generateToken } from '../../utils/jwt.js';
 import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
   CREATOR_AGREEMENT_ERROR_MESSAGE,
   CREATOR_TERMS_VERSION,
@@ -12,6 +13,7 @@ import {
 import {
   buildInstructorApprovalInviteEmail,
   buildInstructorApplicationReceivedEmail,
+  buildInstructorApplicationAdminNotificationEmail,
   buildInstructorExistingAccountApprovalEmail,
   buildInstructorRejectionEmail
 } from '../../utils/emailTemplates.js';
@@ -62,6 +64,28 @@ export const create = async (data) => {
     });
   } catch (error) {
     console.error('Failed to send instructor application acknowledgement email:', error.message);
+  }
+
+  const adminNotificationEmail = buildInstructorApplicationAdminNotificationEmail({
+    fullName: application.fullName,
+    email: application.email,
+    country: application.country,
+    city: application.city,
+    specialization: Array.isArray(application.specialization)
+      ? application.specialization.join(', ')
+      : application.specialization,
+    websiteOrPortfolio: application.websiteOrPortfolio,
+  });
+
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: application.email,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send instructor application admin notification email:', error.message);
   }
 
   return application;

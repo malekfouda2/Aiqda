@@ -57,6 +57,26 @@ function AdminUsers() {
     }
   };
 
+  const handleDeleteUser = async (user) => {
+    const confirmed = window.confirm(
+      isRTL
+        ? `سيتم حذف المستخدم ${user.name} نهائيًا مع بياناته المرتبطة. لا يمكن التراجع عن هذا الإجراء.`
+        : `This will permanently delete ${user.name} and related user data. This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await usersAPI.remove(user._id);
+      showSuccess(isRTL ? 'تم حذف المستخدم نهائيًا' : 'User deleted permanently');
+      fetchUsers();
+    } catch (error) {
+      showError(error.response?.data?.error || (isRTL ? 'تعذر حذف المستخدم' : 'Failed to delete user'));
+    }
+  };
+
   return (
     <motion.div
       variants={pageVariants}
@@ -132,12 +152,20 @@ function AdminUsers() {
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <button
-                        onClick={() => handleToggleStatus(user._id)}
-                        className="text-sm text-primary-500 hover:text-primary-600"
-                      >
-                        {user.isActive ? (isRTL ? 'تعطيل' : 'Deactivate') : (isRTL ? 'تفعيل' : 'Activate')}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleToggleStatus(user._id)}
+                          className="text-sm text-primary-500 hover:text-primary-600"
+                        >
+                          {user.isActive ? (isRTL ? 'تعطيل' : 'Deactivate') : (isRTL ? 'تفعيل' : 'Activate')}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-sm text-red-500 hover:text-red-600"
+                        >
+                          {isRTL ? 'حذف نهائي' : 'Delete Permanently'}
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}

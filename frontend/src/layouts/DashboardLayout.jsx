@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { DashboardSidebar, DashboardMobileNav } from '../components/DashboardSidebar';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 function DashboardLayout({ type = 'student' }) {
   return (
@@ -15,6 +16,7 @@ function DashboardLayout({ type = 'student' }) {
           </div>
         </div>
       </div>
+      {type === 'student' && <WhatsAppButton />}
     </div>
   );
 }

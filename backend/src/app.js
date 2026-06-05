@@ -24,6 +24,7 @@ import consultationBookingRoutes from './modules/consultations/consultationBooki
 import contactMessageRoutes from './modules/contact-messages/contactMessages.routes.js';
 import teamMemberRoutes from './modules/team-members/teamMembers.routes.js';
 import partnerRoutes from './modules/partners/partners.routes.js';
+import whatsappSettingsRoutes from './modules/whatsapp-settings/whatsappSettings.routes.js';
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use('/api/consultation-bookings', consultationBookingRoutes);
 app.use('/api/contact-messages', contactMessageRoutes);
 app.use('/api/team-members', teamMemberRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/whatsapp-settings', whatsappSettingsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aiqda API is running' });
