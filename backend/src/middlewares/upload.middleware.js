@@ -183,9 +183,18 @@ const ensureExtensionMatchesAllowedKinds = (file, allowedKinds, errorMessage) =>
 };
 
 const ensureFileSignatureMatches = async (file, allowedKinds, errorMessage) => {
+  const extension = path.extname(file.originalname || '').toLowerCase();
   const sample = await readFileSample(file.path);
-  const detectedKinds = detectFileKinds(sample);
-  const hasValidKind = allowedKinds.some((kind) => detectedKinds.has(kind));
+  let detectedKinds = detectFileKinds(sample);
+  let hasValidKind = allowedKinds.some((kind) => detectedKinds.has(kind));
+
+  if (!hasValidKind && extension === '.docx' && allowedKinds.includes('docx')) {
+    // Some valid DOCX archives place their `word/` entries beyond the initial
+    // signature sample window, so retry against the full file before rejecting.
+    const fullBuffer = await fsPromises.readFile(file.path);
+    detectedKinds = detectFileKinds(fullBuffer);
+    hasValidKind = allowedKinds.some((kind) => detectedKinds.has(kind));
+  }
 
   if (!hasValidKind) {
     throw new Error(errorMessage);
