@@ -47,6 +47,22 @@ const createMemoryRateLimitStore = () => {
       };
     },
 
+    async decrement(namespace, clientKey) {
+      const key = `${namespace}:${clientKey}`;
+      const existingRecord = records.get(key);
+      if (!existingRecord) {
+        return;
+      }
+
+      existingRecord.count = Math.max(existingRecord.count - 1, 0);
+      if (existingRecord.count === 0) {
+        records.delete(key);
+        return;
+      }
+
+      records.set(key, existingRecord);
+    },
+
     async clear() {
       records.clear();
     },
@@ -110,6 +126,15 @@ const createRedisRateLimitStore = () => ({
     };
   },
 
+  async decrement(namespace, clientKey) {
+    const client = await getRedisClient();
+    const key = `aiqda:rate-limit:${namespace}:${clientKey}`;
+    const nextCount = await client.decr(key);
+    if (nextCount <= 0) {
+      await client.del(key);
+    }
+  },
+
   async clear() {
     // Tests use the in-memory store. Redis-backed environments should expire keys naturally.
   },
@@ -143,10 +168,13 @@ export const createIpRateLimiter = ({
   windowMs,
   max,
   message,
+  shouldCountRequest = () => true,
 }) => async (req, res, next) => {
   try {
     const now = Date.now();
-    const record = await getRateLimitStore().increment(namespace, getClientKey(req), windowMs);
+    const clientKey = getClientKey(req);
+    const store = getRateLimitStore();
+    const record = await store.increment(namespace, clientKey, windowMs);
     const remaining = Math.max(max - record.count, 0);
 
     res.setHeader('X-RateLimit-Limit', String(max));
@@ -157,6 +185,16 @@ export const createIpRateLimiter = ({
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil((record.resetAt - now) / 1000))));
       return res.status(429).json({ error: message });
     }
+
+    res.once('finish', () => {
+      if (shouldCountRequest(req, res)) {
+        return;
+      }
+
+      store.decrement(namespace, clientKey).catch((error) => {
+        console.error('[rate-limit] Failed to restore request slot:', error);
+      });
+    });
 
     next();
   } catch (error) {
@@ -205,6 +243,7 @@ export const instructorApplicationRateLimit = createIpRateLimiter({
   windowMs: parsePositiveInteger(process.env.INSTRUCTOR_APPLICATION_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000),
   max: parsePositiveInteger(process.env.INSTRUCTOR_APPLICATION_RATE_LIMIT_MAX, 5),
   message: 'Too many instructor applications from this IP. Please try again later.',
+  shouldCountRequest: (_req, res) => res.statusCode >= 200 && res.statusCode < 300,
 });
 
 export const studioApplicationRateLimit = createIpRateLimiter({
@@ -212,4 +251,5 @@ export const studioApplicationRateLimit = createIpRateLimiter({
   windowMs: parsePositiveInteger(process.env.STUDIO_APPLICATION_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000),
   max: parsePositiveInteger(process.env.STUDIO_APPLICATION_RATE_LIMIT_MAX, 5),
   message: 'Too many studio applications from this IP. Please try again later.',
+  shouldCountRequest: (_req, res) => res.statusCode >= 200 && res.statusCode < 300,
 });
