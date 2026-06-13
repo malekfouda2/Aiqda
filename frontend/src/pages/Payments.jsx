@@ -5,6 +5,30 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 import { useLocale } from '../i18n/useLocale';
 
+const getFriendlyPaymentReason = (message, isRTL) => {
+  const normalizedMessage = String(message || '').trim();
+  if (!normalizedMessage) {
+    return '';
+  }
+
+  if (/no saved tap card|no saved tap billing agreement/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'يلزم حفظ وسيلة دفع صالحة قبل تفعيل التجديد التلقائي.'
+      : 'A valid payment method must be saved before automatic renewal can be enabled.';
+  }
+
+  if (/tap checkout is not configured|tap is not configured/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'الدفع الإلكتروني غير متاح حاليًا.'
+      : 'Electronic checkout is not available right now.';
+  }
+
+  return normalizedMessage
+    .replace(/\bTap\b/gi, isRTL ? 'وسيلة الدفع' : 'payment method')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 function Payments() {
   const { formatDate, isRTL } = useLocale();
   const [payments, setPayments] = useState([]);
@@ -27,8 +51,11 @@ function Payments() {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'captured':
       case 'approved':
         return 'bg-green-50 text-green-600';
+      case 'failed':
+      case 'cancelled':
       case 'rejected':
         return 'bg-red-50 text-red-600';
       default:
@@ -52,7 +79,7 @@ function Payments() {
     >
       <motion.div variants={fadeInUp}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'سجل المدفوعات' : 'Payment History'}</h1>
-        <p className="text-gray-500 mb-8">{isRTL ? 'اطلع على جميع إثباتات الدفع التي أرسلتها' : 'View all your payment submissions'}</p>
+        <p className="text-gray-500 mb-8">{isRTL ? 'اطلع على جميع عمليات الدفع الخاصة باشتراكك' : 'View all subscription payment attempts and confirmations'}</p>
       </motion.div>
 
       {payments.length === 0 ? (
@@ -76,19 +103,35 @@ function Payments() {
                     </span>
                   </div>
                   <p className="text-gray-900 font-medium">
-                    {isRTL ? 'المرجع:' : 'Reference:'} {payment.paymentReference}
+                    {isRTL ? 'المرجع:' : 'Reference:'} {payment.paymentReference || payment.tapChargeId || '—'}
                   </p>
                   <p className="text-gray-500 text-sm">
-                    {isRTL ? 'المبلغ:' : 'Amount:'} {payment.amount} SAR
+                    {isRTL ? 'المبلغ:' : 'Amount:'} {payment.amount} {payment.currency || 'SAR'}
                   </p>
+                  <p className="text-gray-400 text-sm">
+                    {isRTL ? 'نوع العملية:' : 'Type:'} {payment.paymentType === 'renewal'
+                      ? (isRTL ? 'تجديد تلقائي' : 'Automatic renewal')
+                      : payment.paymentType === 'recovery'
+                        ? (isRTL ? 'استعادة الاشتراك' : 'Recovery checkout')
+                        : (isRTL ? 'دفع أولي' : 'Initial checkout')}
+                  </p>
+                  {payment.checkoutMethod && (
+                    <p className="text-gray-400 text-sm">
+                      {isRTL ? 'وسيلة الدفع:' : 'Method:'} {payment.checkoutMethod === 'apple_pay'
+                        ? 'Apple Pay'
+                        : payment.checkoutMethod === 'saved_card'
+                          ? (isRTL ? 'البطاقة المحفوظة' : 'Saved payment method')
+                          : (isRTL ? 'البطاقة' : 'Card')}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-semibold text-gray-900">
-                    {payment.amount} SAR
+                    {payment.amount} {payment.currency || 'SAR'}
                   </p>
-                  {payment.status === 'rejected' && payment.rejectionReason && (
+                  {(payment.status === 'rejected' || payment.status === 'failed' || payment.status === 'cancelled') && (payment.rejectionReason || payment.failureReason) && (
                     <p className="text-red-600 text-sm mt-1">
-                      {isRTL ? 'السبب:' : 'Reason:'} {payment.rejectionReason}
+                      {isRTL ? 'السبب:' : 'Reason:'} {getFriendlyPaymentReason(payment.rejectionReason || payment.failureReason, isRTL)}
                     </p>
                   )}
                 </div>

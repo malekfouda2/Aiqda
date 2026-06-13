@@ -4,12 +4,11 @@ import { paymentsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn } from '../utils/animations';
-import { downloadBlobResponse } from '../utils/download';
 
 function AdminPayments() {
   const { showSuccess, showError } = useUIStore();
   const [payments, setPayments] = useState([]);
-  const [filter, setFilter] = useState('submitted');
+  const [filter, setFilter] = useState('initiated');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
 
@@ -29,47 +28,32 @@ function AdminPayments() {
     }
   };
 
-  const handleApprove = async (paymentId) => {
-    setProcessing(paymentId);
+  const handleDelete = async (paymentId) => {
+    if (!window.confirm('Delete this payment submission? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessing(`delete-${paymentId}`);
     try {
-      await paymentsAPI.approve(paymentId);
-      showSuccess('Payment approved and subscription activated!');
-      fetchPayments();
+      await paymentsAPI.remove(paymentId);
+      showSuccess('Payment deleted');
+      await fetchPayments();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to approve payment');
+      showError(error.response?.data?.error || 'Failed to delete payment');
     } finally {
       setProcessing(null);
     }
   };
 
-  const handleReject = async (paymentId) => {
-    const reason = prompt('Enter rejection reason:');
-    if (!reason) return;
-
-    setProcessing(paymentId);
-    try {
-      await paymentsAPI.reject(paymentId, reason);
-      showSuccess('Payment rejected');
-      fetchPayments();
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to reject payment');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const handleViewProof = async (paymentId) => {
-    try {
-      const response = await paymentsAPI.downloadProof(paymentId);
-      downloadBlobResponse(response, `payment-proof-${paymentId}`, { openInNewTab: true });
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to load payment proof');
-    }
-  };
+  const actionIsRunning = (action, id) => processing === `${action}-${id}`;
+  const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'captured': return 'bg-green-50 text-green-600';
       case 'approved': return 'bg-green-50 text-green-600';
+      case 'failed':
+      case 'cancelled': return 'bg-red-50 text-red-600';
       case 'rejected': return 'bg-red-50 text-red-600';
       default: return 'bg-yellow-50 text-yellow-600';
     }
@@ -83,11 +67,11 @@ function AdminPayments() {
     >
       <motion.div variants={fadeInUp}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
-        <p className="text-gray-500 mb-8">Review and approve payment submissions</p>
+        <p className="text-gray-500 mb-8">Monitor Tap checkout attempts and successful subscription payments</p>
       </motion.div>
 
       <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
-        {['submitted', 'approved', 'rejected', 'all'].map((status) => (
+        {['initiated', 'captured', 'failed', 'cancelled', 'all'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -137,52 +121,47 @@ function AdminPayments() {
                         <p className="text-gray-400 text-sm">{payment.user?.email}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500 text-sm">Payment Reference</p>
-                        <p className="text-gray-900 font-mono">{payment.paymentReference}</p>
+                        <p className="text-gray-500 text-sm">Reference</p>
+                        <p className="text-gray-900 font-mono">{payment.paymentReference || payment.tapChargeId || '—'}</p>
                       </div>
                       <div>
                         <p className="text-gray-500 text-sm">Amount</p>
-                        <p className="text-gray-900 font-semibold">{payment.amount} SAR</p>
+                        <p className="text-gray-900 font-semibold">{payment.amount} {payment.currency || 'SAR'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500 text-sm">Bank</p>
-                        <p className="text-gray-900">{payment.bankName}</p>
+                        <p className="text-gray-500 text-sm">Provider</p>
+                        <p className="text-gray-900 uppercase">{payment.provider || 'tap'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-sm">Type</p>
+                        <p className="text-gray-900">
+                          {payment.paymentType === 'renewal'
+                            ? 'Automatic renewal'
+                            : payment.paymentType === 'recovery'
+                              ? 'Recovery checkout'
+                              : 'Initial checkout'}
+                        </p>
                       </div>
                     </div>
-                    {payment.rejectionReason && (
+                    {(payment.rejectionReason || payment.failureReason) && (
                       <p className="mt-2 text-red-600 text-sm">
-                        Rejection reason: {payment.rejectionReason}
+                        Failure reason: {payment.rejectionReason || payment.failureReason}
                       </p>
                     )}
-                    {payment.proofFile && (
-                      <button
-                        type="button"
-                        onClick={() => handleViewProof(payment._id)}
-                        className="inline-flex items-center gap-2 mt-3 text-primary-600 hover:text-primary-700 text-sm font-medium"
-                      >
-                        View payment proof
-                      </button>
+                    {payment.tapChargeId && (
+                      <p className="mt-2 text-xs text-gray-400">Tap charge: {payment.tapChargeId}</p>
                     )}
                   </div>
 
-                  {payment.status === 'submitted' && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(payment._id)}
-                        disabled={processing === payment._id}
-                        className="btn-primary"
-                      >
-                        {processing === payment._id ? 'Processing...' : 'Approve'}
-                      </button>
-                      <button
-                        onClick={() => handleReject(payment._id)}
-                        disabled={processing === payment._id}
-                        className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-lg transition-all"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDelete(payment._id)}
+                      disabled={recordIsBusy(payment._id)}
+                      className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-lg transition-all"
+                    >
+                      {actionIsRunning('delete', payment._id) ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}

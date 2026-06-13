@@ -35,7 +35,7 @@ function AdminConsultationBookings() {
   };
 
   const handleConfirm = async (id) => {
-    setProcessing(id);
+    setProcessing(`confirm-${id}`);
     try {
       await consultationBookingsAPI.confirm(id);
       showSuccess('Booking confirmed and Zoom link shared');
@@ -49,7 +49,7 @@ function AdminConsultationBookings() {
 
   const handleRejectSubmit = async () => {
     if (!rejectReason.trim()) return;
-    setProcessing(rejectModalId);
+    setProcessing(`reject-${rejectModalId}`);
     try {
       await consultationBookingsAPI.reject(rejectModalId, rejectReason);
       showSuccess('Booking rejected');
@@ -62,6 +62,26 @@ function AdminConsultationBookings() {
       setProcessing(null);
     }
   };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this consultation booking? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessing(`delete-${id}`);
+    try {
+      await consultationBookingsAPI.remove(id);
+      showSuccess('Booking deleted');
+      await fetchBookings();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete booking');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const actionIsRunning = (action, id) => processing === `${action}-${id}`;
+  const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -177,27 +197,45 @@ function AdminConsultationBookings() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleConfirm(booking._id)}
-                      disabled={processing === booking._id}
+                      disabled={recordIsBusy(booking._id)}
                       className="btn-primary py-2 px-4 text-sm"
                     >
-                      {processing === booking._id ? 'Confirming...' : 'Confirm'}
+                      {actionIsRunning('confirm', booking._id) ? 'Confirming...' : 'Confirm'}
                     </button>
                     <button
                       onClick={() => { setRejectModalId(booking._id); setRejectReason(''); }}
-                      disabled={processing === booking._id}
+                      disabled={recordIsBusy(booking._id)}
                       className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-xl transition-all text-sm"
                     >
                       Reject
                     </button>
+                    <button
+                      onClick={() => handleDelete(booking._id)}
+                      disabled={recordIsBusy(booking._id)}
+                      className="bg-gray-900 hover:bg-black text-white font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                    >
+                      {actionIsRunning('delete', booking._id) ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 )}
 
-                {booking.status === 'confirmed' && booking.zoomLink && (
-                  <div className="text-right">
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100">
-                      Zoom link shared
-                    </span>
-                    <p className="text-[10px] text-gray-400 mt-1 truncate max-w-[150px]">{booking.zoomLink}</p>
+                {booking.status !== 'pending' && (
+                  <div className="flex flex-col items-end gap-2">
+                    {booking.status === 'confirmed' && booking.zoomLink && (
+                      <div className="text-right">
+                        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100">
+                          Zoom link shared
+                        </span>
+                        <p className="text-[10px] text-gray-400 mt-1 truncate max-w-[150px]">{booking.zoomLink}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleDelete(booking._id)}
+                      disabled={recordIsBusy(booking._id)}
+                      className="bg-gray-900 hover:bg-black text-white font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                    >
+                      {actionIsRunning('delete', booking._id) ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -223,10 +261,10 @@ function AdminConsultationBookings() {
                 <button onClick={() => setRejectModalId(null)} className="btn-secondary flex-1">Cancel</button>
                 <button
                   onClick={handleRejectSubmit}
-                  disabled={!rejectReason.trim() || processing === rejectModalId}
+                  disabled={!rejectReason.trim() || actionIsRunning('reject', rejectModalId)}
                   className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
                 >
-                  {processing === rejectModalId ? 'Rejecting...' : 'Confirm Reject'}
+                  {actionIsRunning('reject', rejectModalId) ? 'Rejecting...' : 'Confirm Reject'}
                 </button>
               </div>
             </motion.div>

@@ -158,3 +158,12 @@ export const reject = async (id, adminId, reason) => {
 
   return application;
 };
+
+export const remove = async (id) => {
+  const application = await StudioApplication.findByIdAndDelete(id);
+  if (!application) {
+    throw new Error('Application not found');
+  }
+
+  return application;
+};

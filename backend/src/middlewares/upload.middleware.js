@@ -247,14 +247,6 @@ const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) 
   };
 };
 
-export const uploadPaymentProof = createValidatedUpload({
-  storage: defaultStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  allowedKinds: ['jpeg', 'png', 'gif', 'pdf'],
-  mode: 'single',
-  fields: [{ name: 'proofFile' }],
-});
-
 export const uploadLessonFile = createValidatedUpload({
   storage: lessonStorage,
   limits: { fileSize: 50 * 1024 * 1024 },

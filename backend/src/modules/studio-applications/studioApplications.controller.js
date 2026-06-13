@@ -52,3 +52,13 @@ export const rejectApplication = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const removeApplication = async (req, res) => {
+  try {
+    await studioApplicationsService.remove(req.params.id);
+    res.json({ message: 'Application deleted successfully' });
+  } catch (error) {
+    const statusCode = error.message === 'Application not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};

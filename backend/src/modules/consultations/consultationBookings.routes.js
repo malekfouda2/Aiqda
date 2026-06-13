@@ -11,5 +11,6 @@ router.get('/:id', authenticate, isAdmin, consultationBookingsController.getBook
 router.patch('/:id/confirm', authenticate, isAdmin, consultationBookingsController.confirmBooking);
 router.patch('/:id/reject', authenticate, isAdmin, consultationBookingsController.rejectBooking);
 router.patch('/:id/cancel', authenticate, consultationBookingsController.cancelBooking);
+router.delete('/:id', authenticate, isAdmin, consultationBookingsController.removeBooking);
 
 export default router;

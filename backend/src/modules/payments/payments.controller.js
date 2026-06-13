@@ -1,16 +1,44 @@
 import * as paymentsService from './payments.service.js';
 
-export const submitPayment = async (req, res) => {
+export const getTapCheckoutConfig = async (req, res) => {
   try {
-    const paymentData = {
+    const config = paymentsService.getTapCheckoutConfig();
+    res.json(config);
+  } catch (error) {
+    res.status(503).json({ error: error.message });
+  }
+};
+
+export const createTapSubscriptionCharge = async (req, res) => {
+  try {
+    const result = await paymentsService.createTapSubscriptionCharge(req.user.id, {
       subscriptionId: req.body.subscriptionId,
-      amount: req.body.amount,
-      paymentReference: req.body.paymentReference,
-      proofFile: req.file ? req.file.filename : null,
-      checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted
-    };
-    const payment = await paymentsService.submitPayment(req.user.id, paymentData);
-    res.status(201).json(payment);
+      tokenId: req.body.tokenId,
+      checkoutMethod: req.body.checkoutMethod,
+      phoneCountryCode: req.body.phoneCountryCode,
+      phoneNumber: req.body.phoneNumber,
+      checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted,
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const syncTapChargeForUser = async (req, res) => {
+  try {
+    const payment = await paymentsService.syncTapChargeForUser(req.user.id, req.params.chargeId);
+    res.json(payment);
+  } catch (error) {
+    const statusCode = error.message === 'Payment not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};
+
+export const processTapWebhook = async (req, res) => {
+  try {
+    await paymentsService.processTapWebhook(req.body, req.headers.hashstring || req.headers.hash || '');
+    res.json({ received: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -44,43 +72,21 @@ export const getPaymentById = async (req, res) => {
   }
 };
 
-export const downloadProof = async (req, res) => {
+export const removePayment = async (req, res) => {
   try {
-    const { absolutePath, downloadName } = await paymentsService.getPaymentProofDownload(
-      req.params.id,
-      req.user
-    );
-    res.download(absolutePath, downloadName);
+    await paymentsService.removePayment(req.params.id);
+    res.json({ message: 'Payment deleted successfully' });
   } catch (error) {
-    const statusCode = error.message === 'Access denied. Insufficient permissions.' ? 403 : 404;
+    const statusCode = error.message === 'Payment not found' ? 404 : 400;
     res.status(statusCode).json({ error: error.message });
   }
 };
 
-export const approvePayment = async (req, res) => {
+export const removeTapBillingProfile = async (req, res) => {
   try {
-    const payment = await paymentsService.approvePayment(req.params.id, req.user.id);
-    res.json(payment);
+    const billingProfile = await paymentsService.removeTapBillingProfile(req.user.id);
+    res.json(billingProfile);
   } catch (error) {
     res.status(400).json({ error: error.message });
-  }
-};
-
-export const rejectPayment = async (req, res) => {
-  try {
-    const { reason } = req.body;
-    const payment = await paymentsService.rejectPayment(req.params.id, req.user.id, reason);
-    res.json(payment);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export const getBankDetails = async (req, res) => {
-  try {
-    const bankDetails = paymentsService.getBankDetails();
-    res.json(bankDetails);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 };

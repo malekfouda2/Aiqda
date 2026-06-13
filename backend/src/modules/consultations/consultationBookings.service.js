@@ -166,3 +166,12 @@ export const cancelByUser = async (id, userId) => {
 
   return booking;
 };
+
+export const remove = async (id) => {
+  const booking = await ConsultationBooking.findByIdAndDelete(id);
+  if (!booking) {
+    throw new Error('Booking not found');
+  }
+
+  return booking;
+};

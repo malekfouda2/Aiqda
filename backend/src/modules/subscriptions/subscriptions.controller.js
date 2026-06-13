@@ -77,15 +77,21 @@ export const getAllSubscriptions = async (req, res) => {
   }
 };
 
-export const approveSubscription = async (req, res) => {
+export const updateAutoRenewPreference = async (req, res) => {
   try {
-    const subscription = await subscriptionsService.approveSubscription(
+    const subscription = await subscriptionsService.updateAutoRenewPreference(
       req.params.id,
-      req.user.id
+      req.user,
+      req.body.enabled
     );
     res.json(subscription);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    const statusCode = error.message === 'Subscription not found'
+      ? 404
+      : error.message === 'Access denied. Insufficient permissions.'
+        ? 403
+        : 400;
+    res.status(statusCode).json({ error: error.message });
   }
 };
 
@@ -95,5 +101,15 @@ export const cancelSubscription = async (req, res) => {
     res.json(subscription);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const removeSubscription = async (req, res) => {
+  try {
+    await subscriptionsService.removeSubscription(req.params.id);
+    res.json({ message: 'Subscription deleted successfully' });
+  } catch (error) {
+    const statusCode = error.message === 'Subscription not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
   }
 };

@@ -95,6 +95,21 @@ const currentSessionSchema = new mongoose.Schema({
   _id: false,
 });
 
+const phoneSchema = new mongoose.Schema({
+  countryCode: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  number: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+}, {
+  _id: false,
+});
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -122,6 +137,13 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String,
     default: null
+  },
+  phone: {
+    type: phoneSchema,
+    default: () => ({
+      countryCode: '',
+      number: '',
+    }),
   },
   isActive: {
     type: Boolean,
@@ -157,6 +179,40 @@ const userSchema = new mongoose.Schema({
     type: [currentSessionSchema],
     default: [],
   },
+  tapCustomerId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapCardId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapPaymentAgreementId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapCardBrand: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapCardFunding: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapCardLastFour: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapBillingProfileUpdatedAt: {
+    type: Date,
+    default: null,
+  },
 }, {
   timestamps: true
 });
@@ -166,11 +222,25 @@ userSchema.index({ 'authProviders.linkedin.subject': 1 }, { sparse: true });
 
 userSchema.methods.toJSON = function() {
   const user = this.toObject();
+  user.billingProfile = {
+    hasSavedCard: Boolean(user.tapCustomerId && user.tapCardId && user.tapPaymentAgreementId),
+    cardBrand: user.tapCardBrand || null,
+    cardFunding: user.tapCardFunding || null,
+    cardLastFour: user.tapCardLastFour || null,
+    updatedAt: user.tapBillingProfileUpdatedAt || null,
+  };
   delete user.password;
   delete user.authProviders;
   delete user.authorizedDevices;
   delete user.currentSession;
   delete user.currentSessions;
+  delete user.tapCustomerId;
+  delete user.tapCardId;
+  delete user.tapPaymentAgreementId;
+  delete user.tapCardBrand;
+  delete user.tapCardFunding;
+  delete user.tapCardLastFour;
+  delete user.tapBillingProfileUpdatedAt;
   return user;
 };
 

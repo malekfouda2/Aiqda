@@ -19,7 +19,7 @@ import {
 } from '../../utils/emailTemplates.js';
 import crypto from 'crypto';
 import { normalizeExternalUrl } from '../../utils/url.js';
-import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
+import { deleteUploadPathIfExists, ensureUploadPathExists } from '../../utils/uploadPaths.js';
 import { isBackofficeRole } from '../../utils/roles.js';
 
 const getInstructorSetupBaseUrl = () => {
@@ -245,6 +245,22 @@ export const reject = async (id, adminId, reason) => {
     console.error('Failed to send instructor rejection email:', error.message);
   }
   await application.save();
+
+  return application;
+};
+
+export const remove = async (id) => {
+  const application = await InstructorApplication.findById(id);
+  if (!application) {
+    throw new Error('Application not found');
+  }
+
+  await application.deleteOne();
+
+  await Promise.allSettled([
+    deleteUploadPathIfExists(application.cvFile),
+    deleteUploadPathIfExists(application.courseMaterialsFile),
+  ]);
 
   return application;
 };

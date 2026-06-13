@@ -1,21 +1,22 @@
 import express from 'express';
 import * as paymentsController from './payments.controller.js';
 import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
-import { uploadPaymentProof } from '../../middlewares/upload.middleware.js';
 
 const router = express.Router();
 
-router.get('/bank-details', paymentsController.getBankDetails);
+router.post('/tap/webhook', paymentsController.processTapWebhook);
 
 router.use(authenticate);
 
-router.post('/', uploadPaymentProof, paymentsController.submitPayment);
+router.get('/tap/config', paymentsController.getTapCheckoutConfig);
+router.post('/tap/charge', paymentsController.createTapSubscriptionCharge);
+router.get('/tap/charges/:chargeId', paymentsController.syncTapChargeForUser);
+router.delete('/tap/billing-profile', paymentsController.removeTapBillingProfile);
+
 router.get('/my', paymentsController.getUserPayments);
 
 router.get('/', isAdmin, paymentsController.getAllPayments);
 router.get('/:id', paymentsController.getPaymentById);
-router.get('/:id/proof', paymentsController.downloadProof);
-router.patch('/:id/approve', isAdmin, paymentsController.approvePayment);
-router.patch('/:id/reject', isAdmin, paymentsController.rejectPayment);
+router.delete('/:id', isAdmin, paymentsController.removePayment);
 
 export default router;

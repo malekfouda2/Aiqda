@@ -455,7 +455,7 @@ const getCourseRevenueAllocation = async (courseIds = []) => {
 
   const payments = await Payment.find({
     subscription: { $in: subscriptions.map((subscription) => subscription._id) },
-    status: 'approved'
+    status: { $in: ['approved', 'captured'] }
   })
     .select('subscription amount')
     .lean();
@@ -776,7 +776,7 @@ export const getInstructorAnalytics = async (instructorId) => {
     courseStats,
     revenueCalculation: {
       placeholder: false,
-      methodology: 'Approved subscription payments are allocated evenly across all courses included in each package.'
+      methodology: 'Successful subscription payments are allocated evenly across all courses included in each package.'
     }
   };
 };

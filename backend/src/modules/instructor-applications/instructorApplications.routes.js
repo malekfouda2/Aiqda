@@ -18,5 +18,6 @@ router.get('/:id', authenticate, canReviewApplications, instructorApplicationsCo
 router.get('/:id/files/:field', authenticate, canReviewApplications, instructorApplicationsController.downloadApplicationFile);
 router.patch('/:id/approve', authenticate, canReviewApplications, instructorApplicationsController.approveApplication);
 router.patch('/:id/reject', authenticate, canReviewApplications, instructorApplicationsController.rejectApplication);
+router.delete('/:id', authenticate, canReviewApplications, instructorApplicationsController.removeApplication);
 
 export default router;

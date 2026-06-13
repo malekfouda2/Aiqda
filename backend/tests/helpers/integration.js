@@ -268,8 +268,14 @@ export const createSubscription = async (overrides = {}) => {
     status: overrides.status || 'pending',
     startDate: overrides.startDate || null,
     endDate: overrides.endDate || null,
+    gracePeriodEndsAt: overrides.gracePeriodEndsAt || null,
     approvedBy: overrides.approvedBy || null,
-    approvedAt: overrides.approvedAt || null
+    approvedAt: overrides.approvedAt || null,
+    autoRenewEnabled: overrides.autoRenewEnabled ?? false,
+    autoRenewDisabledReason: overrides.autoRenewDisabledReason || null,
+    nextRenewalRetryAt: overrides.nextRenewalRetryAt || null,
+    renewalFailureReason: overrides.renewalFailureReason || null,
+    renewalFailureCount: overrides.renewalFailureCount ?? 0,
   });
 };
 

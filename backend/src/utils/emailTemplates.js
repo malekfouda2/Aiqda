@@ -271,38 +271,81 @@ export const buildConsultationBookingCancelledEmail = ({ recipientName, consulta
   ],
 });
 
-export const buildPaymentApprovedEmail = ({ recipientName, packageName, endDate }) => buildEmailTemplate({
-  subject: 'Your Aiqda Payment Was Approved',
+export const buildSubscriptionActivatedEmail = ({ recipientName, packageName, endDate }) => buildEmailTemplate({
+  subject: 'Your Aiqda Subscription Is Active',
   greeting: `Hello ${recipientName},`,
   headline: 'Your Subscription Is Now Active',
   bodyLines: [
-    `Your payment for "${packageName}" was approved successfully.`,
+    `Your payment for "${packageName}" was completed successfully.`,
     endDate ? `Your access is active until ${endDate}.` : 'Your access has been activated successfully.',
   ],
 });
 
-export const buildPaymentSubmittedEmail = ({ recipientName, packageName, amount, paymentReference }) => buildEmailTemplate({
-  subject: 'We Received Your Aiqda Payment Submission',
+export const buildSubscriptionRenewedEmail = ({ recipientName, packageName, endDate }) => buildEmailTemplate({
+  subject: 'Your Aiqda Subscription Renewed Successfully',
   greeting: `Hello ${recipientName},`,
-  headline: 'Your Payment Is Pending Review',
+  headline: 'Your Subscription Was Renewed',
   bodyLines: [
-    `We received your payment submission for "${packageName}".`,
-    'Our team will review the payment proof and update your subscription once the review is complete.',
+    `Your recurring payment for "${packageName}" was processed successfully.`,
+    endDate ? `Your renewed access is active until ${endDate}.` : 'Your renewed access is active now.',
   ],
-  listItems: [
-    amount != null ? `Amount: ${amount} SAR` : null,
-    paymentReference ? `Reference: ${paymentReference}` : null,
-  ].filter(Boolean),
 });
 
-export const buildPaymentRejectedEmail = ({ recipientName, packageName, reason }) => buildEmailTemplate({
-  subject: 'Update on Your Aiqda Payment Review',
+export const buildSubscriptionRenewalFailedEmail = ({
+  recipientName,
+  packageName,
+  reason,
+  checkoutUrl,
+  graceEndsAt,
+  nextRetryAt,
+  autoRetryEnabled = false,
+}) => buildEmailTemplate({
+  subject: 'Your Aiqda Subscription Renewal Needs Attention',
   greeting: `Hello ${recipientName},`,
-  headline: 'Your Payment Needs Attention',
+  headline: 'We Could Not Renew Your Subscription',
   bodyLines: [
-    `We reviewed your payment for "${packageName}" and could not approve it yet.`,
-    reason ? `Review note: ${reason}` : 'Please submit a new payment proof or contact support if you need help.',
+    `We attempted to renew "${packageName}" automatically, but the payment could not be completed.`,
+    reason ? `Reason: ${reason}` : 'Please update your payment method and complete a new checkout to restore access.',
+    graceEndsAt ? `Your subscription is in a grace period until ${graceEndsAt}.` : null,
+    autoRetryEnabled && nextRetryAt
+      ? `We will retry the saved payment method automatically on ${nextRetryAt}.`
+      : 'Please update your payment method and complete a new checkout to restore access.',
   ],
+  ctaLabel: checkoutUrl ? 'Open Subscription Page' : null,
+  ctaUrl: checkoutUrl || null,
+});
+
+export const buildSubscriptionGraceExpiredEmail = ({
+  recipientName,
+  packageName,
+  checkoutUrl,
+}) => buildEmailTemplate({
+  subject: 'Your Aiqda Subscription Has Expired',
+  greeting: `Hello ${recipientName},`,
+  headline: 'Your Grace Period Has Ended',
+  bodyLines: [
+    `We were unable to restore payment for "${packageName}" during the grace period.`,
+    'Your subscription access has now expired. You can return to the subscription page to start a new checkout whenever you are ready.',
+  ],
+  ctaLabel: checkoutUrl ? 'Open Subscription Page' : null,
+  ctaUrl: checkoutUrl || null,
+});
+
+export const buildSubscriptionCancelledEmail = ({
+  recipientName,
+  packageName,
+  endDate,
+  checkoutUrl,
+}) => buildEmailTemplate({
+  subject: 'Your Aiqda Subscription Was Cancelled',
+  greeting: `Hello ${recipientName},`,
+  headline: 'Your Subscription Was Cancelled',
+  bodyLines: [
+    `Your subscription for "${packageName}" has been cancelled.`,
+    endDate ? `Access remains available until ${endDate}.` : 'If you need access again, you can start a new checkout from your subscription page.',
+  ],
+  ctaLabel: checkoutUrl ? 'Open Subscription Page' : null,
+  ctaUrl: checkoutUrl || null,
 });
 
 export const buildContactMessageAcknowledgementEmail = ({ fullName, subjectLine }) => buildEmailTemplate({
@@ -359,7 +402,7 @@ export const buildSubscriptionRequestReceivedEmail = ({ recipientName, packageNa
   headline: 'Your Subscription Request Is Pending Payment',
   bodyLines: [
     `We received your request for "${packageName}".`,
-    'Please complete the payment submission flow so our team can review and activate your access.',
+    'Please complete the secure checkout flow to activate your access and save your card for future subscription renewals.',
   ],
   listItems: [
     billingLabel ? `Billing term: ${billingLabel}` : null,
@@ -372,7 +415,7 @@ export const buildSubscriptionRequestAdminNotificationEmail = ({ recipientName, 
   greeting: 'Hello team,',
   headline: 'A New Subscription Request Was Submitted',
   bodyLines: [
-    'A member created a new pending subscription and should submit payment next.',
+    'A member created a new pending subscription and is expected to complete checkout next.',
   ],
   listItems: [
     `Member: ${recipientName}`,
@@ -452,27 +495,5 @@ export const buildConsultationBookingAdminNotificationEmail = ({
     priceType ? `Price type: ${priceType}` : null,
     amount != null ? `Amount: ${amount} SAR` : null,
     paymentReference ? `Payment reference: ${paymentReference}` : null,
-  ].filter(Boolean),
-});
-
-export const buildPaymentSubmittedAdminNotificationEmail = ({
-  recipientName,
-  recipientEmail,
-  packageName,
-  amount,
-  paymentReference,
-}) => buildEmailTemplate({
-  subject: `New Payment Submission: ${packageName}`,
-  greeting: 'Hello team,',
-  headline: 'A New Payment Submission Is Ready For Review',
-  bodyLines: [
-    'A member submitted payment proof for a pending subscription.',
-  ],
-  listItems: [
-    `Member: ${recipientName}`,
-    `Email: ${recipientEmail}`,
-    `Package: ${packageName}`,
-    amount != null ? `Amount: ${amount} SAR` : null,
-    paymentReference ? `Reference: ${paymentReference}` : null,
   ].filter(Boolean),
 });

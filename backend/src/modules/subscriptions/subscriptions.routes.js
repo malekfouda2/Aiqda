@@ -15,9 +15,10 @@ router.put('/packages/:id', isAdmin, subscriptionsController.updatePackage);
 router.post('/request', requirePlatformNoticeAcknowledgement, subscriptionsController.requestSubscription);
 router.get('/my', subscriptionsController.getUserSubscriptions);
 router.get('/active', subscriptionsController.getActiveSubscription);
+router.patch('/:id/auto-renew', subscriptionsController.updateAutoRenewPreference);
 
 router.get('/', isAdmin, subscriptionsController.getAllSubscriptions);
-router.patch('/:id/approve', isAdmin, subscriptionsController.approveSubscription);
 router.patch('/:id/cancel', isAdmin, subscriptionsController.cancelSubscription);
+router.delete('/:id', isAdmin, subscriptionsController.removeSubscription);
 
 export default router;

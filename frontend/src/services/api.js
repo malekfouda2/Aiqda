@@ -64,28 +64,21 @@ export const subscriptionsAPI = {
   requestSubscription: (packageId, billingTerm) => api.post('/subscriptions/request', { packageId, billingTerm }),
   getUserSubscriptions: () => api.get('/subscriptions/my'),
   getActiveSubscription: () => api.get('/subscriptions/active'),
+  updateAutoRenew: (id, enabled) => api.patch(`/subscriptions/${id}/auto-renew`, { enabled }),
   getAll: (status) => api.get('/subscriptions', { params: { status } }),
-  approve: (id) => api.patch(`/subscriptions/${id}/approve`),
-  cancel: (id) => api.patch(`/subscriptions/${id}/cancel`)
+  cancel: (id) => api.patch(`/subscriptions/${id}/cancel`),
+  remove: (id) => api.delete(`/subscriptions/${id}`)
 };
 
 export const paymentsAPI = {
-  getBankDetails: () => api.get('/payments/bank-details'),
-  submit: (data) => {
-    if (data instanceof FormData) {
-      return api.post('/payments', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-    }
-
-    return api.post('/payments', data);
-  },
+  getTapConfig: () => api.get('/payments/tap/config'),
+  createTapCharge: (data) => api.post('/payments/tap/charge', data),
+  syncTapCharge: (chargeId) => api.get(`/payments/tap/charges/${chargeId}`),
+  removeSavedBillingProfile: () => api.delete('/payments/tap/billing-profile'),
   getUserPayments: () => api.get('/payments/my'),
   getAll: (status) => api.get('/payments', { params: { status } }),
   getById: (id) => api.get(`/payments/${id}`),
-  downloadProof: (id) => api.get(`/payments/${id}/proof`, { responseType: 'blob' }),
-  approve: (id) => api.patch(`/payments/${id}/approve`),
-  reject: (id, reason) => api.patch(`/payments/${id}/reject`, { reason })
+  remove: (id) => api.delete(`/payments/${id}`)
 };
 
 export const coursesAPI = {
@@ -183,7 +176,8 @@ export const instructorApplicationsAPI = {
   getById: (id) => api.get(`/instructor-applications/${id}`),
   downloadFile: (id, field) => api.get(`/instructor-applications/${id}/files/${field}`, { responseType: 'blob' }),
   approve: (id) => api.patch(`/instructor-applications/${id}/approve`),
-  reject: (id, reason) => api.patch(`/instructor-applications/${id}/reject`, { reason })
+  reject: (id, reason) => api.patch(`/instructor-applications/${id}/reject`, { reason }),
+  remove: (id) => api.delete(`/instructor-applications/${id}`)
 };
 
 export const studioApplicationsAPI = {
@@ -191,7 +185,8 @@ export const studioApplicationsAPI = {
   getAll: (status) => api.get('/studio-applications', { params: { status } }),
   getById: (id) => api.get(`/studio-applications/${id}`),
   approve: (id) => api.patch(`/studio-applications/${id}/approve`),
-  reject: (id, reason) => api.patch(`/studio-applications/${id}/reject`, { reason })
+  reject: (id, reason) => api.patch(`/studio-applications/${id}/reject`, { reason }),
+  remove: (id) => api.delete(`/studio-applications/${id}`)
 };
 
 export const consultationsAPI = {
@@ -210,7 +205,8 @@ export const consultationBookingsAPI = {
   getById: (id) => api.get(`/consultation-bookings/${id}`),
   confirm: (id) => api.patch(`/consultation-bookings/${id}/confirm`),
   reject: (id, reason) => api.patch(`/consultation-bookings/${id}/reject`, { reason }),
-  cancel: (id) => api.patch(`/consultation-bookings/${id}/cancel`)
+  cancel: (id) => api.patch(`/consultation-bookings/${id}/cancel`),
+  remove: (id) => api.delete(`/consultation-bookings/${id}`)
 };
 
 export const videoAPI = {

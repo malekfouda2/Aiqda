@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+
 import { subscriptionsAPI, paymentsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import CheckoutDisclaimerModal from '../components/CheckoutDisclaimerModal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import TapCardCheckout from '../components/TapCardCheckout';
+import TapApplePayCheckout from '../components/TapApplePayCheckout';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import {
   SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER,
   SUBSCRIPTION_DEVICE_LIMIT_TITLE,
 } from '../content/subscriptionPolicy';
-import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import { pageVariants, fadeInUp } from '../utils/animations';
 import {
   formatMoney,
   getActiveBillingOptions,
@@ -30,82 +33,295 @@ import {
   hasBillingSale,
 } from '../utils/subscriptions';
 
+const splitName = (value = '') => {
+  const normalizedName = String(value).trim();
+  if (!normalizedName) {
+    return { firstName: 'Aiqda', lastName: 'Member' };
+  }
+
+  const [firstName, ...rest] = normalizedName.split(/\s+/);
+  return {
+    firstName: firstName || 'Aiqda',
+    lastName: rest.join(' ') || 'Member',
+  };
+};
+
+const getFriendlyBillingMessage = (message, isRTL) => {
+  const normalizedMessage = String(message || '').trim();
+  if (!normalizedMessage) {
+    return '';
+  }
+
+  if (/no saved tap card|no saved tap billing agreement/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'سيصبح التجديد التلقائي متاحًا بعد حفظ وسيلة دفع صالحة على حسابك.'
+      : 'Automatic renewal becomes available after a valid payment method is saved to your account.';
+  }
+
+  if (/no saved payment method/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'لا توجد وسيلة دفع محفوظة لهذا الاشتراك حاليًا.'
+      : 'No saved payment method is available for this membership right now.';
+  }
+
+  if (/tap checkout is not configured|tap is not configured/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'الدفع الإلكتروني غير متاح حاليًا. يرجى المحاولة مرة أخرى لاحقًا.'
+      : 'Electronic checkout is not available right now. Please try again later.';
+  }
+
+  if (/apple pay is not available/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'Apple Pay غير متاح على هذا الجهاز أو النطاق حاليًا.'
+      : 'Apple Pay is not available on this device or domain right now.';
+  }
+
+  if (/did not return a payment token|continuation url|card sdk|secure payment form|interrupted|card checkout/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'تعذر تجهيز نموذج الدفع الآمن. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+      : 'We could not prepare the secure payment form. Please refresh the page and try again.';
+  }
+
+  if (/payment already exists for this subscription/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'توجد بالفعل عملية دفع جارية لهذا الاشتراك.'
+      : 'A checkout is already in progress for this subscription.';
+  }
+
+  if (/no pending subscription found/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'انتهت صلاحية جلسة الاشتراك هذه. يرجى اختيار الخطة مرة أخرى.'
+      : 'This subscription session has expired. Please choose your plan again.';
+  }
+
+  return normalizedMessage
+    .replace(/\bTap\b/gi, isRTL ? 'وسيلة الدفع' : 'payment method')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 function Subscription() {
   const { locale, pick, formatDate, isRTL } = useLocale();
   const navigate = useNavigate();
-  const { hasAcceptedCurrentPlatformNotice } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, hasAcceptedCurrentPlatformNotice, refreshProfile } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
+  const tapCardRef = useRef(null);
+  const applePayRef = useRef(null);
+
   const [packages, setPackages] = useState([]);
   const [activeSubscription, setActiveSubscription] = useState(null);
   const [pendingSubscription, setPendingSubscription] = useState(null);
-  const [bankDetails, setBankDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [selectedTerms, setSelectedTerms] = useState({});
-  const [expandedPkg, setExpandedPkg] = useState(null);
-  const [paymentForm, setPaymentForm] = useState({
-    paymentReference: '',
-    amount: '',
-    proofFile: null,
-  });
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [showCheckoutDisclaimer, setShowCheckoutDisclaimer] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [tapConfig, setTapConfig] = useState(null);
+  const [tapConfigError, setTapConfigError] = useState('');
+  const [tapConfigLoading, setTapConfigLoading] = useState(false);
+  const [tapSdkState, setTapSdkState] = useState({ ready: false, valid: false, error: '' });
+  const [applePayState, setApplePayState] = useState({ ready: false, error: '' });
+  const [phoneCountryCode, setPhoneCountryCode] = useState(user?.phone?.countryCode || '966');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone?.number || '');
+  const [paymentSyncing, setPaymentSyncing] = useState(false);
+  const [updatingAutoRenew, setUpdatingAutoRenew] = useState(false);
+  const [removingBillingProfile, setRemovingBillingProfile] = useState(false);
+  const [selectedCheckoutMethod, setSelectedCheckoutMethod] = useState('card');
+  const [applePayArmed, setApplePayArmed] = useState(false);
+
   const displayPackages = packages.filter((pkg) => (
     pkg.publicVisibility === 'coming_soon'
     || (pkg.publicVisibility !== 'hidden' && pkg.isActive !== false)
   ));
 
+  const tapChargeId = searchParams.get('tap_id');
+  const recoverySubscription = activeSubscription?.status === 'grace_period' ? activeSubscription : null;
+  const checkoutSubscription = pendingSubscription || recoverySubscription || null;
+  const checkoutMode = pendingSubscription ? 'initial' : recoverySubscription ? 'recovery' : null;
+  const isRecoveryCheckout = checkoutMode === 'recovery';
+  const checkoutCurrency = checkoutSubscription?.currency || tapConfig?.currency || 'SAR';
+
   useEffect(() => {
-    if (hasAcceptedCurrentPlatformNotice()) {
-      fetchData();
+    if (!hasAcceptedCurrentPlatformNotice()) {
+      setLoading(false);
       return;
     }
 
-    setLoading(false);
-  }, [hasAcceptedCurrentPlatformNotice]);
+    let cancelled = false;
 
-  const fetchData = async () => {
-    try {
-      const [packagesRes, subRes, bankRes, userSubsRes] = await Promise.all([
-        subscriptionsAPI.getPackages(false),
-        subscriptionsAPI.getActiveSubscription(),
-        paymentsAPI.getBankDetails(),
-        subscriptionsAPI.getUserSubscriptions()
-      ]);
-      const nextPackages = packagesRes.data || [];
-      setPackages(nextPackages);
-      setSelectedTerms(
-        nextPackages.reduce((accumulator, pkg) => {
-          const defaultTerm = getDefaultBillingTerm(pkg);
-          if (defaultTerm) {
-            accumulator[pkg._id] = defaultTerm;
-          }
-          return accumulator;
-        }, {})
-      );
-      setActiveSubscription(subRes.data);
-      setBankDetails(bankRes.data);
-      
-      const pending = userSubsRes.data.find(s => s.status === 'pending');
-      setPendingSubscription(pending);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
+    const bootstrap = async () => {
+      setLoading(true);
+      try {
+        const [packagesRes, activeRes, userSubsRes] = await Promise.all([
+          subscriptionsAPI.getPackages(false),
+          subscriptionsAPI.getActiveSubscription(),
+          subscriptionsAPI.getUserSubscriptions(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextPackages = packagesRes.data || [];
+        setPackages(nextPackages);
+        setSelectedTerms(
+          nextPackages.reduce((accumulator, pkg) => {
+            const defaultTerm = getDefaultBillingTerm(pkg);
+            if (defaultTerm) {
+              accumulator[pkg._id] = defaultTerm;
+            }
+            return accumulator;
+          }, {})
+        );
+        setActiveSubscription(activeRes.data);
+        const nextPending = (userSubsRes.data || []).find((subscription) => subscription.status === 'pending') || null;
+        setPendingSubscription(nextPending);
+        setShowCheckout(Boolean(nextPending));
+      } catch (error) {
+        console.error('Failed to fetch subscription data:', error);
+        if (!cancelled) {
+          showError(error.response?.data?.error || (isRTL ? 'تعذر تحميل الاشتراكات' : 'Failed to load subscriptions'));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+
+      setTapConfigLoading(true);
+      try {
+        const tapConfigResponse = await paymentsAPI.getTapConfig();
+        if (!cancelled) {
+          setTapConfig(tapConfigResponse.data);
+          setTapConfigError('');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setTapConfig(null);
+          setTapConfigError(
+            getFriendlyBillingMessage(
+              error.response?.data?.error,
+              isRTL
+            ) || fallbackTapConfigError
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setTapConfigLoading(false);
+        }
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAcceptedCurrentPlatformNotice, isRTL, showError]);
+
+  useEffect(() => {
+    if (!user?.phone?.countryCode && !user?.phone?.number) {
+      return;
     }
+
+    setPhoneCountryCode((current) => current || user.phone.countryCode || '966');
+    setPhoneNumber((current) => current || user.phone.number || '');
+  }, [user]);
+
+  useEffect(() => {
+    if (!tapChargeId || !hasAcceptedCurrentPlatformNotice()) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const syncTapCharge = async () => {
+      setPaymentSyncing(true);
+      try {
+        const response = await paymentsAPI.syncTapCharge(tapChargeId);
+        if (cancelled) {
+          return;
+        }
+
+        const payment = response.data;
+        if (payment.status === 'captured' || payment.status === 'approved') {
+          showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
+        } else if (payment.status === 'failed' || payment.status === 'cancelled' || payment.status === 'rejected') {
+          showError(
+            getFriendlyBillingMessage(
+              payment.failureReason || payment.tapResponseMessage,
+              isRTL
+            ) || (isRTL ? 'تعذر إكمال الدفع.' : 'The payment could not be completed.')
+          );
+        }
+
+        await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
+      } catch (error) {
+        if (!cancelled) {
+          showError(error.response?.data?.error || (isRTL ? 'تعذر التحقق من حالة الدفع الآن.' : 'We could not confirm the payment status yet.'));
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentSyncing(false);
+          const nextParams = new URLSearchParams(searchParams.toString());
+          nextParams.delete('tap_id');
+          nextParams.delete('tap_redirect');
+          setSearchParams(nextParams, { replace: true });
+        }
+      }
+    };
+
+    syncTapCharge();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAcceptedCurrentPlatformNotice, isRTL, refreshProfile, searchParams, setSearchParams, showError, showSuccess, tapChargeId]);
+
+  const fetchLatestSubscriptions = async () => {
+    const [activeRes, userSubsRes] = await Promise.all([
+      subscriptionsAPI.getActiveSubscription(),
+      subscriptionsAPI.getUserSubscriptions(),
+    ]);
+
+    const nextActiveSubscription = activeRes.data || null;
+    setActiveSubscription(nextActiveSubscription);
+    const nextPending = (userSubsRes.data || []).find((subscription) => subscription.status === 'pending') || null;
+    setPendingSubscription(nextPending);
+    setShowCheckout((current) => current && Boolean(nextPending || nextActiveSubscription?.status === 'grace_period'));
   };
 
-  useEffect(() => {
-    if (!pendingSubscription?.priceAtPurchase) {
+  const handleAutoRenewPreference = async (enabled) => {
+    if (!activeSubscription?._id) {
       return;
     }
 
-    setPaymentForm((current) => ({
-      ...current,
-      amount: String(pendingSubscription.priceAtPurchase),
-    }));
-  }, [pendingSubscription]);
+    setUpdatingAutoRenew(true);
+    try {
+      const response = await subscriptionsAPI.updateAutoRenew(activeSubscription._id, enabled);
+      setActiveSubscription(response.data);
+      showSuccess(
+        enabled
+          ? (isRTL ? 'تم تفعيل التجديد التلقائي.' : 'Automatic renewal is now enabled.')
+          : (isRTL ? 'تم إيقاف التجديد التلقائي.' : 'Automatic renewal is now turned off.')
+      );
+      await refreshProfile();
+    } catch (error) {
+      showError(
+        getFriendlyBillingMessage(
+          error.response?.data?.error,
+          isRTL
+        )
+        || (enabled
+          ? (isRTL ? 'تعذر تفعيل التجديد التلقائي.' : 'We could not enable automatic renewal.')
+          : (isRTL ? 'تعذر إيقاف التجديد التلقائي.' : 'We could not turn off automatic renewal.'))
+      );
+    } finally {
+      setUpdatingAutoRenew(false);
+    }
+  };
 
   const updateSelectedTerm = (packageId, billingTerm) => {
     setSelectedTerms((current) => ({
@@ -124,8 +340,8 @@ function Subscription() {
     try {
       const response = await subscriptionsAPI.requestSubscription(packageId, billingTerm);
       setPendingSubscription(response.data);
-      setShowPaymentForm(true);
-      showSuccess(isRTL ? 'تم طلب الاشتراك! يرجى إرسال إثبات الدفع.' : 'Subscription requested! Please submit your payment.');
+      setShowCheckout(true);
+      showSuccess(isRTL ? 'تم إنشاء طلب الاشتراك. أكمل الدفع الإلكتروني لتفعيل الوصول.' : 'Subscription request created. Complete electronic checkout to activate access.');
     } catch (error) {
       showError(error.response?.data?.error || (isRTL ? 'تعذر طلب الاشتراك' : 'Failed to request subscription'));
     } finally {
@@ -133,36 +349,235 @@ function Subscription() {
     }
   };
 
-  const handleSubmitPayment = (e) => {
-    e.preventDefault();
-    if (!pendingSubscription) return;
+  const handleRemoveSavedPaymentMethod = async () => {
+    if (!savedBillingProfile?.hasSavedCard) {
+      return;
+    }
+
+    if (!window.confirm(isRTL ? 'هل تريد إزالة وسيلة الدفع المحفوظة وإيقاف التجديد التلقائي؟' : 'Remove the saved payment method and turn off automatic renewal?')) {
+      return;
+    }
+
+    setRemovingBillingProfile(true);
+    try {
+      await paymentsAPI.removeSavedBillingProfile();
+      showSuccess(
+        isRTL
+          ? 'تمت إزالة وسيلة الدفع المحفوظة وإيقاف التجديد التلقائي.'
+          : 'Your saved payment method was removed and automatic renewal was turned off.'
+      );
+      await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
+    } catch (error) {
+      showError(
+        getFriendlyBillingMessage(
+          error.response?.data?.error,
+          isRTL
+        ) || (isRTL ? 'تعذر إزالة وسيلة الدفع المحفوظة.' : 'We could not remove the saved payment method.')
+      );
+    } finally {
+      setRemovingBillingProfile(false);
+    }
+  };
+
+  const ensureCheckoutReady = async () => {
+    if (!checkoutSubscription) {
+      return null;
+    }
+
+    let activeTapConfig = tapConfig;
+    if (!activeTapConfig) {
+      activeTapConfig = await fetchTapCheckoutConfig();
+      if (!activeTapConfig) {
+        showError(
+          isRTL
+            ? 'تعذر تحميل نموذج الدفع الآن. يرجى المحاولة مرة أخرى خلال لحظات.'
+            : 'We could not load the payment form right now. Please try again in a moment.'
+        );
+        return null;
+      }
+    }
+
+    if (!phoneCountryCode.trim() || !phoneNumber.trim()) {
+      showError(isRTL ? 'يرجى إدخال رقم الهاتف ليتم حفظ البطاقة للاشتراكات.' : 'Please enter a phone number so the card can be saved for subscriptions.');
+      return null;
+    }
+
+    return activeTapConfig;
+  };
+
+  const handleBeginCheckout = async (method = 'card') => {
+    const activeTapConfig = await ensureCheckoutReady();
+    if (!activeTapConfig) {
+      return;
+    }
+
+    setSelectedCheckoutMethod(method === 'apple_pay' ? 'apple_pay' : 'card');
+    setApplePayState({ ready: false, error: '' });
     setShowCheckoutDisclaimer(true);
   };
 
-  const handleConfirmPayment = async () => {
-    if (!pendingSubscription) return;
+  const submitTokenizedCheckout = async ({ tokenId, checkoutMethod }) => {
+    if (!checkoutSubscription) {
+      return;
+    }
+
+    const response = await paymentsAPI.createTapCharge({
+      subscriptionId: checkoutSubscription._id,
+      tokenId,
+      checkoutMethod,
+      phoneCountryCode,
+      phoneNumber,
+      checkoutDisclaimerAccepted: true,
+    });
+
+    const payment = response.data?.payment;
+    const redirectUrl = response.data?.redirectUrl;
+
+    if (payment?.status === 'captured' || payment?.status === 'approved') {
+      setShowCheckoutDisclaimer(false);
+      setApplePayArmed(false);
+      showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
+      await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
+      return;
+    }
+
+    if (redirectUrl) {
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
+  };
+
+  const handleConfirmCheckout = async () => {
+    if (!checkoutSubscription) {
+      return;
+    }
+
+    if (selectedCheckoutMethod === 'apple_pay') {
+      setApplePayArmed(true);
+      setShowCheckoutDisclaimer(false);
+      return;
+    }
+
+    if (!tapCardRef.current) {
+      showError(isRTL ? 'نموذج البطاقة غير جاهز بعد.' : 'The card form is not ready yet.');
+      return;
+    }
 
     setSubmittingPayment(true);
     try {
-      const formData = new FormData();
-      formData.append('subscriptionId', pendingSubscription._id);
-      formData.append('amount', paymentForm.amount);
-      formData.append('paymentReference', paymentForm.paymentReference);
-      formData.append('checkoutDisclaimerAccepted', 'true');
-      if (paymentForm.proofFile) {
-        formData.append('proofFile', paymentForm.proofFile);
+      const tokenResponse = await tapCardRef.current.tokenize();
+      const tokenId = tokenResponse?.id;
+      if (!tokenId) {
+        throw new Error(isRTL ? 'تعذر تجهيز تفاصيل الدفع الآمنة.' : 'We could not prepare your secure payment details.');
       }
 
-      await paymentsAPI.submit(formData);
-      setShowCheckoutDisclaimer(false);
-      showSuccess(isRTL ? 'تم إرسال الدفع! بانتظار موافقة الإدارة.' : 'Payment submitted! Awaiting admin approval.');
-      navigate('/dashboard/payments');
+      await submitTokenizedCheckout({
+        tokenId,
+        checkoutMethod: 'card',
+      });
     } catch (error) {
-      showError(error.response?.data?.error || (isRTL ? 'تعذر إرسال الدفع' : 'Failed to submit payment'));
+      showError(
+        getFriendlyBillingMessage(
+          error.response?.data?.error || error.message,
+          isRTL
+        ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+      );
     } finally {
       setSubmittingPayment(false);
+      setShowCheckoutDisclaimer(false);
     }
   };
+
+  const handleApplePayTokenReady = async (tokenId) => {
+    setSubmittingPayment(true);
+    try {
+      await submitTokenizedCheckout({
+        tokenId,
+        checkoutMethod: 'apple_pay',
+      });
+    } catch (error) {
+      showError(
+        getFriendlyBillingMessage(
+          error.response?.data?.error || error.message,
+          isRTL
+        ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+      );
+    } finally {
+      setSubmittingPayment(false);
+      setApplePayArmed(false);
+    }
+  };
+
+  const tapCustomer = useMemo(() => {
+    const { firstName, lastName } = splitName(user?.name || '');
+
+    return {
+      firstName,
+      lastName,
+      nameOnCard: [firstName, lastName].filter(Boolean).join(' '),
+      email: user?.email || '',
+      phoneCountryCode,
+      phoneNumber,
+    };
+  }, [phoneCountryCode, phoneNumber, user?.email, user?.name]);
+
+  const savedBillingProfile = user?.billingProfile || null;
+  const savedCardSummary = savedBillingProfile?.hasSavedCard
+    ? [savedBillingProfile.cardBrand, savedBillingProfile.cardLastFour ? `•••• ${savedBillingProfile.cardLastFour}` : null]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  const autoRenewSetupHint = isRTL
+    ? 'يمكن تفعيل التجديد التلقائي بعد حفظ وسيلة دفع صالحة على حسابك.'
+    : 'Automatic renewal can be enabled after a valid payment method is saved to your account.';
+  const savedBillingUpdatedLabel = savedBillingProfile?.updatedAt
+    ? formatDate(savedBillingProfile.updatedAt)
+    : '';
+  const applePayAvailable = Boolean(tapConfig?.applePay?.enabled);
+  const currentSubscriptionEndsLabel = activeSubscription?.status === 'grace_period'
+    ? formatDate(activeSubscription.gracePeriodEndsAt)
+    : formatDate(activeSubscription?.endDate);
+  const fallbackTapConfigError = isRTL
+    ? 'الدفع الإلكتروني غير متاح حاليًا.'
+    : 'Electronic checkout is not available right now.';
+
+  const fetchTapCheckoutConfig = async () => {
+    setTapConfigLoading(true);
+    try {
+      const tapConfigResponse = await paymentsAPI.getTapConfig();
+      setTapConfig(tapConfigResponse.data);
+      setTapConfigError('');
+      return tapConfigResponse.data;
+    } catch (error) {
+      const message = getFriendlyBillingMessage(
+        error.response?.data?.error,
+        isRTL
+      ) || fallbackTapConfigError;
+      setTapConfig(null);
+      setTapConfigError(message);
+      return null;
+    } finally {
+      setTapConfigLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!applePayArmed || !applePayState.ready || submittingPayment) {
+      return;
+    }
+
+    try {
+      applePayRef.current?.start();
+    } catch (error) {
+      setApplePayArmed(false);
+      showError(
+        getFriendlyBillingMessage(error.message, isRTL)
+          || (isRTL ? 'تعذر فتح Apple Pay الآن.' : 'We could not open Apple Pay right now.')
+      );
+    }
+  }, [applePayArmed, applePayState.ready, isRTL, showError, submittingPayment]);
 
   if (loading) {
     return (
@@ -192,383 +607,639 @@ function Subscription() {
       animate="visible"
     >
       <motion.div variants={fadeInUp} className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'خطط الاشتراك' : 'Subscription Plans'}</h1>
-            <p className="text-gray-500">{isRTL ? 'اختر الخطة المناسبة لك' : 'Choose a plan that works for you'}</p>
-          </motion.div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'خطط الاشتراك' : 'Subscription Plans'}</h1>
+        <p className="text-gray-500">{isRTL ? 'اختر الخطة المناسبة لك' : 'Choose a plan that works for you'}</p>
+      </motion.div>
 
-          <motion.div
-            variants={fadeInUp}
-            className="mb-8 rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-blue-700 shadow-sm">
-                i
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-                  {pick(SUBSCRIPTION_DEVICE_LIMIT_TITLE)}
-                </h2>
-                <p className="mt-1 text-sm leading-7 text-blue-900/80">
-                  {pick(SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER)}
-                </p>
-              </div>
-            </div>
-          </motion.div>
+      <motion.div
+        variants={fadeInUp}
+        className="mb-8 rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-blue-700 shadow-sm">
+            i
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+              {pick(SUBSCRIPTION_DEVICE_LIMIT_TITLE)}
+            </h2>
+            <p className="mt-1 text-sm leading-7 text-blue-900/80">
+              {pick(SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER)}
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
-          {activeSubscription && (
-            <div className="card bg-green-50 border-green-200 mb-8">
+      {paymentSyncing && (
+        <div className="card border-primary-200 bg-primary-50 mb-8">
+          <p className="text-sm text-primary-700">
+            {isRTL ? 'جارٍ التحقق من حالة الدفع...' : 'Confirming your payment status...'}
+          </p>
+        </div>
+      )}
+
+      {activeSubscription && (
+        <div className={`card mb-8 ${activeSubscription.status === 'grace_period' ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+            <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">✅</span>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${activeSubscription.status === 'grace_period' ? 'bg-amber-100' : 'bg-green-50'}`}>
+                  <span className="text-2xl">{activeSubscription.status === 'grace_period' ? '⚠️' : '✅'}</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-green-600">{isRTL ? 'اشتراك نشط' : 'Active Subscription'}</h3>
-                  <p className="text-green-600">
+                  <h3 className={`text-lg font-semibold ${activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-600'}`}>
+                    {activeSubscription.status === 'grace_period'
+                      ? (isRTL ? 'اشتراك في فترة سماح' : 'Subscription In Grace Period')
+                      : (isRTL ? 'اشتراك نشط' : 'Active Subscription')}
+                  </h3>
+                  <p className={activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-600'}>
                     {activeSubscription.package?.name}
                     {activeSubscription.billingTerm ? ` (${getBillingTermLabel(activeSubscription.billingTerm, locale) || activeSubscription.billingTerm})` : ''}
-                    {' '} - {isRTL ? 'ينتهي في' : 'Expires'} {formatDate(activeSubscription.endDate)}
+                    {' '} - {activeSubscription.status === 'grace_period'
+                      ? (isRTL ? 'فترة السماح تنتهي في' : 'Grace access ends')
+                      : (isRTL ? 'ينتهي في' : 'Expires')} {currentSubscriptionEndsLabel}
                   </p>
                 </div>
               </div>
+
+              {activeSubscription.status === 'grace_period' && (
+                <div className="rounded-2xl border border-amber-200 bg-white/80 px-4 py-4">
+                  <p className="text-sm font-semibold text-amber-800">
+                    {isRTL ? 'تعذر تجديد الاشتراك تلقائيًا.' : 'We could not renew this membership automatically.'}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-amber-900/80">
+                    {activeSubscription.renewalFailureReason
+                      ? `${isRTL ? 'السبب:' : 'Reason:'} ${getFriendlyBillingMessage(activeSubscription.renewalFailureReason, isRTL)}`
+                      : (isRTL ? 'يرجى تحديث وسيلة الدفع أو إكمال عملية الدفع مرة أخرى قبل انتهاء فترة السماح.' : 'Please update your payment method or complete checkout again before the grace period ends.')}
+                  </p>
+                  {activeSubscription.nextRenewalRetryAt && activeSubscription.autoRenewEnabled && (
+                    <p className="mt-2 text-sm text-amber-800">
+                      {isRTL
+                        ? `سنحاول التجديد مرة أخرى في ${formatDate(activeSubscription.nextRenewalRetryAt)}.`
+                        : `We will retry the saved payment method on ${formatDate(activeSubscription.nextRenewalRetryAt)}.`}
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckout(true)}
+                      className="btn-primary"
+                    >
+                      {isRTL ? 'استعادة الاشتراك الآن' : 'Restore Subscription Now'}
+                    </button>
+                    {savedBillingProfile?.hasSavedCard && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveSavedPaymentMethod}
+                        disabled={removingBillingProfile}
+                        className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {removingBillingProfile
+                          ? (isRTL ? 'جارٍ الإزالة...' : 'Removing...')
+                          : (isRTL ? 'إزالة وسيلة الدفع المحفوظة' : 'Remove Saved Payment Method')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className={`rounded-2xl border bg-white/80 px-4 py-4 ${activeSubscription.status === 'grace_period' ? 'border-amber-100' : 'border-green-100'}`}>
+              <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-700'}`}>
+                {isRTL ? 'الفوترة والتجديد' : 'Billing & Renewal'}
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-4">
+                <p className="text-sm font-medium text-gray-900">
+                  {isRTL ? 'وسيلة الدفع المحفوظة' : 'Saved Payment Method'}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-gray-600">
+                  {savedBillingProfile?.hasSavedCard
+                    ? (savedCardSummary || (isRTL ? 'وسيلة دفع محفوظة وجاهزة للتجديدات القادمة.' : 'A saved payment method is ready for future renewals.'))
+                    : (isRTL ? 'لا توجد وسيلة دفع محفوظة على هذا الحساب حتى الآن.' : 'No saved payment method is stored on this account yet.')}
+                </p>
+                {savedBillingUpdatedLabel && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    {isRTL ? `آخر تحديث: ${savedBillingUpdatedLabel}` : `Updated: ${savedBillingUpdatedLabel}`}
+                  </p>
+                )}
+                {savedBillingProfile?.hasSavedCard && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveSavedPaymentMethod}
+                    disabled={removingBillingProfile}
+                    className="btn-secondary mt-4 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {removingBillingProfile
+                      ? (isRTL ? 'جارٍ الإزالة...' : 'Removing...')
+                      : (isRTL ? 'إزالة وسيلة الدفع المحفوظة' : 'Remove Saved Payment Method')}
+                  </button>
+                )}
+              </div>
+
+              <p className="mt-4 text-sm leading-7 text-gray-600">
+                {activeSubscription.autoRenewEnabled
+                  ? (savedCardSummary
+                    ? (isRTL
+                      ? `سيتم محاولة التجديد تلقائيًا باستخدام ${savedCardSummary}.`
+                      : `Renewal will be attempted automatically using ${savedCardSummary}.`)
+                    : (isRTL
+                      ? 'سيتم محاولة التجديد تلقائيًا باستخدام وسيلة الدفع المحفوظة.'
+                      : 'Renewal will be attempted automatically using your saved payment method.'))
+                  : activeSubscription.autoRenewDisabledReason === 'payment_failed'
+                    ? (isRTL
+                      ? 'التجديد التلقائي متوقف حاليًا إلى أن يتم حفظ وسيلة دفع صالحة أو إكمال عملية الدفع بنجاح.'
+                      : 'Automatic renewal is currently off until a valid payment method is saved or checkout is completed successfully.')
+                    : savedBillingProfile?.hasSavedCard
+                      ? (isRTL
+                        ? 'التجديد التلقائي متوقف حاليًا. يمكنك تشغيله مرة أخرى من هنا متى شئت.'
+                        : 'Automatic renewal is currently off. You can turn it back on here at any time.')
+                      : (isRTL
+                        ? 'التجديد التلقائي غير متاح لهذا الاشتراك بعد. سيظهر هنا بمجرد حفظ وسيلة دفع صالحة على حسابك.'
+                        : 'Automatic renewal is not available on this membership yet. It will appear here once a valid payment method is saved to your account.')}
+              </p>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                {activeSubscription.autoRenewEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => handleAutoRenewPreference(false)}
+                    disabled={updatingAutoRenew}
+                    className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {updatingAutoRenew
+                      ? (isRTL ? 'جارٍ التحديث...' : 'Updating...')
+                      : (isRTL ? 'إيقاف التجديد التلقائي' : 'Turn Off Auto-Renew')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleAutoRenewPreference(true)}
+                    disabled={updatingAutoRenew || !savedBillingProfile?.hasSavedCard}
+                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {updatingAutoRenew
+                      ? (isRTL ? 'جارٍ التحديث...' : 'Updating...')
+                      : (isRTL ? 'تشغيل التجديد التلقائي' : 'Turn On Auto-Renew')}
+                  </button>
+                )}
+                {activeSubscription.status === 'grace_period' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCheckout(true)}
+                    className="btn-secondary"
+                  >
+                    {isRTL ? 'تحديث وسيلة الدفع' : 'Update Payment Method'}
+                  </button>
+                )}
+              </div>
+
+              {!activeSubscription.autoRenewEnabled && !savedBillingProfile?.hasSavedCard && (
+                <p className="mt-3 text-sm text-gray-500">
+                  {autoRenewSetupHint}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingSubscription && !showCheckout && (
+        <div className="card bg-yellow-50 border-yellow-200 mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">⏳</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-yellow-600">{isRTL ? 'اشتراك قيد الانتظار' : 'Pending Subscription'}</h3>
+                <p className="text-yellow-600">
+                  {pendingSubscription.package?.name}
+                  {pendingSubscription.billingTerm ? ` (${getBillingTermLabel(pendingSubscription.billingTerm, locale) || pendingSubscription.billingTerm})` : ''}
+                  {pendingSubscription.priceAtPurchase ? ` - ${formatMoney(pendingSubscription.priceAtPurchase, locale)} ${pendingSubscription.currency || checkoutCurrency}` : ''}
+                  {' '} - {isRTL ? 'بانتظار إتمام الدفع' : 'Awaiting checkout completion'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCheckout(true)}
+              className="btn-primary"
+            >
+              {isRTL ? 'متابعة الدفع' : 'Continue Checkout'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCheckout && checkoutSubscription && (
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'الدفع الإلكتروني' : 'Electronic Checkout'}</h2>
+
+          <div className="rounded-2xl border border-yellow-100 bg-yellow-50/80 px-4 py-4 mb-6">
+            <p className="text-sm text-yellow-800 leading-7">
+              {isRecoveryCheckout
+                ? (isRTL ? 'أنت تكمل دفعة استعادة الاشتراك من أجل ' : 'You are completing a subscription recovery payment for ')
+                : (isRTL ? 'أنت تدفع مقابل ' : 'You are paying for ')}
+              <span className="font-semibold">{checkoutSubscription.package?.name}</span>
+              {checkoutSubscription.billingTerm ? ` (${getBillingTermLabel(checkoutSubscription.billingTerm, locale) || checkoutSubscription.billingTerm})` : ''}.
+              {checkoutSubscription.priceAtPurchase
+                ? (isRTL
+                  ? ` المبلغ المطلوب هو ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`
+                  : ` The required amount is ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`)
+                : ''}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-4 mb-6">
+            <p className="text-sm leading-7 text-gray-600">
+              {isRTL
+                ? 'تتم معالجة البطاقة عبر نموذج دفع آمن. نحتاج إلى رقم الهاتف حتى يمكن حفظ وسيلة الدفع للاشتراكات والتجديدات المستقبلية.'
+                : 'Your card is processed through a secure payment form. We need your phone number so your payment method can be saved for subscriptions and future renewals.'}
+            </p>
+          </div>
+
+          {isRecoveryCheckout && (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-4 mb-6">
+              <p className="text-sm leading-7 text-amber-900/80">
+                {isRTL
+                  ? 'إتمام هذه العملية سيستعيد الوصول ويحدّث وسيلة الدفع المحفوظة للتجديدات القادمة.'
+                  : 'Completing this checkout will restore access and update the saved payment method for future renewals.'}
+              </p>
             </div>
           )}
 
-          {pendingSubscription && !showPaymentForm && (
-            <div className="card bg-yellow-50 border-yellow-200 mb-8">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">⏳</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-yellow-600">{isRTL ? 'اشتراك قيد الانتظار' : 'Pending Subscription'}</h3>
-                    <p className="text-yellow-600">
-                      {pendingSubscription.package?.name}
-                      {pendingSubscription.billingTerm ? ` (${getBillingTermLabel(pendingSubscription.billingTerm, locale) || pendingSubscription.billingTerm})` : ''}
-                      {pendingSubscription.priceAtPurchase ? ` - ${formatMoney(pendingSubscription.priceAtPurchase, locale)} SAR` : ''}
-                      {' '} - {isRTL ? 'بانتظار الدفع' : 'Awaiting payment'}
-                    </p>
-                  </div>
-                </div>
+          <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)] mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">
+                {isRTL ? 'رمز الدولة' : 'Country Code'}
+              </label>
+              <input
+                type="text"
+                value={phoneCountryCode}
+                onChange={(event) => setPhoneCountryCode(event.target.value)}
+                className="input-field"
+                placeholder="966"
+                inputMode="numeric"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">
+                {isRTL ? 'رقم الهاتف' : 'Phone Number'}
+              </label>
+              <input
+                type="text"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                className="input-field"
+                placeholder={isRTL ? '5xxxxxxxx' : '5xxxxxxxx'}
+                inputMode="numeric"
+              />
+            </div>
+          </div>
+
+          {tapConfigLoading && (
+            <div className="mb-6 rounded-2xl border border-primary-100 bg-primary-50 px-4 py-4">
+              <p className="text-sm leading-7 text-primary-700">
+                {isRTL ? 'جارٍ تجهيز نموذج الدفع الآمن...' : 'Preparing the secure payment form...'}
+              </p>
+            </div>
+          )}
+
+          {tapConfigError && !tapConfigLoading && (
+            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+              <p className="text-sm leading-7 text-red-700">{tapConfigError}</p>
+              <div className="mt-3">
                 <button
-                  onClick={() => setShowPaymentForm(true)}
-                  className="btn-primary"
+                  type="button"
+                  onClick={() => fetchTapCheckoutConfig()}
+                  className="btn-secondary"
                 >
-                  {isRTL ? 'إرسال الدفع' : 'Submit Payment'}
+                  {isRTL ? 'إعادة المحاولة' : 'Retry'}
                 </button>
               </div>
             </div>
           )}
 
-          {showPaymentForm && pendingSubscription && (
-            <div className="card mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'إرسال الدفع' : 'Submit Payment'}</h2>
-              
-              <div className="rounded-2xl border border-yellow-100 bg-yellow-50/80 px-4 py-4 mb-6">
-                <p className="text-sm text-yellow-800 leading-7">
-                  {isRTL ? 'أنت تدفع مقابل ' : 'You are paying for '}<span className="font-semibold">{pendingSubscription.package?.name}</span>
-                  {pendingSubscription.billingTerm ? ` (${getBillingTermLabel(pendingSubscription.billingTerm, locale) || pendingSubscription.billingTerm})` : ''}.
-                  {pendingSubscription.priceAtPurchase
-                    ? (isRTL
-                      ? ` المبلغ المطلوب هو ${formatMoney(pendingSubscription.priceAtPurchase, locale)} ريال.`
-                      : ` The required amount is ${formatMoney(pendingSubscription.priceAtPurchase, locale)} SAR.`)
-                    : ''}
-                </p>
-              </div>
+          {tapConfig && (
+            <div className="mb-6 space-y-6">
+              <TapCardCheckout
+                ref={tapCardRef}
+                sdkUrl={tapConfig.sdkUrl}
+                publicKey={tapConfig.publicKey}
+                merchantId={tapConfig.merchantId}
+                amount={Number(checkoutSubscription.priceAtPurchase || 0)}
+                currency={checkoutSubscription.currency || tapConfig.currency || checkoutCurrency}
+                locale={isRTL ? 'ar' : 'en'}
+                direction={isRTL ? 'rtl' : 'ltr'}
+                customer={tapCustomer}
+                onSdkStateChange={setTapSdkState}
+              />
 
-              <div className="bg-gray-100 rounded-lg p-4 mb-6">
-                <h3 className="font-medium text-gray-900 mb-3">{isRTL ? 'بيانات البنك' : 'Bank Details'}</h3>
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-gray-500">{isRTL ? 'البنك:' : 'Bank:'}</span> <span className="text-gray-900">{bankDetails?.bankName}</span></p>
-                  <p><span className="text-gray-500">{isRTL ? 'الحساب:' : 'Account:'}</span> <span className="text-gray-900">{bankDetails?.accountName}</span></p>
-                  <p><span className="text-gray-500">{isRTL ? 'رقم الحساب:' : 'Account Number:'}</span> <span className="text-gray-900">{bankDetails?.accountNumber}</span></p>
-                  <p><span className="text-gray-500">IBAN:</span> <span className="text-gray-900">{bankDetails?.iban}</span></p>
+              {applePayAvailable ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Apple Pay</p>
+                      <p className="mt-1 text-sm leading-7 text-gray-600">
+                        {isRTL
+                          ? 'إذا كنت تستخدم جهاز Apple ومتصفحًا يدعم Apple Pay، يمكنك استخدامه لحفظ وسيلة الدفع وتجديد الاشتراك لاحقًا.'
+                          : 'If you are using a supported Apple device and browser, you can use Apple Pay to save the payment method for future renewals.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleBeginCheckout('apple_pay')}
+                      disabled={submittingPayment || tapConfigLoading}
+                      className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {applePayArmed
+                        ? (isRTL ? 'جارٍ تجهيز Apple Pay...' : 'Preparing Apple Pay...')
+                        : (isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay')}
+                    </button>
+                  </div>
+
+                  {applePayArmed && (
+                    <div className="mt-4">
+                      <TapApplePayCheckout
+                        ref={applePayRef}
+                        config={{
+                          ...tapConfig.applePay,
+                          publicKey: tapConfig.publicKey,
+                        }}
+                        amount={Number(checkoutSubscription.priceAtPurchase || 0)}
+                        currency={checkoutSubscription.currency || tapConfig.currency || checkoutCurrency}
+                        locale={isRTL ? 'ar' : 'en'}
+                        customer={tapCustomer}
+                        onReadyStateChange={setApplePayState}
+                        onTokenReady={handleApplePayTokenReady}
+                      />
+                    </div>
+                  )}
+
+                  {applePayState.error && (
+                    <p className="mt-3 text-sm text-red-600">{applePayState.error}</p>
+                  )}
                 </div>
-              </div>
-
-              <form onSubmit={handleSubmitPayment} className="space-y-4">
-                <div className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-4">
+              ) : (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
                   <p className="text-sm leading-7 text-gray-600">
                     {isRTL
-                      ? 'قبل إرسال الدفع، سيُطلب منك مراجعة إقرار الشراء المرتبط بسياسة الاسترداد وشروط الاسترداد خلال 24 ساعة وقبوله.'
-                      : 'Before submitting payment, you will be asked to review and accept the purchase disclaimer tied to the Refund Policy and the 24-hour refund eligibility terms.'}
+                      ? 'سيظهر Apple Pay على النطاق الآمن المباشر وعند استخدام جهاز ومتصفح مدعومين.'
+                      : 'Apple Pay will appear on the secure live domain when using a supported Apple device and browser.'}
                   </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    {isRTL ? 'مرجع الدفع' : 'Payment Reference'}
-                  </label>
-                  <input
-                    type="text"
-                    value={paymentForm.paymentReference}
-                    onChange={(e) => setPaymentForm(f => ({ ...f, paymentReference: e.target.value }))}
-                    className="input-field"
-                    placeholder={isRTL ? 'أدخل مرجع التحويل البنكي' : 'Enter your bank transfer reference'}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    {isRTL ? 'المبلغ المدفوع (ريال)' : 'Amount Paid (SAR)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={paymentForm.amount}
-                    onChange={(e) => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                    className="input-field"
-                    placeholder={isRTL ? 'أدخل المبلغ' : 'Enter amount'}
-                    min="0"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    {isRTL ? 'إثبات الدفع' : 'Payment Proof'}
-                  </label>
-                  <input
-                    type="file"
-                    accept=".pdf,image/*"
-                    onChange={(e) => setPaymentForm(f => ({ ...f, proofFile: e.target.files?.[0] || null }))}
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button type="submit" className="btn-primary" disabled={submittingPayment}>
-                    {submittingPayment ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...') : (isRTL ? 'إرسال الدفع' : 'Submit Payment')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPaymentForm(false);
-                      setShowCheckoutDisclaimer(false);
-                    }}
-                    className="btn-secondary"
-                    disabled={submittingPayment}
-                  >
-                    {isRTL ? 'إلغاء' : 'Cancel'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {!activeSubscription && !pendingSubscription && (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayPackages.map((pkg, index) => {
-                const isContactOnly = pkg.purchaseMode === 'contact_only';
-                const isComingSoon = pkg.publicVisibility === 'coming_soon';
-                const activeBillingOptions = getActiveBillingOptions(pkg);
-                const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
-                const selectedOption = getBillingOption(pkg, selectedTerm);
-                const annualSavings = getAnnualSavings(pkg);
-                const sixMonthSavings = getSixMonthSavings(pkg);
-                const accessNames = getPackageAccessNames(pkg);
-                const packageSaleSummary = getPackageSaleSummary(pkg);
-                const selectedOptionOnSale = hasBillingSale(selectedOption);
-
-                return (
-                  <motion.div
-                    key={pkg._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="card-hover flex flex-col"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900 mb-1">{pkg.name}</h3>
-                          {accessNames.length > 1 && (
-                            <p className="text-sm text-primary-600">
-                              {isRTL ? `يشمل الوصول إلى ${accessNames.slice(1).join('، ')}` : `Includes access to ${accessNames.slice(1).join(', ')}`}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          {isComingSoon && (
-                            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
-                              {isRTL ? 'قريبًا' : 'Coming Soon'}
-                            </span>
-                          )}
-                          {packageSaleSummary && !isContactOnly && (
-                            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
-                              {isRTL ? `خصم حتى ${packageSaleSummary.bestSalePercentage}%` : `Up to ${packageSaleSummary.bestSalePercentage}% Off`}
-                            </span>
-                          )}
-                          {isContactOnly && (
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                              {isRTL ? 'مخصص' : 'Custom'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {!isContactOnly && activeBillingOptions.length > 1 && (
-                        <div className="mb-4 rounded-2xl bg-gray-100 p-1 flex gap-1">
-                          {activeBillingOptions.map((option) => (
-                            <button
-                              key={option.term}
-                              type="button"
-                            onClick={() => updateSelectedTerm(pkg._id, option.term)}
-                            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                              selectedOption?.term === option.term
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                              <span className="block">{getBillingTermLabel(option.term, locale) || option.label || option.term}</span>
-                              {hasBillingSale(option) && (
-                                <span className="mt-1 block text-[11px] font-semibold text-rose-500">
-                                  {isRTL ? `${getBillingSalePercentage(option)}% خصم` : `${getBillingSalePercentage(option)}% OFF`}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="mb-4">
-                        {isContactOnly ? (
-                        <>
-                            <span className="text-3xl font-bold text-gray-900">{isRTL ? 'مخصص' : 'Custom'}</span>
-                            <p className="text-sm text-gray-500 mt-2">
-                              {isRTL ? 'يتم ترتيب الوصول المؤسسي عبر جلسة استكشافية ونطاق مخصص.' : 'Enterprise access is arranged through a discovery call and tailored scope.'}
-                            </p>
-                          </>
-                        ) : selectedOption ? (
-                          <>
-                            {selectedOptionOnSale && (
-                              <div className="mb-2 flex items-center gap-2">
-                                <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
-                                  {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ريال` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} SAR`}
-                                </span>
-                              </div>
-                            )}
-                            {selectedOptionOnSale && (
-                              <p className="text-sm text-gray-400 line-through">
-                                {formatMoney(selectedOption.price, locale)} SAR
-                              </p>
-                            )}
-                            <span className="text-3xl font-bold text-gray-900">{formatMoney(getEffectiveBillingPrice(selectedOption), locale)}</span>
-                            <span className="text-gray-500"> SAR</span>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {getBillingCadenceLabel(selectedOption.term, locale)}
-                            </p>
-                            {selectedOption.term === 'six_months' && sixMonthSavings && (
-                              <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                                <p className="text-sm font-semibold text-emerald-700">
-                                  {isRTL ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر` : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
-                                </p>
-                                <p className="text-xs text-emerald-600 mt-1">
-                                  {isRTL ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
-                                </p>
-                              </div>
-                            )}
-                            {selectedOption.term === 'annual' && annualSavings && (
-                              <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                                <p className="text-sm font-semibold text-emerald-700">
-                                  {isRTL ? `وفّر ${formatMoney(annualSavings.savings, locale)} ريال سنويًا` : `Save ${formatMoney(annualSavings.savings, locale)} SAR each year`}
-                                </p>
-                                <p className="text-xs text-emerald-600 mt-1">
-                                  {isRTL ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} SAR per month.`}
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-sm text-gray-500">
-                            {isRTL ? 'سيظهر السعر عند اكتمال إعداد هذه الباقة.' : 'Pricing will appear once this package is fully configured.'}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 mb-6">
-                        <DetailRow icon="📅" label={isRTL ? 'المدة' : 'Schedule'} value={getLocalizedField(pkg, 'scheduleDuration', locale)} />
-                        <DetailRow icon="💻" label={isRTL ? 'النمط' : 'Mode'} value={getLocalizedField(pkg, 'learningMode', locale)} />
-                        <DetailRow icon="🎯" label={isRTL ? 'التركيز' : 'Focus'} value={getLocalizedField(pkg, 'focus', locale)} />
-
-                        {pkg.courses?.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'الفصول / الأنشطة' : 'Chapters / Activities'}</p>
-                            <ul className="space-y-1">
-                              {pkg.courses.map((course, i) => (
-                                <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                                  <span className="text-primary-500 mt-0.5">✓</span>
-                                  {typeof course === 'object' ? getLocalizedField(course, 'title', locale) : course}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {pkg.softwareExposure?.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'البرامج المشمولة' : 'Software Exposure'}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {pkg.softwareExposure.map((sw, i) => (
-                                <span key={i} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                                  {sw}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {pkg.outcome && (
-                          <div>
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'النتيجة' : 'Outcome'}</p>
-                            <p className="text-sm text-gray-600">{getLocalizedField(pkg, 'outcome', locale)}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {isComingSoon ? (
-                      <div className="mt-auto rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-center">
-                        <p className="text-sm font-semibold text-amber-700">
-                          {isRTL ? 'هذه الباقة ستتوفر قريبًا.' : 'This package will be available soon.'}
-                        </p>
-                      </div>
-                    ) : isContactOnly ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/contact-us')}
-                        className="btn-secondary w-full mt-auto"
-                      >
-                        {isRTL ? 'احجز موعدًا' : 'Book Appointment'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleRequestSubscription(pkg._id, selectedOption?.term)}
-                        disabled={requesting || !selectedOption}
-                        className="btn-primary w-full mt-auto disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {requesting
-                          ? (isRTL ? 'جارٍ المعالجة...' : 'Processing...')
-                          : (isRTL
-                            ? `اختر ${getBillingTermLabel(selectedOption?.term, locale) || 'الخطة'}`
-                            : `Choose ${getBillingTermLabel(selectedOption?.term, locale) || 'Plan'}`)}
-                      </button>
-                    )}
-                  </motion.div>
-                );
-              })}
-
-              {displayPackages.length === 0 && (
-                <div className="col-span-full text-center py-10">
-                  <p className="text-gray-500">{isRTL ? 'لا توجد باقات اشتراك متاحة للعرض حاليًا.' : 'No subscription packages are currently available for display.'}</p>
                 </div>
               )}
             </div>
           )}
 
-          <CheckoutDisclaimerModal
-            open={showCheckoutDisclaimer}
-            onConfirm={handleConfirmPayment}
-            onCancel={() => setShowCheckoutDisclaimer(false)}
-            isSubmitting={submittingPayment}
-          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => handleBeginCheckout('card')}
+              disabled={!tapConfig || !tapSdkState.ready || submittingPayment || tapConfigLoading}
+              className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {submittingPayment
+                ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...')
+                : (isRTL ? 'ادفع الآن' : 'Pay Now')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCheckout(false);
+                setShowCheckoutDisclaimer(false);
+                setApplePayArmed(false);
+                setApplePayState({ ready: false, error: '' });
+              }}
+              className="btn-secondary"
+              disabled={submittingPayment}
+            >
+              {isRTL ? 'إغلاق' : 'Close'}
+            </button>
+          </div>
+
+          {tapSdkState.error && (
+            <p className="mt-4 text-sm text-red-600">{tapSdkState.error}</p>
+          )}
+        </div>
+      )}
+
+      {!activeSubscription && !pendingSubscription && (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayPackages.map((pkg, index) => {
+            const isContactOnly = pkg.purchaseMode === 'contact_only';
+            const isComingSoon = pkg.publicVisibility === 'coming_soon';
+            const activeBillingOptions = getActiveBillingOptions(pkg);
+            const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
+            const selectedOption = getBillingOption(pkg, selectedTerm);
+            const annualSavings = getAnnualSavings(pkg);
+            const sixMonthSavings = getSixMonthSavings(pkg);
+            const accessNames = getPackageAccessNames(pkg);
+            const packageSaleSummary = getPackageSaleSummary(pkg);
+            const selectedOptionOnSale = hasBillingSale(selectedOption);
+
+            return (
+              <motion.div
+                key={pkg._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="card-hover flex flex-col"
+              >
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-1">{pkg.name}</h3>
+                      {accessNames.length > 1 && (
+                        <p className="text-sm text-primary-600">
+                          {isRTL ? `يشمل الوصول إلى ${accessNames.slice(1).join('، ')}` : `Includes access to ${accessNames.slice(1).join(', ')}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {isComingSoon && (
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
+                          {isRTL ? 'قريبًا' : 'Coming Soon'}
+                        </span>
+                      )}
+                      {packageSaleSummary && !isContactOnly && (
+                        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
+                          {isRTL ? `خصم حتى ${packageSaleSummary.bestSalePercentage}%` : `Up to ${packageSaleSummary.bestSalePercentage}% Off`}
+                        </span>
+                      )}
+                      {isContactOnly && (
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                          {isRTL ? 'مخصص' : 'Custom'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isContactOnly && activeBillingOptions.length > 1 && (
+                    <div className="mb-4 rounded-2xl bg-gray-100 p-1 flex gap-1">
+                      {activeBillingOptions.map((option) => (
+                        <button
+                          key={option.term}
+                          type="button"
+                          onClick={() => updateSelectedTerm(pkg._id, option.term)}
+                          className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            selectedOption?.term === option.term
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          <span className="block">{getBillingTermLabel(option.term, locale) || option.label || option.term}</span>
+                          {hasBillingSale(option) && (
+                            <span className="mt-1 block text-[11px] font-semibold text-rose-500">
+                              {isRTL ? `${getBillingSalePercentage(option)}% خصم` : `${getBillingSalePercentage(option)}% OFF`}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    {isContactOnly ? (
+                      <>
+                        <span className="text-3xl font-bold text-gray-900">{isRTL ? 'مخصص' : 'Custom'}</span>
+                        <p className="text-sm text-gray-500 mt-2">
+                          {isRTL ? 'يتم ترتيب الوصول المؤسسي عبر جلسة استكشافية ونطاق مخصص.' : 'Enterprise access is arranged through a discovery call and tailored scope.'}
+                        </p>
+                      </>
+                    ) : selectedOption ? (
+                      <>
+                        {selectedOptionOnSale && (
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
+                              {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ريال` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} SAR`}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOptionOnSale && (
+                          <p className="text-sm text-gray-400 line-through">
+                            {formatMoney(selectedOption.price, locale)} SAR
+                          </p>
+                        )}
+                        <span className="text-3xl font-bold text-gray-900">{formatMoney(getEffectiveBillingPrice(selectedOption), locale)}</span>
+                        <span className="text-gray-500"> SAR</span>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {getBillingCadenceLabel(selectedOption.term, locale)}
+                        </p>
+                        {selectedOption.term === 'six_months' && sixMonthSavings && (
+                          <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-emerald-700">
+                              {isRTL ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر` : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
+                            </p>
+                            <p className="text-xs text-emerald-600 mt-1">
+                              {isRTL ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
+                            </p>
+                          </div>
+                        )}
+                        {selectedOption.term === 'annual' && annualSavings && (
+                          <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-emerald-700">
+                              {isRTL ? `وفّر ${formatMoney(annualSavings.savings, locale)} ريال سنويًا` : `Save ${formatMoney(annualSavings.savings, locale)} SAR each year`}
+                            </p>
+                            <p className="text-xs text-emerald-600 mt-1">
+                              {isRTL ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} SAR per month.`}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        {isRTL ? 'سيظهر السعر عند اكتمال إعداد هذه الباقة.' : 'Pricing will appear once this package is fully configured.'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    <DetailRow icon="📅" label={isRTL ? 'المدة' : 'Schedule'} value={getLocalizedField(pkg, 'scheduleDuration', locale)} />
+                    <DetailRow icon="💻" label={isRTL ? 'النمط' : 'Mode'} value={getLocalizedField(pkg, 'learningMode', locale)} />
+                    <DetailRow icon="🎯" label={isRTL ? 'التركيز' : 'Focus'} value={getLocalizedField(pkg, 'focus', locale)} />
+
+                    {pkg.courses?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'الفصول / الأنشطة' : 'Chapters / Activities'}</p>
+                        <ul className="space-y-1">
+                          {pkg.courses.map((course, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                              <span className="text-primary-500 mt-0.5">✓</span>
+                              {typeof course === 'object' ? getLocalizedField(course, 'title', locale) : course}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {pkg.softwareExposure?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'البرامج المشمولة' : 'Software Exposure'}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {pkg.softwareExposure.map((sw, i) => (
+                            <span key={i} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                              {sw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {pkg.outcome && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{isRTL ? 'النتيجة' : 'Outcome'}</p>
+                        <p className="text-sm text-gray-600">{getLocalizedField(pkg, 'outcome', locale)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {isComingSoon ? (
+                  <div className="mt-auto rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-center">
+                    <p className="text-sm font-semibold text-amber-700">
+                      {isRTL ? 'هذه الباقة ستتوفر قريبًا.' : 'This package will be available soon.'}
+                    </p>
+                  </div>
+                ) : isContactOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/contact-us')}
+                    className="btn-secondary w-full mt-auto"
+                  >
+                    {isRTL ? 'احجز موعدًا' : 'Book Appointment'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleRequestSubscription(pkg._id, selectedOption?.term)}
+                    disabled={requesting || !selectedOption}
+                    className="btn-primary w-full mt-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {requesting
+                      ? (isRTL ? 'جارٍ المعالجة...' : 'Processing...')
+                      : (isRTL
+                        ? `اختر ${getBillingTermLabel(selectedOption?.term, locale) || 'الخطة'}`
+                        : `Choose ${getBillingTermLabel(selectedOption?.term, locale) || 'Plan'}`)}
+                  </button>
+                )}
+              </motion.div>
+            );
+          })}
+
+          {displayPackages.length === 0 && (
+            <div className="col-span-full text-center py-10">
+              <p className="text-gray-500">{isRTL ? 'لا توجد باقات اشتراك متاحة للعرض حاليًا.' : 'No subscription packages are currently available for display.'}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <CheckoutDisclaimerModal
+        open={showCheckoutDisclaimer}
+        onConfirm={handleConfirmCheckout}
+        onCancel={() => setShowCheckoutDisclaimer(false)}
+        isSubmitting={submittingPayment}
+      />
     </motion.div>
   );
 }

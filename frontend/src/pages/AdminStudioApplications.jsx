@@ -4,6 +4,13 @@ import { studioApplicationsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
+import {
+  downloadCsv,
+  formatCsvBoolean,
+  formatCsvDate,
+  formatCsvList,
+  formatCsvReference,
+} from '../utils/csv';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { getSafeExternalHref } from '../utils/url';
 
@@ -52,7 +59,7 @@ function AdminStudioApplications() {
   };
 
   const handleApprove = async (id) => {
-    setProcessing(id);
+    setProcessing(`approve-${id}`);
     try {
       const response = await studioApplicationsAPI.approve(id);
       showSuccess(response.data?.message || 'Application approved successfully!');
@@ -69,7 +76,7 @@ function AdminStudioApplications() {
 
   const handleRejectSubmit = async () => {
     if (!rejectReason.trim()) return;
-    setProcessing(rejectModalId);
+    setProcessing(`reject-${rejectModalId}`);
     try {
       await studioApplicationsAPI.reject(rejectModalId, rejectReason);
       showSuccess('Application rejected');
@@ -85,6 +92,33 @@ function AdminStudioApplications() {
       setProcessing(null);
     }
   };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this studio application? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessing(`delete-${id}`);
+    try {
+      await studioApplicationsAPI.remove(id);
+      showSuccess('Application deleted');
+      if (selectedApp?._id === id) {
+        setSelectedApp(null);
+      }
+      if (rejectModalId === id) {
+        setRejectModalId(null);
+        setRejectReason('');
+      }
+      await fetchApplications();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete application');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const actionIsRunning = (action, id) => processing === `${action}-${id}`;
+  const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -105,6 +139,60 @@ function AdminStudioApplications() {
   const filteredApplications = applications.filter(app => 
     app.studioName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleExportApplications = () => {
+    downloadCsv({
+      filename: `studio-applications-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      columns: [
+        { key: 'applicationId', label: 'Application ID' },
+        { key: 'status', label: 'Status' },
+        { key: 'studioName', label: 'Studio Name' },
+        { key: 'contactEmail', label: 'Contact Email' },
+        { key: 'yearEstablished', label: 'Year Established' },
+        { key: 'countryOfRegistration', label: 'Country of Registration' },
+        { key: 'studioType', label: 'Studio Type' },
+        { key: 'websitePortfolio', label: 'Website / Portfolio' },
+        { key: 'videoResolutionAck', label: 'Video Resolution Ack' },
+        { key: 'audioSpecAck', label: 'Audio Spec Ack' },
+        { key: 'audioFrequencyAck', label: 'Audio Frequency Ack' },
+        { key: 'videoFileSizes', label: 'Video File Sizes' },
+        { key: 'videoFormats', label: 'Video Formats' },
+        { key: 'frameRates', label: 'Frame Rates' },
+        { key: 'domains', label: 'Domains' },
+        { key: 'objectives', label: 'Objectives' },
+        { key: 'reviewedBy', label: 'Reviewed By' },
+        { key: 'reviewedAt', label: 'Reviewed At' },
+        { key: 'approvalEmailSentAt', label: 'Approval Email Sent At' },
+        { key: 'rejectionReason', label: 'Rejection Reason' },
+        { key: 'createdAt', label: 'Applied At' },
+        { key: 'updatedAt', label: 'Updated At' },
+      ],
+      rows: filteredApplications.map((app) => ({
+        applicationId: app._id,
+        status: app.status,
+        studioName: app.studioName,
+        contactEmail: app.contactEmail,
+        yearEstablished: app.yearEstablished,
+        countryOfRegistration: app.countryOfRegistration,
+        studioType: app.studioType,
+        websitePortfolio: app.websitePortfolio,
+        videoResolutionAck: formatCsvBoolean(app.videoResolutionAck),
+        audioSpecAck: formatCsvBoolean(app.audioSpecAck),
+        audioFrequencyAck: formatCsvBoolean(app.audioFrequencyAck),
+        videoFileSizes: formatCsvList(app.videoFileSizes),
+        videoFormats: formatCsvList(app.videoFormats),
+        frameRates: formatCsvList(app.frameRates),
+        domains: formatCsvList(app.domains),
+        objectives: formatCsvList(app.objectives),
+        reviewedBy: formatCsvReference(app.reviewedBy),
+        reviewedAt: formatCsvDate(app.reviewedAt),
+        approvalEmailSentAt: formatCsvDate(app.approvalEmailSentAt),
+        rejectionReason: app.rejectionReason,
+        createdAt: formatCsvDate(app.createdAt),
+        updatedAt: formatCsvDate(app.updatedAt),
+      })),
+    });
+  };
 
   const SectionTitle = ({ children }) => (
     <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">{children}</h3>
@@ -142,17 +230,31 @@ function AdminStudioApplications() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Studio Applications</h1>
             <p className="text-gray-500">Review and manage studio partner applications</p>
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by studio name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10 w-full md:w-64"
-            />
-            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <div className="flex flex-col gap-3 md:flex-row">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by studio name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10 w-full md:w-64"
+              />
+              <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportApplications}
+              disabled={loading || filteredApplications.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16" />
+              </svg>
+              Export CSV
+            </button>
           </div>
         </div>
 
@@ -232,17 +334,35 @@ function AdminStudioApplications() {
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleApprove(app._id)}
-                        disabled={processing === app._id}
+                        disabled={recordIsBusy(app._id)}
                         className="btn-primary text-sm"
                       >
-                        {processing === app._id ? 'Processing...' : 'Approve'}
+                        {actionIsRunning('approve', app._id) ? 'Processing...' : 'Approve'}
                       </button>
                       <button
                         onClick={() => { setRejectModalId(app._id); setRejectReason(''); }}
-                        disabled={processing === app._id}
+                        disabled={recordIsBusy(app._id)}
                         className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
                       >
                         Reject
+                      </button>
+                      <button
+                        onClick={() => handleDelete(app._id)}
+                        disabled={recordIsBusy(app._id)}
+                        className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
+                      >
+                        {actionIsRunning('delete', app._id) ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  )}
+                  {app.status !== 'pending' && (
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleDelete(app._id)}
+                        disabled={recordIsBusy(app._id)}
+                        className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
+                      >
+                        {actionIsRunning('delete', app._id) ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   )}
@@ -424,19 +544,40 @@ function AdminStudioApplications() {
                       <div className="sticky bottom-0 bg-white py-4 border-t border-gray-100 flex gap-3">
                         <button
                           onClick={() => handleApprove(selectedApp._id)}
-                          disabled={processing === selectedApp._id}
+                          disabled={recordIsBusy(selectedApp._id)}
                           className="btn-primary flex-1"
                         >
-                          {processing === selectedApp._id ? 'Processing...' : 'Approve Application'}
+                          {actionIsRunning('approve', selectedApp._id) ? 'Processing...' : 'Approve Application'}
                         </button>
                         <button
                           onClick={() => { setRejectModalId(selectedApp._id); setRejectReason(''); }}
-                          disabled={processing === selectedApp._id}
+                          disabled={recordIsBusy(selectedApp._id)}
                           className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
                         >
                           Reject Application
                         </button>
+                        <button
+                          onClick={() => handleDelete(selectedApp._id)}
+                          disabled={recordIsBusy(selectedApp._id)}
+                          className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
+                        >
+                          {actionIsRunning('delete', selectedApp._id) ? 'Deleting...' : 'Delete Application'}
+                        </button>
                       </div>
+                    )}
+                    {selectedApp.status !== 'pending' && (
+                      <>
+                        <div className="h-px bg-gray-100" />
+                        <div className="pb-2">
+                          <button
+                            onClick={() => handleDelete(selectedApp._id)}
+                            disabled={recordIsBusy(selectedApp._id)}
+                            className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-6 rounded-xl transition-all w-full"
+                          >
+                            {actionIsRunning('delete', selectedApp._id) ? 'Deleting...' : 'Delete Application'}
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 </>
@@ -481,10 +622,10 @@ function AdminStudioApplications() {
                 </button>
                 <button
                   onClick={handleRejectSubmit}
-                  disabled={!rejectReason.trim() || processing === rejectModalId}
+                  disabled={!rejectReason.trim() || actionIsRunning('reject', rejectModalId)}
                   className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
                 >
-                  {processing === rejectModalId ? 'Rejecting...' : 'Confirm Reject'}
+                  {actionIsRunning('reject', rejectModalId) ? 'Rejecting...' : 'Confirm Reject'}
                 </button>
               </div>
             </motion.div>

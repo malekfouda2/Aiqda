@@ -217,7 +217,7 @@ export default function StudioApplication() {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Studio Type *</label>
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {['Animation Studio', 'VFX Studio'].map((type) => (
             <label key={type} className="flex items-center gap-2 cursor-pointer">
               <input
@@ -281,7 +281,7 @@ export default function StudioApplication() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Video Formats *</label>
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {VIDEO_FORMATS.map((fmt) => (
                 <label key={fmt} className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -299,7 +299,7 @@ export default function StudioApplication() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Frame Rates *</label>
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {FRAME_RATES.map((rate) => (
                 <label key={rate} className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -411,7 +411,7 @@ export default function StudioApplication() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Application Submitted!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 sm:text-3xl">Application Submitted!</h2>
           <p className="text-gray-600 mb-8 leading-relaxed">
             {`Thank you for applying as a studio partner at ${brandName}. We'll review your application and, if approved, send a scheduling email to your contact address.`}
           </p>
@@ -424,7 +424,7 @@ export default function StudioApplication() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] relative overflow-hidden py-20 px-4">
+    <div className="min-h-screen bg-[#F8FAFC] relative overflow-hidden px-4 py-10 sm:py-16 lg:py-20">
       {/* Background orbs */}
       <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] bg-primary-200/30 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-200/20 rounded-full blur-[120px] pointer-events-none" />
@@ -436,13 +436,19 @@ export default function StudioApplication() {
         className="max-w-2xl mx-auto relative z-10"
       >
         <motion.div variants={fadeInUp} className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Studio Application</h1>
-          <p className="text-gray-600">{`Join ${brandName} as an Animation & VFX studio partner`}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3 sm:text-4xl">Studio Application</h1>
+          <p className="text-base text-gray-600 sm:text-lg">{`Join ${brandName} as an Animation & VFX studio partner`}</p>
         </motion.div>
 
         {/* Step Progress Bar */}
         <motion.div variants={fadeInUp} className="mb-8">
-          <div className="flex justify-between mb-2">
+          <div className="mb-3 flex items-center justify-between gap-3 sm:hidden">
+            <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-600">
+              Step {currentStep} of {STEPS.length}
+            </span>
+            <span className="text-sm font-semibold text-gray-700">{STEPS[currentStep - 1].name}</span>
+          </div>
+          <div className="hidden justify-between mb-2 sm:flex">
             {STEPS.map((step) => (
               <span
                 key={step.id}
@@ -465,7 +471,7 @@ export default function StudioApplication() {
 
         <motion.div
           variants={fadeInUp}
-          className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 md:p-10"
+          className="bg-white rounded-[28px] sm:rounded-[32px] shadow-sm border border-gray-100 p-5 sm:p-8 md:p-10"
         >
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -490,12 +496,12 @@ export default function StudioApplication() {
             </div>
           )}
 
-          <div className="mt-10 flex gap-4">
+          <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row">
             {currentStep > 1 && (
               <button
                 onClick={goBack}
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 px-6 py-4 rounded-2xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Back
               </button>
@@ -503,7 +509,7 @@ export default function StudioApplication() {
             {currentStep < 4 ? (
               <button
                 onClick={goNext}
-                className="flex-[2] bg-primary-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
+                className="w-full sm:flex-[2] bg-primary-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
               >
                 Continue
               </button>
@@ -511,7 +517,7 @@ export default function StudioApplication() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex-[2] bg-primary-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full sm:flex-[2] bg-primary-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>

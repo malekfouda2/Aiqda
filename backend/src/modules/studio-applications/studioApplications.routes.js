@@ -11,5 +11,6 @@ router.get('/', authenticate, canReviewApplications, studioApplicationsControlle
 router.get('/:id', authenticate, canReviewApplications, studioApplicationsController.getApplicationById);
 router.patch('/:id/approve', authenticate, canReviewApplications, studioApplicationsController.approveApplication);
 router.patch('/:id/reject', authenticate, canReviewApplications, studioApplicationsController.rejectApplication);
+router.delete('/:id', authenticate, canReviewApplications, studioApplicationsController.removeApplication);
 
 export default router;

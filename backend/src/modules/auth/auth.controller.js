@@ -1,6 +1,6 @@
 import * as authService from './auth.service.js';
 import * as socialAuthService from './socialAuth.service.js';
-import { buildDeviceContextFromRequest, DEVICE_LIMIT_ERROR_MESSAGE } from './authSession.service.js';
+import { buildDeviceContextFromRequest, isDeviceLimitErrorMessage } from './authSession.service.js';
 import { clearAuthCookie, getAuthTokenFromRequest, setAuthCookie, setDeviceCookie } from '../../utils/authCookie.js';
 
 const isAuthValidationError = (message) => [
@@ -13,9 +13,7 @@ const isAuthValidationError = (message) => [
   'Social login session is invalid or has expired',
 ].includes(message);
 
-const isAuthAccessRestrictionError = (message) => [
-  DEVICE_LIMIT_ERROR_MESSAGE,
-].includes(message);
+const isAuthAccessRestrictionError = (message) => isDeviceLimitErrorMessage(message);
 
 const isSocialProviderError = (message) => [
   'Unsupported social provider',

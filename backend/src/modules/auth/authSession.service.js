@@ -3,17 +3,21 @@ import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { getDeviceIdFromRequest } from '../../utils/authCookie.js';
 import { isBackofficeRole } from '../../utils/roles.js';
 
-const DEFAULT_MAX_AUTH_DEVICES = 2;
+export const DEFAULT_MAX_AUTH_DEVICES = 4;
 const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
-
-export const DEVICE_LIMIT_ERROR_MESSAGE = 'This account can only be used on up to 2 devices. Please sign in from one of your approved devices.';
 
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const getMaxAuthDevices = () => parsePositiveInteger(process.env.MAX_AUTH_DEVICES, DEFAULT_MAX_AUTH_DEVICES);
+export const getMaxAuthDevices = () => parsePositiveInteger(process.env.MAX_AUTH_DEVICES, DEFAULT_MAX_AUTH_DEVICES);
+
+export const getDeviceLimitErrorMessage = (limit = getMaxAuthDevices()) => (
+  `This account can only be used on up to ${limit} devices. Please sign in from one of your approved devices.`
+);
+
+export const isDeviceLimitErrorMessage = (message) => message === getDeviceLimitErrorMessage();
 
 const normalizeDeviceId = (value) => {
   if (typeof value !== 'string') {
@@ -173,7 +177,7 @@ export const createAuthenticatedSessionForUser = async (user, deviceContext = {}
   const existingDevice = findAuthorizedDevice(user, knownDeviceId);
 
   if (!existingDevice && Array.isArray(user.authorizedDevices) && user.authorizedDevices.length >= getMaxAuthDevices()) {
-    throw new Error(DEVICE_LIMIT_ERROR_MESSAGE);
+    throw new Error(getDeviceLimitErrorMessage());
   }
 
   const deviceId = existingDevice ? existingDevice.deviceId : (knownDeviceId || randomUUID());

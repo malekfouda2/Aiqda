@@ -27,7 +27,7 @@ function AdminDashboard() {
     try {
       const [analyticsRes, paymentsRes, subsRes] = await Promise.all([
         analyticsAPI.getAdminAnalytics(),
-        paymentsAPI.getAll('submitted'),
+        paymentsAPI.getAll('initiated'),
         subscriptionsAPI.getAll('pending')
       ]);
       setAnalytics(analyticsRes.data);
@@ -54,12 +54,12 @@ function AdminDashboard() {
   const statsCards = [
     { key: 'totalCourses', label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-primary' },
     { key: 'totalEnrollments', label: isRTL ? 'التسجيلات' : 'Enrollments', icon: '👥', iconClass: 'icon-box-success' },
-    { key: 'pendingPayments', label: isRTL ? 'مدفوعات قيد الانتظار' : 'Pending Payments', icon: '💳', iconClass: 'icon-box-warning' },
+    { key: 'pendingPayments', label: isRTL ? 'مدفوعات قيد المعالجة' : 'Payments In Progress', icon: '💳', iconClass: 'icon-box-warning' },
     { key: 'activeStudentsNow', label: isRTL ? 'أعضاء نشطون الآن' : 'Active Members Now', icon: '📡', iconClass: 'icon-box-accent' },
   ];
 
   const quickActions = [
-    { to: '/admin/payments', icon: '💳', iconClass: 'icon-box-warning', label: isRTL ? 'المدفوعات' : 'Payments', description: isRTL ? 'مراجعة واعتماد' : 'Review & approve' },
+    { to: '/admin/payments', icon: '💳', iconClass: 'icon-box-warning', label: isRTL ? 'المدفوعات' : 'Payments', description: isRTL ? 'متابعة Tap' : 'Track Tap status' },
     { to: '/admin/subscriptions', icon: '📋', iconClass: 'icon-box-accent', label: isRTL ? 'الاشتراكات' : 'Subscriptions', description: isRTL ? 'إدارة الخطط' : 'Manage plans' },
     { to: '/admin/users', icon: '👥', iconClass: 'icon-box-success', label: isRTL ? 'المستخدمون' : 'Users', description: isRTL ? 'إدارة المستخدمين' : 'User management' },
     { to: '/admin/chapters', icon: '📚', iconClass: 'icon-box-primary', label: isRTL ? 'الفصول' : 'Chapters', description: isRTL ? 'كتالوج الفصول' : 'Chapter catalog' },
@@ -163,10 +163,10 @@ function AdminDashboard() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{payment.user?.name}</p>
-                          <p className="text-sm text-gray-400">{payment.paymentReference}</p>
+                          <p className="text-sm text-gray-400">{payment.paymentReference || payment.tapChargeId || '—'}</p>
                         </div>
                       </div>
-                      <span className="text-lg font-semibold text-amber-600">{payment.amount} SAR</span>
+                      <span className="text-lg font-semibold text-amber-600">{payment.amount} {payment.currency || 'SAR'}</span>
                     </motion.div>
                   ))}
                 </motion.div>

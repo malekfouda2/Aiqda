@@ -4,6 +4,7 @@ import { usersAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, tableRowVariants, fadeIn } from '../utils/animations';
+import { downloadCsv, formatCsvDate } from '../utils/csv';
 import { useLocale } from '../i18n/useLocale';
 
 function AdminUsers() {
@@ -77,6 +78,34 @@ function AdminUsers() {
     }
   };
 
+  const handleExportUsers = () => {
+    downloadCsv({
+      filename: `users-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      columns: [
+        { key: 'userId', label: isRTL ? 'معرّف المستخدم' : 'User ID' },
+        { key: 'name', label: isRTL ? 'الاسم' : 'Name' },
+        { key: 'email', label: isRTL ? 'البريد الإلكتروني' : 'Email' },
+        { key: 'role', label: isRTL ? 'الدور' : 'Role' },
+        { key: 'status', label: isRTL ? 'الحالة' : 'Status' },
+        { key: 'platformNoticeVersion', label: isRTL ? 'إصدار إشعار المنصة' : 'Platform Notice Version' },
+        { key: 'platformNoticeAcceptedAt', label: isRTL ? 'تاريخ قبول إشعار المنصة' : 'Platform Notice Accepted At' },
+        { key: 'createdAt', label: isRTL ? 'تاريخ الإنشاء' : 'Created At' },
+        { key: 'updatedAt', label: isRTL ? 'تاريخ آخر تحديث' : 'Updated At' },
+      ],
+      rows: users.map((user) => ({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.isActive ? (isRTL ? 'نشط' : 'Active') : (isRTL ? 'غير نشط' : 'Inactive'),
+        platformNoticeVersion: user.platformNoticeAcknowledgement?.version || '',
+        platformNoticeAcceptedAt: formatCsvDate(user.platformNoticeAcknowledgement?.acceptedAt),
+        createdAt: formatCsvDate(user.createdAt),
+        updatedAt: formatCsvDate(user.updatedAt),
+      })),
+    });
+  };
+
   return (
     <motion.div
       variants={pageVariants}
@@ -88,20 +117,34 @@ function AdminUsers() {
         <p className="text-gray-500 mb-8">{isRTL ? 'إدارة مستخدمي المنصة' : 'Manage platform users'}</p>
       </motion.div>
 
-      <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
-        {['all', 'student', 'instructor', 'admin', 'applications_admin'].map((role) => (
-          <button
-            key={role}
-            onClick={() => setFilter(role)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filter === role
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {roleLabels[role]}
-          </button>
-        ))}
+      <motion.div variants={fadeInUp} className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap gap-3">
+          {['all', 'student', 'instructor', 'admin', 'applications_admin'].map((role) => (
+            <button
+              key={role}
+              onClick={() => setFilter(role)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filter === role
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {roleLabels[role]}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExportUsers}
+          disabled={loading || users.length === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16" />
+          </svg>
+          {isRTL ? 'تصدير CSV' : 'Export CSV'}
+        </button>
       </motion.div>
 
       {loading ? (

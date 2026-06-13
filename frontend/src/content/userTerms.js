@@ -85,8 +85,8 @@ export const userTermsSections = [
       text('All payments are conducted through electronic payment methods only.', 'تتم جميع المدفوعات عبر وسائل الدفع الإلكترونية فقط.'),
       text('Access is granted immediately upon payment authorization.', 'يُمنح الوصول فور تفويض الدفع.'),
       text('Payments are authorized at checkout and finalized after 24 hours.', 'يتم تفويض المدفوعات عند إتمام الطلب ويُعتمد نهائيًا بعد 24 ساعة.'),
-      text('Each transaction is independent.', 'كل معاملة مستقلة بذاتها.'),
-      text('Each transaction does not create recurring billing obligations.', 'ولا تنشئ أي معاملة التزامات فوترة متكررة.'),
+      text('Each successful renewal is treated as a separate subscription billing transaction.', 'تُعامل كل عملية تجديد ناجحة على أنها معاملة فوترة اشتراك مستقلة.'),
+      text('Eligible subscription products may renew automatically using the saved payment method unless the member turns off auto-renew before the renewal date.', 'قد يتم تجديد منتجات الاشتراك المؤهلة تلقائيًا باستخدام وسيلة الدفع المحفوظة ما لم يقم العضو بإيقاف التجديد التلقائي قبل تاريخ التجديد.'),
     ],
   },
   {

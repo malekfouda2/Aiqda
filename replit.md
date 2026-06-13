@@ -1,7 +1,7 @@
 # Aiqda Skill-Based Platform
 
 ## Overview
-Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) skill-based platform designed for scalability. It features role-based access control, subscription management with manual bank payment approval, video-based contents with Vimeo integration, quizzes, and comprehensive analytics.
+Aiqda is a full-stack MERN (MongoDB, Express.js, React, Node.js) skill-based platform designed for scalability. It features role-based access control, Tap-based subscription checkout, video-based contents with Vimeo integration, quizzes, and comprehensive analytics.
 
 ## Terminology
 The platform uses the following display terminology (backend routes/DB fields use original names):
@@ -26,7 +26,7 @@ The platform uses the following display terminology (backend routes/DB fields us
       /auth         - Authentication (login, register, JWT)
       /users        - User management
       /subscriptions - Subscription packages and requests
-      /payments     - Manual bank payment flow
+      /payments     - Tap subscription checkout, webhook sync, and legacy payment records
       /courses      - Chapter management (DB name: courses)
       /lessons      - Content management with video (DB name: lessons)
       /quizzes      - Quiz system (1-8 questions per content)
@@ -58,8 +58,9 @@ The platform uses the following display terminology (backend routes/DB fields us
 
 ## Key Features
 - JWT authentication with role-based route protection
-- Subscription packages with admin approval workflow
-- Manual bank payment submission and approval
+- Subscription packages with self-serve Tap checkout
+- Tap charge tracking with webhook-based subscription activation
+- Automatic subscription renewal support using saved Tap cards and merchant-initiated charges
 - Video-based contents with watch percentage tracking
 - Quiz system with 1-8 questions per content (3 options each)
 - Content qualification based on watch % + quiz pass
@@ -77,6 +78,11 @@ Backend (.env):
 - PORT=3001
 - MONGODB_URI=mongodb://localhost:27017/aiqda
 - JWT_SECRET=your-secret-key
+- APP_URL=http://localhost:3001
+- BACKEND_PUBLIC_URL=http://localhost:3001
+- TAP_SECRET_KEY=your-tap-secret-key
+- TAP_PUBLIC_KEY=your-tap-public-key
+- SUBSCRIPTION_CURRENCY=SAR
 - VIMEO_ACCESS_TOKEN=your-vimeo-token (optional)
 - SMTP_HOST=your-smtp-host
 - SMTP_PORT=587
@@ -89,7 +95,8 @@ Backend (.env):
 ## Recent Changes
 - Initial MVP implementation with all core modules
 - Role-based access control implemented
-- Manual payment approval flow completed
+- Tap subscription checkout flow added for member subscriptions
+- Phase 2 recurring renewal support added for eligible saved-card subscriptions
 - Quiz system with progress tracking
 - **Light theme overhaul**: Clean light theme with white backgrounds, soft shadows, pastel accent orbs, brand-matching color palette
 - **Creator Application System**: Multi-step form (/apply-instructor) with 5 steps, file uploads, admin review page with approve/reject workflow

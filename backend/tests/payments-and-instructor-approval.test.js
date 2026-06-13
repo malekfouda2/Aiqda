@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import request from 'supertest';
 
+import Payment from '../src/modules/payments/payment.model.js';
 import User from '../src/modules/users/user.model.js';
-import { Subscription } from '../src/modules/subscriptions/subscription.model.js';
 import {
   authHeader,
   createCourse,
@@ -37,21 +37,6 @@ test('requesting an annual subscription stores the selected billing term and val
   assert.equal(subscriptionResponse.body.billingTerm, 'annual');
   assert.equal(subscriptionResponse.body.priceAtPurchase, 2799);
   assert.equal(subscriptionResponse.body.durationDaysSnapshot, 365);
-
-  const wrongAmountResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscriptionResponse.body._id)
-    .field('amount', '299')
-    .field('paymentReference', 'PAY-ANNUAL-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-
-  assert.equal(wrongAmountResponse.status, 400);
-  assert.match(wrongAmountResponse.body.error, /2799/i);
 });
 
 test('requesting a 6-month subscription stores the selected billing term and validates the 6-month amount', async () => {
@@ -76,21 +61,6 @@ test('requesting a 6-month subscription stores the selected billing term and val
   assert.equal(subscriptionResponse.body.billingTerm, 'six_months');
   assert.equal(subscriptionResponse.body.priceAtPurchase, 1599);
   assert.equal(subscriptionResponse.body.durationDaysSnapshot, 180);
-
-  const wrongAmountResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscriptionResponse.body._id)
-    .field('amount', '299')
-    .field('paymentReference', 'PAY-SIX-MONTH-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-
-  assert.equal(wrongAmountResponse.status, 400);
-  assert.match(wrongAmountResponse.body.error, /1599/i);
 });
 
 test('requesting a subscription with a sale stores the discounted purchase amount', async () => {
@@ -117,127 +87,7 @@ test('requesting a subscription with a sale stores the discounted purchase amoun
   assert.equal(subscriptionResponse.body.durationDaysSnapshot, 180);
 });
 
-test('payment submission validates proof and amount before creating a payment', async () => {
-  const student = await createUser({ role: 'student' });
-  const packageRecord = await createSubscriptionPackage({ price: 499 });
-  const subscription = await createSubscription({
-    user: student.user._id,
-    package: packageRecord._id,
-    status: 'pending'
-  });
-
-  const missingProofResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '499')
-    .field('paymentReference', 'PAY-001');
-  assert.equal(missingProofResponse.status, 400);
-  assert.equal(missingProofResponse.body.error, 'Payment proof is required');
-
-  const missingDisclaimerResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '499')
-    .field('paymentReference', 'PAY-001A')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-  assert.equal(missingDisclaimerResponse.status, 400);
-  assert.equal(
-    missingDisclaimerResponse.body.error,
-    'Please accept the refund policy checkout disclaimer before submitting payment.'
-  );
-
-  const wrongAmountResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '100')
-    .field('paymentReference', 'PAY-002')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-  assert.equal(wrongAmountResponse.status, 400);
-  assert.match(wrongAmountResponse.body.error, /must match the package price/i);
-});
-
-test('payment proof uploads reject files whose contents do not match the claimed type', async () => {
-  const student = await createUser({ role: 'student' });
-  const packageRecord = await createSubscriptionPackage({ price: 499 });
-  const subscription = await createSubscription({
-    user: student.user._id,
-    package: packageRecord._id,
-    status: 'pending'
-  });
-
-  const invalidProofResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '499')
-    .field('paymentReference', 'PAY-BAD-PROOF-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('this is not really a pdf'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-
-  assert.equal(invalidProofResponse.status, 400);
-  assert.match(invalidProofResponse.body.error, /Invalid file type/i);
-});
-
-test('payment access is restricted and admin approval activates the subscription', async () => {
-  const admin = await createUser({ role: 'admin' });
-  const owner = await createUser({ role: 'student' });
-  const otherStudent = await createUser({ role: 'student' });
-  const packageRecord = await createSubscriptionPackage({ price: 599, durationDays: 45 });
-  const subscription = await createSubscription({
-    user: owner.user._id,
-    package: packageRecord._id,
-    status: 'pending'
-  });
-
-  const createPaymentResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(owner.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '599')
-    .field('paymentReference', 'PAY-APPROVE-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-
-  assert.equal(createPaymentResponse.status, 201);
-  assert.equal(createPaymentResponse.body.checkoutDisclaimerVersion, 'POL-0015');
-  assert.ok(createPaymentResponse.body.checkoutDisclaimerAcceptedAt);
-  const paymentId = createPaymentResponse.body._id;
-
-  const forbiddenGetResponse = await request(suite.app)
-    .get(`/api/payments/${paymentId}`)
-    .set(authHeader(otherStudent.token));
-  assert.equal(forbiddenGetResponse.status, 403);
-
-  const approveResponse = await request(suite.app)
-    .patch(`/api/payments/${paymentId}/approve`)
-    .set(authHeader(admin.token));
-  assert.equal(approveResponse.status, 200);
-  assert.equal(approveResponse.body.status, 'approved');
-
-  const updatedSubscription = await Subscription.findById(subscription._id);
-  assert.equal(updatedSubscription.status, 'active');
-  assert.ok(updatedSubscription.startDate);
-  assert.ok(updatedSubscription.endDate);
-});
-
-test('instructor analytics returns allocated revenue from approved payments', async () => {
-  const admin = await createUser({ role: 'admin' });
+test('instructor analytics returns allocated revenue from successful subscription payments', async () => {
   const instructor = await createUser({ role: 'instructor' });
   const student = await createUser({ role: 'student' });
   const course = await createCourse({
@@ -252,26 +102,25 @@ test('instructor analytics returns allocated revenue from approved payments', as
   const subscription = await createSubscription({
     user: student.user._id,
     package: packageRecord._id,
-    status: 'pending'
+    status: 'active',
+    startDate: new Date(),
+    endDate: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)),
+    priceAtPurchase: 750,
   });
 
-  const createPaymentResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '750')
-    .field('paymentReference', 'PAY-ANALYTICS-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-  assert.equal(createPaymentResponse.status, 201);
-
-  const approveResponse = await request(suite.app)
-    .patch(`/api/payments/${createPaymentResponse.body._id}/approve`)
-    .set(authHeader(admin.token));
-  assert.equal(approveResponse.status, 200);
+  await Payment.create({
+    user: student.user._id,
+    subscription: subscription._id,
+    amount: 750,
+    currency: 'SAR',
+    provider: 'tap',
+    status: 'captured',
+    paymentType: 'initial',
+    checkoutMethod: 'card',
+    paymentReference: '240000000000501',
+    checkoutDisclaimerVersion: 'POL-0015',
+    checkoutDisclaimerAcceptedAt: new Date(),
+  });
 
   const analyticsResponse = await request(suite.app)
     .get('/api/analytics/instructor')
@@ -289,7 +138,7 @@ test('instructor analytics returns allocated revenue from approved payments', as
   assert.equal(analyticsResponse.body.revenueCalculation.placeholder, false);
   assert.match(
     analyticsResponse.body.revenueCalculation.methodology,
-    /approved subscription payments/i
+    /successful subscription payments/i
   );
   assert.equal(analyticsResponse.body.courseStats.length, 1);
   assert.equal(analyticsResponse.body.courseStats[0].estimatedRevenue, 750);

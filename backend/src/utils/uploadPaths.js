@@ -38,3 +38,27 @@ export const ensureUploadPathExists = async (storedPath) => {
 
   return absolutePath;
 };
+
+export const deleteUploadPathIfExists = async (storedPath) => {
+  if (typeof storedPath !== 'string' || !storedPath.trim()) {
+    return false;
+  }
+
+  let absolutePath;
+  try {
+    absolutePath = resolveUploadPath(storedPath);
+  } catch {
+    return false;
+  }
+
+  try {
+    await fs.unlink(absolutePath);
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return false;
+    }
+
+    throw error;
+  }
+};

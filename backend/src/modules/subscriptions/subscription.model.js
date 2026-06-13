@@ -118,6 +118,10 @@ const subscriptionSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  currency: {
+    type: String,
+    default: 'SAR'
+  },
   durationDaysSnapshot: {
     type: Number,
     default: null
@@ -129,7 +133,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'active', 'expired', 'cancelled'],
+    enum: ['pending', 'active', 'grace_period', 'expired', 'cancelled'],
     default: 'pending'
   },
   startDate: {
@@ -137,6 +141,10 @@ const subscriptionSchema = new mongoose.Schema({
     default: null
   },
   endDate: {
+    type: Date,
+    default: null
+  },
+  gracePeriodEndsAt: {
     type: Date,
     default: null
   },
@@ -148,15 +156,68 @@ const subscriptionSchema = new mongoose.Schema({
   approvedAt: {
     type: Date,
     default: null
+  },
+  activatedAt: {
+    type: Date,
+    default: null
+  },
+  activationSource: {
+    type: String,
+    default: null
+  },
+  autoRenewEnabled: {
+    type: Boolean,
+    default: false
+  },
+  autoRenewDisabledAt: {
+    type: Date,
+    default: null
+  },
+  autoRenewDisabledReason: {
+    type: String,
+    enum: ['member', 'admin', 'payment_failed'],
+    default: null
+  },
+  lastRenewalAttemptAt: {
+    type: Date,
+    default: null
+  },
+  lastRenewalAt: {
+    type: Date,
+    default: null
+  },
+  nextRenewalRetryAt: {
+    type: Date,
+    default: null
+  },
+  renewalFailureReason: {
+    type: String,
+    default: null
+  },
+  renewalFailureCount: {
+    type: Number,
+    default: 0
+  },
+  renewalProcessingAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
 });
 
 subscriptionSchema.methods.isValid = function() {
-  if (this.status !== 'active') return false;
-  if (!this.endDate) return false;
-  return new Date() <= this.endDate;
+  const now = new Date();
+
+  if (this.status === 'active') {
+    return Boolean(this.endDate) && now <= this.endDate;
+  }
+
+  if (this.status === 'grace_period') {
+    return Boolean(this.gracePeriodEndsAt) && now <= this.gracePeriodEndsAt;
+  }
+
+  return false;
 };
 
 export const SubscriptionPackage = mongoose.model('SubscriptionPackage', subscriptionPackageSchema);

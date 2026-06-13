@@ -1,11 +1,15 @@
 import { Subscription, SubscriptionPackage } from './subscription.model.js';
 import User from '../users/user.model.js';
+import Payment from '../payments/payment.model.js';
+import { getSubscriptionCurrency } from '../payments/tap.service.js';
 import { sendEmail } from '../../utils/email.js';
 import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
+  buildSubscriptionCancelledEmail,
   buildSubscriptionRequestReceivedEmail,
   buildSubscriptionRequestAdminNotificationEmail,
 } from '../../utils/emailTemplates.js';
+import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
 
 const BILLING_TERM_LABELS = {
   monthly: 'Monthly',
@@ -21,6 +25,7 @@ const BILLING_TERM_ORDER = {
 
 const VALID_BILLING_TERMS = Object.keys(BILLING_TERM_LABELS);
 const DEFAULT_SIX_MONTH_DURATION_DAYS = 180;
+const CURRENT_ACCESS_STATUSES = ['active', 'grace_period'];
 
 const PACKAGE_POPULATE = [
   { path: 'courses', select: 'title category level' },
@@ -142,6 +147,20 @@ const ensureDefaultSixMonthOption = (billingOptions = []) => {
 
   return getActiveBillingOptions({ billingOptions: [...optionsByTerm.values()] });
 };
+
+const buildCurrentSubscriptionAccessQuery = (userId = null, now = new Date()) => ({
+  ...(userId ? { user: userId } : {}),
+  $or: [
+    {
+      status: 'active',
+      endDate: { $gt: now },
+    },
+    {
+      status: 'grace_period',
+      gracePeriodEndsAt: { $gt: now },
+    },
+  ],
+});
 
 export const getBillingOptionForPackage = (pkg = {}, requestedTerm = null) => {
   const options = getActiveBillingOptions(pkg);
@@ -392,11 +411,9 @@ const resolveAccessiblePackageIds = async (rootPackageId) => {
 };
 
 export const getSubscriptionAccessContext = async (userId, courseId = null) => {
-  const subscription = await Subscription.findOne({
-    user: userId,
-    status: 'active',
-    endDate: { $gt: new Date() }
-  }).populate({
+  const subscription = await Subscription.findOne(
+    buildCurrentSubscriptionAccessQuery(userId, new Date())
+  ).populate({
     path: 'package',
     select: 'name courses includedPackages purchaseMode'
   });
@@ -513,13 +530,11 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
   }
 
   const existingActive = await Subscription.findOne({
-    user: userId,
-    status: 'active',
-    endDate: { $gt: new Date() }
+    ...buildCurrentSubscriptionAccessQuery(userId, new Date()),
   });
 
   if (existingActive) {
-    throw new Error('You already have an active subscription');
+    throw new Error('You already have a current subscription in progress');
   }
 
   const existingPending = await Subscription.findOne({
@@ -528,7 +543,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
   });
 
   if (existingPending) {
-    throw new Error('You already have a pending subscription awaiting payment or review');
+    throw new Error('You already have a pending subscription awaiting checkout');
   }
 
   const subscription = new Subscription({
@@ -537,6 +552,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
     status: 'pending',
     billingTerm: billingOption.term,
     priceAtPurchase: getEffectiveBillingPrice(billingOption),
+    currency: getSubscriptionCurrency(),
     durationDaysSnapshot: billingOption.durationDays,
     purchaseModeSnapshot: pkg.purchaseMode,
   });
@@ -598,11 +614,7 @@ export const getUserSubscriptions = async (userId) => {
 
 export const getActiveSubscription = async (userId) => {
   return populateSubscriptionQuery(
-    Subscription.findOne({
-      user: userId,
-      status: 'active',
-      endDate: { $gt: new Date() }
-    })
+    Subscription.findOne(buildCurrentSubscriptionAccessQuery(userId, new Date()))
   );
 };
 
@@ -615,19 +627,121 @@ export const getAllSubscriptions = async (status) => {
   );
 };
 
-export const approveSubscription = async () => {
-  throw new Error('Subscriptions are activated from Payment Management after payment review.');
-};
+export const updateAutoRenewPreference = async (subscriptionId, requester, enabledInput) => {
+  const requesterId = typeof requester === 'string' ? requester : requester?.id;
+  const requesterRole = typeof requester === 'object' ? requester?.role : null;
+  const enabled = toBoolean(enabledInput, null);
 
-export const cancelSubscription = async (subscriptionId) => {
-  const subscription = await Subscription.findByIdAndUpdate(
-    subscriptionId,
-    { status: 'cancelled' },
-    { new: true }
+  if (enabled !== true && enabled !== false) {
+    throw new Error('A valid auto-renew preference is required.');
+  }
+
+  const subscription = await populateSubscriptionQuery(
+    Subscription.findById(subscriptionId).populate('user', 'name email')
   );
+
   if (!subscription) {
     throw new Error('Subscription not found');
   }
+
+  if (requesterRole !== 'admin' && subscription.user?._id?.toString() !== requesterId) {
+    throw new Error('Access denied. Insufficient permissions.');
+  }
+
+  if (!CURRENT_ACCESS_STATUSES.includes(subscription.status)) {
+    throw new Error('Only current subscriptions can change auto-renew.');
+  }
+
+  const accessCutoff = subscription.status === 'grace_period'
+    ? subscription.gracePeriodEndsAt
+    : subscription.endDate;
+
+  if (!accessCutoff || accessCutoff <= new Date()) {
+    throw new Error('Only current subscriptions can change auto-renew.');
+  }
+
+  if (enabled) {
+    const billingUser = await User.findById(subscription.user?._id || subscription.user)
+      .select('tapCustomerId tapCardId tapPaymentAgreementId');
+
+    if (!billingUser?.tapCustomerId || !billingUser?.tapCardId || !billingUser?.tapPaymentAgreementId) {
+      throw new Error('No saved payment method is available yet for automatic renewals.');
+    }
+
+    subscription.autoRenewEnabled = true;
+    subscription.autoRenewDisabledAt = null;
+    subscription.autoRenewDisabledReason = null;
+    subscription.nextRenewalRetryAt = null;
+    subscription.renewalFailureReason = null;
+    subscription.renewalFailureCount = 0;
+  } else {
+    subscription.autoRenewEnabled = false;
+    subscription.autoRenewDisabledAt = new Date();
+    subscription.autoRenewDisabledReason = requesterRole === 'admin' ? 'admin' : 'member';
+  }
+
+  await subscription.save();
+  return populateSubscriptionQuery(
+    Subscription.findById(subscription._id).populate('user', 'name email')
+  );
+};
+
+export const cancelSubscription = async (subscriptionId) => {
+  const subscription = await Subscription.findById(subscriptionId)
+    .populate('package')
+    .populate('user', 'name email');
+
+  if (!subscription) {
+    throw new Error('Subscription not found');
+  }
+
+  subscription.status = 'cancelled';
+  subscription.autoRenewEnabled = false;
+  subscription.autoRenewDisabledAt = new Date();
+  subscription.autoRenewDisabledReason = 'admin';
+  subscription.nextRenewalRetryAt = null;
+  subscription.gracePeriodEndsAt = null;
+  await subscription.save();
+
+  if (subscription.user?.email) {
+    const emailTemplate = buildSubscriptionCancelledEmail({
+      recipientName: subscription.user.name,
+      packageName: subscription.package?.name || 'your subscription',
+      endDate: subscription.endDate?.toLocaleDateString() || null,
+      checkoutUrl: process.env.FRONTEND_URL
+        ? `${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard/subscription`
+        : null,
+    });
+
+    try {
+      await sendEmail({
+        to: subscription.user.email,
+        subject: emailTemplate.subject,
+        text: emailTemplate.text,
+        html: emailTemplate.html,
+      });
+    } catch (error) {
+      console.error('Failed to send subscription cancellation email:', error.message);
+    }
+  }
+
+  return subscription;
+};
+
+export const removeSubscription = async (subscriptionId) => {
+  const subscription = await Subscription.findById(subscriptionId);
+  if (!subscription) {
+    throw new Error('Subscription not found');
+  }
+
+  const relatedPayments = await Payment.find({ subscription: subscriptionId }).select('proofFile');
+  await Payment.deleteMany({ subscription: subscriptionId });
+  await subscription.deleteOne();
+
+  await Promise.allSettled(
+    relatedPayments.map((payment) => deleteUploadPathIfExists(payment.proofFile))
+  );
+
   return subscription;
 };
 

@@ -120,7 +120,7 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   assert.equal(afterLogoutProfileResponse.status, 401);
 });
 
-test('accounts can stay signed in on two approved devices at the same time', async () => {
+test('accounts can stay signed in on four approved devices at the same time', async () => {
   await createUser({
     email: 'concurrent-device-user@example.com',
     password: 'Password123!',
@@ -128,50 +128,13 @@ test('accounts can stay signed in on two approved devices at the same time', asy
 
   const firstDevice = request.agent(suite.app);
   const secondDevice = request.agent(suite.app);
-
-  const firstLoginResponse = await firstDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'concurrent-device-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(firstLoginResponse.status, 200);
-
-  const secondLoginResponse = await secondDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'concurrent-device-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(secondLoginResponse.status, 200);
-
-  const profileResponses = await Promise.all([
-    firstDevice.get('/api/auth/profile'),
-    secondDevice.get('/api/auth/profile'),
-  ]);
-
-  profileResponses.forEach((response) => {
-    assert.equal(response.status, 200);
-    assert.equal(response.body.email, 'concurrent-device-user@example.com');
-  });
-});
-
-test('accounts can only be approved on up to two devices even when both approved devices stay active', async () => {
-  await createUser({
-    email: 'two-device-limit-user@example.com',
-    password: 'Password123!',
-  });
-
-  const firstDevice = request.agent(suite.app);
-  const secondDevice = request.agent(suite.app);
   const thirdDevice = request.agent(suite.app);
+  const fourthDevice = request.agent(suite.app);
 
   const firstLoginResponse = await firstDevice
     .post('/api/auth/login')
     .send({
-      email: 'two-device-limit-user@example.com',
+      email: 'concurrent-device-user@example.com',
       password: 'Password123!',
     });
 
@@ -180,7 +143,7 @@ test('accounts can only be approved on up to two devices even when both approved
   const secondLoginResponse = await secondDevice
     .post('/api/auth/login')
     .send({
-      email: 'two-device-limit-user@example.com',
+      email: 'concurrent-device-user@example.com',
       password: 'Password123!',
     });
 
@@ -189,24 +152,105 @@ test('accounts can only be approved on up to two devices even when both approved
   const thirdLoginResponse = await thirdDevice
     .post('/api/auth/login')
     .send({
-      email: 'two-device-limit-user@example.com',
+      email: 'concurrent-device-user@example.com',
       password: 'Password123!',
     });
 
-  assert.equal(thirdLoginResponse.status, 403);
+  assert.equal(thirdLoginResponse.status, 200);
+
+  const fourthLoginResponse = await fourthDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'concurrent-device-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(fourthLoginResponse.status, 200);
+
+  const profileResponses = await Promise.all([
+    firstDevice.get('/api/auth/profile'),
+    secondDevice.get('/api/auth/profile'),
+    thirdDevice.get('/api/auth/profile'),
+    fourthDevice.get('/api/auth/profile'),
+  ]);
+
+  profileResponses.forEach((response) => {
+    assert.equal(response.status, 200);
+    assert.equal(response.body.email, 'concurrent-device-user@example.com');
+  });
+});
+
+test('accounts can only be approved on up to four devices even when all approved devices stay active', async () => {
+  await createUser({
+    email: 'four-device-limit-user@example.com',
+    password: 'Password123!',
+  });
+
+  const firstDevice = request.agent(suite.app);
+  const secondDevice = request.agent(suite.app);
+  const thirdDevice = request.agent(suite.app);
+  const fourthDevice = request.agent(suite.app);
+  const fifthDevice = request.agent(suite.app);
+
+  const firstLoginResponse = await firstDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'four-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(firstLoginResponse.status, 200);
+
+  const secondLoginResponse = await secondDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'four-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(secondLoginResponse.status, 200);
+
+  const thirdLoginResponse = await thirdDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'four-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(thirdLoginResponse.status, 200);
+
+  const fourthLoginResponse = await fourthDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'four-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(fourthLoginResponse.status, 200);
+
+  const fifthLoginResponse = await fifthDevice
+    .post('/api/auth/login')
+    .send({
+      email: 'four-device-limit-user@example.com',
+      password: 'Password123!',
+    });
+
+  assert.equal(fifthLoginResponse.status, 403);
   assert.equal(
-    thirdLoginResponse.body.error,
-    'This account can only be used on up to 2 devices. Please sign in from one of your approved devices.'
+    fifthLoginResponse.body.error,
+    'This account can only be used on up to 4 devices. Please sign in from one of your approved devices.'
   );
 
   const profileResponses = await Promise.all([
     firstDevice.get('/api/auth/profile'),
     secondDevice.get('/api/auth/profile'),
+    thirdDevice.get('/api/auth/profile'),
+    fourthDevice.get('/api/auth/profile'),
   ]);
 
   profileResponses.forEach((response) => {
     assert.equal(response.status, 200);
-    assert.equal(response.body.email, 'two-device-limit-user@example.com');
+    assert.equal(response.body.email, 'four-device-limit-user@example.com');
   });
 });
 

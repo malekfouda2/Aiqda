@@ -5,6 +5,7 @@ import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { ensureSystemUsers } from './startup/ensureSystemUsers.js';
+import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
 
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,10 @@ mongoose.connect(MONGODB_URI)
       console.log(
         `Ensured application reviewer account ${systemUserResult.reviewer.email} with role ${systemUserResult.reviewer.role}.`
       );
+    }
+    const renewalWorker = startSubscriptionRenewalWorker();
+    if (renewalWorker.started) {
+      console.log(`Subscription renewal worker started (interval ${renewalWorker.intervalMs}ms).`);
     }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Aiqda Backend running on port ${PORT}`);

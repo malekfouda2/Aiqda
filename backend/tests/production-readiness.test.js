@@ -3,7 +3,6 @@ import test from 'node:test';
 import request from 'supertest';
 
 import User from '../src/modules/users/user.model.js';
-import { Subscription } from '../src/modules/subscriptions/subscription.model.js';
 import { shouldAutoSeedConsultations, shouldAutoSeedDemoData } from '../src/seed.js';
 import { ensureSystemUsers } from '../src/startup/ensureSystemUsers.js';
 import { validateRuntimeConfig } from '../src/startup/validateRuntimeConfig.js';
@@ -13,8 +12,6 @@ import {
   createConsultation,
   createInstructorApplicationPayload,
   createStudioApplicationPayload,
-  createSubscription,
-  createSubscriptionPackage,
   createUser,
   setupIntegrationSuite
 } from './helpers/integration.js';
@@ -28,12 +25,15 @@ test('production runtime configuration validation fails for unsafe deployment se
       MONGODB_URI: 'mongodb://127.0.0.1:27017/aiqda',
       JWT_SECRET: 'short-secret',
       FRONTEND_URL: 'not-a-url',
+      APP_URL: 'not-a-url',
       SMTP_HOST: '',
       SMTP_PORT: 'abc',
       SMTP_USER: '',
       SMTP_PASS: '',
       EMAIL_FROM: '',
       STUDIO_APPLICATION_MEETING_URL: '',
+      TAP_SECRET_KEY: '',
+      TAP_PUBLIC_KEY: '',
       GOOGLE_OAUTH_CLIENT_ID: 'google-client-id',
       GOOGLE_OAUTH_CLIENT_SECRET: '',
       AUTO_SEED_DEMO_DATA: 'true',
@@ -61,6 +61,7 @@ test('production runtime configuration requires a password for the limited revie
       MONGODB_URI: 'mongodb://127.0.0.1:27017/aiqda',
       JWT_SECRET: 'a-very-strong-production-secret-value',
       FRONTEND_URL: 'https://www.aiqda.pro',
+      APP_URL: 'https://api.aiqda.pro',
       REDIS_URL: 'redis://127.0.0.1:6379',
       SMTP_HOST: 'smtp.example.com',
       SMTP_PORT: '587',
@@ -68,6 +69,8 @@ test('production runtime configuration requires a password for the limited revie
       SMTP_PASS: 'mail-password',
       EMAIL_FROM: 'Aiqda <no-reply@example.com>',
       STUDIO_APPLICATION_MEETING_URL: 'https://scheduler.example.com/aiqda/studio-intro',
+      TAP_SECRET_KEY: 'sk_test_runtime_config',
+      TAP_PUBLIC_KEY: 'pk_test_runtime_config',
       EBAA_REVIEWER_EMAIL: 'ebaa@aiqda.com',
       EBAA_REVIEWER_PASSWORD: '',
     }),
@@ -220,43 +223,6 @@ test('consultation booking status flows keep working with notification emails en
     .set(authHeader(student.token));
   assert.equal(cancelResponse.status, 200);
   assert.equal(cancelResponse.body.status, 'cancelled');
-});
-
-test('payment rejection leaves the subscription pending while recording the review', async () => {
-  const admin = await createUser({ role: 'admin' });
-  const student = await createUser({ role: 'student' });
-  const packageRecord = await createSubscriptionPackage({ price: 699, durationDays: 60 });
-  const subscription = await createSubscription({
-    user: student.user._id,
-    package: packageRecord._id,
-    status: 'pending'
-  });
-
-  const createPaymentResponse = await request(suite.app)
-    .post('/api/payments')
-    .set(authHeader(student.token))
-    .field('subscriptionId', subscription._id.toString())
-    .field('amount', '699')
-    .field('paymentReference', 'PAY-REJECT-001')
-    .field('checkoutDisclaimerAccepted', 'true')
-    .attach('proofFile', Buffer.from('%PDF-test-proof'), {
-      filename: 'proof.pdf',
-      contentType: 'application/pdf'
-    });
-  assert.equal(createPaymentResponse.status, 201);
-
-  const rejectResponse = await request(suite.app)
-    .patch(`/api/payments/${createPaymentResponse.body._id}/reject`)
-    .set(authHeader(admin.token))
-    .send({ reason: 'The uploaded transfer proof was incomplete.' });
-  assert.equal(rejectResponse.status, 200);
-  assert.equal(rejectResponse.body.status, 'rejected');
-  assert.equal(rejectResponse.body.rejectionReason, 'The uploaded transfer proof was incomplete.');
-
-  const updatedSubscription = await Subscription.findById(subscription._id);
-  assert.equal(updatedSubscription.status, 'pending');
-  assert.equal(updatedSubscription.startDate, null);
-  assert.equal(updatedSubscription.endDate, null);
 });
 
 test('public application endpoints reject non-http external links', async () => {

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect } from 'react';
 
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import {
@@ -13,6 +14,21 @@ import { useLocale } from '../i18n/useLocale';
 function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = false }) {
   const { pick, t, isRTL } = useLocale();
   useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !isSubmitting) {
+        onCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSubmitting, onCancel, open]);
 
   const handleConfirm = async () => {
     if (isSubmitting) {
@@ -30,6 +46,11 @@ function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = fal
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="app-modal-shell z-[75] items-start overflow-y-auto px-2 py-2 sm:items-center sm:px-4 sm:py-6"
+          onClick={() => {
+            if (!isSubmitting) {
+              onCancel();
+            }
+          }}
         >
           <div className="app-modal-backdrop" />
           <motion.div
@@ -38,8 +59,20 @@ function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = fal
             exit={{ opacity: 0, y: 12, scale: 0.99 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="app-modal-panel flex max-w-3xl flex-col overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] max-h-[calc(100dvh-1rem)] sm:max-h-[min(calc(100dvh-3rem),820px)]"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="shrink-0 border-b border-gray-100 bg-gradient-to-br from-primary-50/80 via-white to-cyan-50/60 px-4 pb-4 pt-4 sm:px-8 sm:pb-6 sm:pt-8">
+            <div className="relative shrink-0 border-b border-gray-100 bg-gradient-to-br from-primary-50/80 via-white to-cyan-50/60 px-4 pb-4 pt-4 sm:px-8 sm:pb-6 sm:pt-8">
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                aria-label={t('common.close', 'Close')}
+                className={`absolute top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60 sm:top-6 ${isRTL ? 'left-4 sm:left-6' : 'right-4 sm:right-6'}`}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
               <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-2 sm:px-4">
                 <span className="h-2 w-2 rounded-full bg-brand-teal animate-pulse" />
                 <span className="text-sm text-gray-600">{isRTL ? 'إقرار الدفع' : 'Checkout Disclaimer'}</span>
@@ -60,8 +93,8 @@ function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = fal
                   </h2>
                   <p className="mt-3 max-w-2xl text-base leading-8 text-gray-500 sm:leading-relaxed">
                     {isRTL
-                      ? 'هذا الإقرار مطلوب قبل أن نتمكن من قبول إثبات الدفع الخاص بك.'
-                      : 'This acknowledgement is required before we can accept your payment submission.'}
+                      ? 'هذا الإقرار مطلوب قبل أن نتمكن من متابعة الدفع الإلكتروني.'
+                      : 'This acknowledgement is required before we can continue to electronic checkout.'}
                   </p>
                 </div>
 
@@ -110,11 +143,11 @@ function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = fal
               <p className="text-sm leading-relaxed text-gray-500">
                 {isRTL ? (
                   <>
-                    بالنقر على <span className="font-semibold text-gray-700">{pick(CHECKOUT_DISCLAIMER_LABEL)}</span>، فإنك تؤكد أنك قرأت ووافقت على إقرار الاسترداد وشروط سياسة الاسترداد الخاصة بهذه الدفعة.
+                    بالنقر على <span className="font-semibold text-gray-700">{pick(CHECKOUT_DISCLAIMER_LABEL)}</span>، فإنك تؤكد أنك قرأت ووافقت على إقرار الاسترداد وشروط سياسة الاسترداد الخاصة بهذه العملية.
                   </>
                 ) : (
                   <>
-                    By clicking <span className="font-semibold text-gray-700">{pick(CHECKOUT_DISCLAIMER_LABEL)}</span>, you confirm that you have read and accepted the refund disclaimer and refund policy terms for this payment.
+                    By clicking <span className="font-semibold text-gray-700">{pick(CHECKOUT_DISCLAIMER_LABEL)}</span>, you confirm that you have read and accepted the refund disclaimer and refund policy terms for this checkout.
                   </>
                 )}
               </p>
@@ -124,7 +157,7 @@ function CheckoutDisclaimerModal({ open, onConfirm, onCancel, isSubmitting = fal
                   type="button"
                   onClick={onCancel}
                   disabled={isSubmitting}
-                  className="btn-secondary justify-center"
+                  className="btn-secondary w-full justify-center sm:w-auto"
                 >
                   {t('common.back')}
                 </button>

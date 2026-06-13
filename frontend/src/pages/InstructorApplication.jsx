@@ -37,6 +37,9 @@ const STEPS = [
 ];
 
 const SPECIALIZATIONS = ['2D', '3D', 'Storyboarding for Animation', 'Stop Motion', 'Other'];
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const CV_ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx'];
+const MATERIALS_ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
 
 const slideVariants = {
   enter: (direction) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
@@ -82,6 +85,17 @@ function InstructorApplication() {
     additionalComments: '',
   });
 
+  const getFileExtension = (filename = '') => {
+    const lastDotIndex = filename.lastIndexOf('.');
+    return lastDotIndex >= 0 ? filename.slice(lastDotIndex).toLowerCase() : '';
+  };
+
+  const resetFileInput = (inputRef) => {
+    if (inputRef?.current) {
+      inputRef.current.value = '';
+    }
+  };
+
   const updateField = (field, value) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -91,6 +105,39 @@ function InstructorApplication() {
         return next;
       });
     }
+  };
+
+  const setFieldError = (field, message) => {
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearSelectedFile = (field, inputRef) => {
+    resetFileInput(inputRef);
+    updateField(field, null);
+  };
+
+  const handleFileSelection = (field, file, allowedExtensions, inputRef) => {
+    if (!file) {
+      clearSelectedFile(field, inputRef);
+      return;
+    }
+
+    const fileExtension = getFileExtension(file.name);
+    if (!allowedExtensions.includes(fileExtension)) {
+      resetFileInput(inputRef);
+      setFormState((prev) => ({ ...prev, [field]: null }));
+      setFieldError(field, `Please upload one of the supported file types: ${allowedExtensions.join(', ')}.`);
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      resetFileInput(inputRef);
+      setFormState((prev) => ({ ...prev, [field]: null }));
+      setFieldError(field, 'Please upload a file smaller than 10 MB.');
+      return;
+    }
+
+    updateField(field, file);
   };
 
   const toggleSpecialization = (spec) => {
@@ -280,11 +327,11 @@ function InstructorApplication() {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <select
             value={formState.phoneCode}
             onChange={(e) => updateField('phoneCode', e.target.value)}
-            className="input-field w-44 flex-shrink-0"
+            className="input-field w-full sm:w-44 sm:flex-shrink-0"
           >
             {COUNTRY_CODES.map((cc) => (
               <option key={cc.code} value={cc.code}>{cc.label}</option>
@@ -439,21 +486,21 @@ function InstructorApplication() {
             type="file"
             accept=".pdf,.doc,.docx"
             className="hidden"
-            onChange={(e) => updateField('cvFile', e.target.files[0] || null)}
+            onChange={(e) => handleFileSelection('cvFile', e.target.files[0] || null, CV_ALLOWED_EXTENSIONS, cvInputRef)}
           />
           {formState.cvFile ? (
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center justify-center gap-3 text-center sm:flex-row sm:text-left">
               <svg className="w-8 h-8 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-800">{formState.cvFile.name}</p>
+              <div className="min-w-0 sm:text-left">
+                <p className="text-sm font-medium text-gray-800 break-words sm:truncate">{formState.cvFile.name}</p>
                 <p className="text-xs text-gray-500">{(formState.cvFile.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); updateField('cvFile', null); }}
-                className="ml-2 text-gray-400 hover:text-red-500 transition-colors"
+                onClick={(e) => { e.stopPropagation(); clearSelectedFile('cvFile', cvInputRef); }}
+                className="text-gray-400 hover:text-red-500 transition-colors sm:ml-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -520,19 +567,20 @@ function InstructorApplication() {
             <input
               ref={materialsInputRef}
               type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               className="hidden"
-              onChange={(e) => updateField('courseMaterialsFile', e.target.files[0] || null)}
+              onChange={(e) => handleFileSelection('courseMaterialsFile', e.target.files[0] || null, MATERIALS_ALLOWED_EXTENSIONS, materialsInputRef)}
             />
             {formState.courseMaterialsFile ? (
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-col items-center justify-center gap-3 text-center sm:flex-row sm:text-left">
                 <svg className="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-sm font-medium text-gray-800">{formState.courseMaterialsFile.name}</span>
+                <span className="min-w-0 text-sm font-medium text-gray-800 break-words sm:truncate">{formState.courseMaterialsFile.name}</span>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); updateField('courseMaterialsFile', null); }}
-                  className="ml-2 text-gray-400 hover:text-red-500 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); clearSelectedFile('courseMaterialsFile', materialsInputRef); }}
+                  className="text-gray-400 hover:text-red-500 transition-colors sm:ml-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -540,12 +588,16 @@ function InstructorApplication() {
                 </button>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">
-                <span className="text-primary-500 font-medium">Attach file</span> (optional)
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">
+                  <span className="text-primary-500 font-medium">Attach file</span> (optional)
+                </p>
+                <p className="text-xs text-gray-400">PDF, DOC, DOCX, JPG, or PNG (max 10MB)</p>
+              </div>
             )}
           </div>
         </div>
+        {renderError('courseMaterialsFile')}
       </div>
     </div>
   );
@@ -602,7 +654,7 @@ function InstructorApplication() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="relative w-full max-w-lg text-center"
         >
-          <div className="card p-10">
+          <div className="card p-6 sm:p-10">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -613,8 +665,8 @@ function InstructorApplication() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </motion.div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Application Submitted!</h2>
-            <p className="text-gray-500 text-lg mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-3 sm:text-3xl">Application Submitted!</h2>
+            <p className="text-base text-gray-500 sm:text-lg mb-8">
               {`Thank you for applying to be a creator at ${brandName}. We'll review your application and get back to you soon.`}
             </p>
             <Link to="/" className="btn-primary inline-block py-3 px-8 text-base">
@@ -627,7 +679,7 @@ function InstructorApplication() {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 relative overflow-hidden bg-gray-50">
+    <div className="min-h-screen py-8 px-4 sm:py-12 relative overflow-hidden bg-gray-50">
       <div className="absolute inset-0 mesh-gradient" />
       <div className="absolute inset-0 overflow-hidden">
         <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/50 top-[-100px] left-[-100px] animate-float" />
@@ -638,10 +690,10 @@ function InstructorApplication() {
       <div className="relative max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
-            <img src="/logo.png" alt={brandName} className="h-14 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-16 sm:h-20 w-auto mx-auto" />
           </Link>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Creator Application</h1>
-          <p className="text-gray-500 text-lg">Join our team of expert animation creators</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3">Creator Application</h1>
+          <p className="text-base text-gray-500 sm:text-lg">Join our team of expert animation creators</p>
         </div>
 
         <div className="card mb-8 p-4 md:p-6">
@@ -691,7 +743,7 @@ function InstructorApplication() {
           </div>
         </div>
 
-        <div className="card p-6 md:p-8 min-h-[400px]">
+        <div className="card min-h-[360px] p-4 sm:p-6 md:min-h-[400px] md:p-8">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900">
               {STEPS[currentStep - 1].name}
@@ -723,12 +775,12 @@ function InstructorApplication() {
             </motion.div>
           </AnimatePresence>
 
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
+          <div className={`mt-8 flex flex-col-reverse gap-3 pt-6 border-t border-gray-100 sm:flex-row ${currentStep > 1 ? 'sm:items-center sm:justify-between' : 'sm:justify-end'}`}>
             {currentStep > 1 ? (
               <button
                 type="button"
                 onClick={goBack}
-                className="btn-secondary flex items-center gap-2"
+                className="btn-secondary w-full items-center gap-2 sm:w-auto"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -742,7 +794,7 @@ function InstructorApplication() {
               <button
                 type="button"
                 onClick={goNext}
-                className="btn-primary flex items-center gap-2"
+                className="btn-primary w-full items-center gap-2 sm:w-auto"
               >
                 Next
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -754,7 +806,7 @@ function InstructorApplication() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="btn-primary flex items-center gap-2 py-3 px-8"
+                className="btn-primary w-full items-center gap-2 py-3 px-8 sm:w-auto"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">

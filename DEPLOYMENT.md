@@ -32,6 +32,7 @@ Required in production:
 - `MONGODB_URI`
 - `JWT_SECRET`
 - `FRONTEND_URL`
+- `APP_URL` or `BACKEND_PUBLIC_URL`
 - `REDIS_URL`
 - `EBAA_REVIEWER_PASSWORD`
 - `SMTP_HOST`
@@ -41,6 +42,8 @@ Required in production:
 - `SMTP_PASS`
 - `EMAIL_FROM`
 - `STUDIO_APPLICATION_MEETING_URL`
+- `TAP_SECRET_KEY`
+- `TAP_PUBLIC_KEY`
 
 Recommended:
 
@@ -54,6 +57,9 @@ Recommended:
 - `DEVICE_COOKIE_MAX_AGE_MS`
 - `MAX_AUTH_DEVICES`
 - `AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS`
+- `TAP_MERCHANT_ID`
+- `TAP_CARD_SDK_URL`
+- `SUBSCRIPTION_CURRENCY`
 - `EBAA_REVIEWER_NAME`
 - `EBAA_REVIEWER_EMAIL`
 - `VIMEO_ACCESS_TOKEN`
@@ -78,9 +84,23 @@ If you enable social login, configure the provider redirect URIs to point to you
 
 ## Device Access Policy
 
-- `MAX_AUTH_DEVICES=2` keeps each account restricted to two approved browser devices.
-- `AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS=900000` means a session is treated as actively in use for 15 minutes after its last authenticated request, which prevents concurrent cross-device sign-ins while still allowing a stale device to time out naturally.
-- Users on a third browser/device receive a friendly login error instead of silently replacing an approved device.
+- `MAX_AUTH_DEVICES=4` keeps each account restricted to four approved browser devices.
+- `AUTH_ACTIVE_SESSION_IDLE_TIMEOUT_MS=900000` means a session is treated as actively in use for 15 minutes after its last authenticated request while still allowing approved devices to remain signed in concurrently.
+- Users on a fifth browser/device receive a friendly login error instead of silently replacing an approved device.
+
+## Tap Subscription Checkout
+
+- Phase 1 replaces the member-facing manual subscription payment flow with Tap Card SDK checkout plus Tap webhooks.
+- The backend needs a public webhook URL, so set `APP_URL` or `BACKEND_PUBLIC_URL` to your real backend origin in production.
+- `FRONTEND_URL` should point to the public frontend origin so Tap can return members to `/dashboard/subscription` after 3DS.
+- `SUBSCRIPTION_CURRENCY` currently defaults to `SAR` for the live in-app checkout flow even though the Tap account supports more currencies.
+- Apple Pay domain verification is a hosting task: the verification file must be served publicly from `/.well-known/apple-developer-merchantid-domain-association`.
+- Phase 2 adds automatic renewals for eligible subscriptions using the saved Tap card and payment agreement created during the first checkout.
+- Members can turn auto-renew off from their subscription page before the next billing date.
+- The renewal worker is enabled by default outside tests. Optional controls:
+  - `SUBSCRIPTION_RENEWAL_WORKER_ENABLED=true`
+  - `SUBSCRIPTION_RENEWAL_INTERVAL_MS=300000`
+  - `SUBSCRIPTION_RENEWAL_BATCH_SIZE=20`
 
 ## Vimeo Notes
 
@@ -143,6 +163,7 @@ Production mail templates now exist for:
 - consultation booking confirmed
 - consultation booking rejected
 - consultation booking cancelled
+- subscription payment confirmed / subscription activated
 - payment submitted
 - payment submitted admin notification
 - payment approved

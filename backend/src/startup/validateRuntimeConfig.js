@@ -93,6 +93,26 @@ export const validateRuntimeConfig = (env = process.env) => {
     errors.push('SMTP_PORT must be a valid number.');
   }
 
+  if (isProduction(env) && !env.TAP_SECRET_KEY) {
+    errors.push('TAP_SECRET_KEY is required in production for Tap payments.');
+  }
+
+  if (isProduction(env) && !env.TAP_PUBLIC_KEY) {
+    errors.push('TAP_PUBLIC_KEY is required in production for Tap payments.');
+  }
+
+  if (isProduction(env) && !env.APP_URL && !env.BACKEND_PUBLIC_URL) {
+    errors.push('APP_URL or BACKEND_PUBLIC_URL is required in production for Tap webhook callbacks.');
+  }
+
+  if (env.APP_URL && !isValidUrl(env.APP_URL)) {
+    errors.push('APP_URL must be a valid URL.');
+  }
+
+  if (env.BACKEND_PUBLIC_URL && !isValidUrl(env.BACKEND_PUBLIC_URL)) {
+    errors.push('BACKEND_PUBLIC_URL must be a valid URL.');
+  }
+
   if (env.CONTACT_NOTIFICATION_TO && !validateEmailList(env.CONTACT_NOTIFICATION_TO)) {
     errors.push('CONTACT_NOTIFICATION_TO must contain one or more valid comma-separated email addresses.');
   }

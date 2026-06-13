@@ -48,6 +48,7 @@ function AdminSubscriptions() {
   const [editingPackage, setEditingPackage] = useState(null);
   const [packageForm, setPackageForm] = useState({ ...emptyForm });
   const [courseSearch, setCourseSearch] = useState('');
+  const [processing, setProcessing] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -189,18 +190,42 @@ function AdminSubscriptions() {
   const availableIncludedPackages = packages.filter((pkg) => pkg._id !== editingPackage?._id);
 
   const handleCancel = async (subscriptionId) => {
+    setProcessing(`cancel-${subscriptionId}`);
     try {
       await subscriptionsAPI.cancel(subscriptionId);
       showSuccess('Subscription cancelled');
-      fetchData();
+      await fetchData();
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to cancel subscription');
+    } finally {
+      setProcessing(null);
     }
   };
+
+  const handleDelete = async (subscriptionId) => {
+    if (!window.confirm('Delete this subscription record? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessing(`delete-${subscriptionId}`);
+    try {
+      await subscriptionsAPI.remove(subscriptionId);
+      showSuccess('Subscription deleted');
+      await fetchData();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete subscription');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const actionIsRunning = (action, id) => processing === `${action}-${id}`;
+  const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'bg-green-50 text-green-600';
+      case 'grace_period': return 'bg-amber-50 text-amber-700';
       case 'expired': return 'bg-red-50 text-red-600';
       case 'cancelled': return 'bg-gray-100 text-gray-500';
       default: return 'bg-yellow-50 text-yellow-600';
@@ -826,22 +851,48 @@ function AdminSubscriptions() {
                           {new Date(sub.startDate).toLocaleDateString()} - {new Date(sub.endDate).toLocaleDateString()}
                         </p>
                       )}
+                      <p className="text-gray-400 text-sm mt-1">
+                        Auto-renew: {sub.autoRenewEnabled
+                          ? 'On'
+                          : sub.autoRenewDisabledReason === 'payment_failed'
+                            ? 'Off after payment failure'
+                            : 'Off'}
+                      </p>
                     </div>
 
                     {sub.status === 'pending' && (
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleCancel(sub._id)}
+                          disabled={recordIsBusy(sub._id)}
                           className="btn-secondary"
                         >
-                          Cancel
+                          {actionIsRunning('cancel', sub._id) ? 'Cancelling...' : 'Cancel'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(sub._id)}
+                          disabled={recordIsBusy(sub._id)}
+                          className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-lg transition-all"
+                        >
+                          {actionIsRunning('delete', sub._id) ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    )}
+                    {sub.status !== 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDelete(sub._id)}
+                          disabled={recordIsBusy(sub._id)}
+                          className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-lg transition-all"
+                        >
+                          {actionIsRunning('delete', sub._id) ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     )}
                   </div>
                   {sub.status === 'pending' && (
                     <p className="text-sm text-gray-400 mt-3">
-                      Pending subscriptions are activated from Payment Management after payment review.
+                      Pending subscriptions are activated automatically after successful Tap payment capture.
                     </p>
                   )}
                 </motion.div>

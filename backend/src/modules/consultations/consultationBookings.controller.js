@@ -86,3 +86,13 @@ export const cancelBooking = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const removeBooking = async (req, res) => {
+  try {
+    await consultationBookingsService.remove(req.params.id);
+    res.json({ message: 'Booking deleted successfully' });
+  } catch (error) {
+    const statusCode = error.message === 'Booking not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};

@@ -4,6 +4,13 @@ import api, { instructorApplicationsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
+import {
+  downloadCsv,
+  formatCsvBoolean,
+  formatCsvDate,
+  formatCsvList,
+  formatCsvReference,
+} from '../utils/csv';
 import { downloadBlobResponse } from '../utils/download';
 import { getSafeExternalHref } from '../utils/url';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -51,7 +58,7 @@ function AdminInstructorApplications() {
   };
 
   const handleApprove = async (id) => {
-    setProcessing(id);
+    setProcessing(`approve-${id}`);
     try {
       const response = await api.patch(`/instructor-applications/${id}/approve`);
 
@@ -80,7 +87,7 @@ function AdminInstructorApplications() {
 
   const handleRejectSubmit = async () => {
     if (!rejectReason.trim()) return;
-    setProcessing(rejectModalId);
+    setProcessing(`reject-${rejectModalId}`);
     try {
       await api.patch(`/instructor-applications/${rejectModalId}/reject`, { reason: rejectReason });
       showSuccess('Application rejected');
@@ -95,6 +102,107 @@ function AdminInstructorApplications() {
     } finally {
       setProcessing(null);
     }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this creator application? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessing(`delete-${id}`);
+    try {
+      await instructorApplicationsAPI.remove(id);
+      showSuccess('Application deleted');
+      if (selectedApp?._id === id) {
+        setSelectedApp(null);
+      }
+      if (rejectModalId === id) {
+        setRejectModalId(null);
+        setRejectReason('');
+      }
+      await fetchApplications();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete application');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const actionIsRunning = (action, id) => processing === `${action}-${id}`;
+  const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
+
+  const handleExportApplications = () => {
+    downloadCsv({
+      filename: `creator-applications-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      columns: [
+        { key: 'applicationId', label: 'Application ID' },
+        { key: 'status', label: 'Status' },
+        { key: 'fullName', label: 'Full Name' },
+        { key: 'email', label: 'Email' },
+        { key: 'nationality', label: 'Nationality' },
+        { key: 'country', label: 'Country' },
+        { key: 'city', label: 'City' },
+        { key: 'phone', label: 'Phone' },
+        { key: 'educationLevel', label: 'Education Level' },
+        { key: 'fieldOfStudy', label: 'Field of Study' },
+        { key: 'yearsOfExperience', label: 'Years of Experience' },
+        { key: 'specialization', label: 'Specialization' },
+        { key: 'previousTeachingExperience', label: 'Previous Teaching Experience' },
+        { key: 'softwareProficiency', label: 'Software Proficiency' },
+        { key: 'institutionsOrStudios', label: 'Institutions / Studios' },
+        { key: 'notableWorks', label: 'Notable Works' },
+        { key: 'websiteOrPortfolio', label: 'Portfolio / Website' },
+        { key: 'cvUploaded', label: 'CV Uploaded' },
+        { key: 'teachingStyle', label: 'Teaching Style' },
+        { key: 'studentGuidance', label: 'Member Guidance' },
+        { key: 'existingCourseMaterials', label: 'Existing Chapter Materials' },
+        { key: 'courseMaterialsUploaded', label: 'Chapter Materials File Uploaded' },
+        { key: 'preferredSchedule', label: 'Preferred Schedule' },
+        { key: 'earliestStartDate', label: 'Earliest Start Date' },
+        { key: 'additionalComments', label: 'Additional Comments' },
+        { key: 'creatorTermsVersion', label: 'Creator Terms Version' },
+        { key: 'creatorTermsAcceptedAt', label: 'Creator Terms Accepted At' },
+        { key: 'reviewedBy', label: 'Reviewed By' },
+        { key: 'reviewedAt', label: 'Reviewed At' },
+        { key: 'rejectionReason', label: 'Rejection Reason' },
+        { key: 'createdAt', label: 'Applied At' },
+        { key: 'updatedAt', label: 'Updated At' },
+      ],
+      rows: applications.map((app) => ({
+        applicationId: app._id,
+        status: app.status,
+        fullName: app.fullName,
+        email: app.email,
+        nationality: app.nationality,
+        country: app.country,
+        city: app.city,
+        phone: [app.phoneCode, app.phoneNumber].filter(Boolean).join(' '),
+        educationLevel: app.educationLevel,
+        fieldOfStudy: app.fieldOfStudy,
+        yearsOfExperience: app.yearsOfExperience,
+        specialization: formatCsvList(app.specialization),
+        previousTeachingExperience: app.previousTeachingExperience,
+        softwareProficiency: app.softwareProficiency,
+        institutionsOrStudios: app.institutionsOrStudios,
+        notableWorks: app.notableWorks,
+        websiteOrPortfolio: app.websiteOrPortfolio,
+        cvUploaded: formatCsvBoolean(Boolean(app.cvFile)),
+        teachingStyle: app.teachingStyle,
+        studentGuidance: app.studentGuidance,
+        existingCourseMaterials: app.existingCourseMaterials,
+        courseMaterialsUploaded: formatCsvBoolean(Boolean(app.courseMaterialsFile)),
+        preferredSchedule: app.preferredSchedule,
+        earliestStartDate: formatCsvDate(app.earliestStartDate),
+        additionalComments: app.additionalComments,
+        creatorTermsVersion: app.creatorTermsVersion,
+        creatorTermsAcceptedAt: formatCsvDate(app.creatorTermsAcceptedAt),
+        reviewedBy: formatCsvReference(app.reviewedBy),
+        reviewedAt: formatCsvDate(app.reviewedAt),
+        rejectionReason: app.rejectionReason,
+        createdAt: formatCsvDate(app.createdAt),
+        updatedAt: formatCsvDate(app.updatedAt),
+      })),
+    });
   };
 
   const getStatusColor = (status) => {
@@ -168,40 +276,56 @@ function AdminInstructorApplications() {
       animate="visible"
     >
       <motion.div variants={fadeInUp}>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Creator Applications</h1>
-          <p className="text-gray-500 mb-8">Review and manage creator applications</p>
-
-          <div className="flex gap-3 mb-6">
-            {['all', 'pending', 'approved', 'rejected'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filter === status
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Creator Applications</h1>
+            <p className="text-gray-500">Review and manage creator applications</p>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner />
-            </div>
-          ) : applications.length === 0 ? (
-            <div className="card text-center py-16">
-              <div className="text-5xl mb-4">📋</div>
-              <p className="text-gray-500 text-lg">No applications found</p>
-              <p className="text-gray-400 text-sm mt-1">
-                {filter !== 'all' ? `No ${filter} applications at this time` : 'No applications have been submitted yet'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {applications.map((app, index) => (
+          <button
+            type="button"
+            onClick={handleExportApplications}
+            disabled={loading || applications.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-3 mb-6">
+          {['all', 'pending', 'approved', 'rejected'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filter === status
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : applications.length === 0 ? (
+          <div className="card text-center py-16">
+            <div className="text-5xl mb-4">📋</div>
+            <p className="text-gray-500 text-lg">No applications found</p>
+            <p className="text-gray-400 text-sm mt-1">
+              {filter !== 'all' ? `No ${filter} applications at this time` : 'No applications have been submitted yet'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {applications.map((app, index) => (
                 <motion.div
                   key={app._id}
                   initial={{ opacity: 0, y: 10 }}
@@ -246,25 +370,43 @@ function AdminInstructorApplications() {
                       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleApprove(app._id)}
-                          disabled={processing === app._id}
+                          disabled={recordIsBusy(app._id)}
                           className="btn-primary text-sm"
                         >
-                          {processing === app._id ? 'Processing...' : 'Approve'}
+                          {actionIsRunning('approve', app._id) ? 'Processing...' : 'Approve'}
                         </button>
                         <button
                           onClick={() => { setRejectModalId(app._id); setRejectReason(''); }}
-                          disabled={processing === app._id}
+                          disabled={recordIsBusy(app._id)}
                           className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
                         >
                           Reject
+                        </button>
+                        <button
+                          onClick={() => handleDelete(app._id)}
+                          disabled={recordIsBusy(app._id)}
+                          className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
+                        >
+                          {actionIsRunning('delete', app._id) ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    )}
+                    {app.status !== 'pending' && (
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleDelete(app._id)}
+                          disabled={recordIsBusy(app._id)}
+                          className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm"
+                        >
+                          {actionIsRunning('delete', app._id) ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     )}
                   </div>
                 </motion.div>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
+        )}
       </motion.div>
 
       <AnimatePresence>
@@ -396,17 +538,38 @@ function AdminInstructorApplications() {
                         <div className="flex gap-3 pb-2">
                           <button
                             onClick={() => handleApprove(selectedApp._id)}
-                            disabled={processing === selectedApp._id}
+                            disabled={recordIsBusy(selectedApp._id)}
                             className="btn-primary flex-1"
                           >
-                            {processing === selectedApp._id ? 'Processing...' : 'Approve Application'}
+                            {actionIsRunning('approve', selectedApp._id) ? 'Processing...' : 'Approve Application'}
                           </button>
                           <button
                             onClick={() => { setRejectModalId(selectedApp._id); setRejectReason(''); }}
-                            disabled={processing === selectedApp._id}
+                            disabled={recordIsBusy(selectedApp._id)}
                             className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
                           >
                             Reject Application
+                          </button>
+                          <button
+                            onClick={() => handleDelete(selectedApp._id)}
+                            disabled={recordIsBusy(selectedApp._id)}
+                            className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
+                          >
+                            {actionIsRunning('delete', selectedApp._id) ? 'Deleting...' : 'Delete Application'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {selectedApp.status !== 'pending' && (
+                      <>
+                        <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                        <div className="pb-2">
+                          <button
+                            onClick={() => handleDelete(selectedApp._id)}
+                            disabled={recordIsBusy(selectedApp._id)}
+                            className="bg-gray-900 hover:bg-black text-white font-medium py-2.5 px-6 rounded-xl transition-all w-full"
+                          >
+                            {actionIsRunning('delete', selectedApp._id) ? 'Deleting...' : 'Delete Application'}
                           </button>
                         </div>
                       </>
@@ -454,10 +617,10 @@ function AdminInstructorApplications() {
                 </button>
                 <button
                   onClick={handleRejectSubmit}
-                  disabled={!rejectReason.trim() || processing === rejectModalId}
+                  disabled={!rejectReason.trim() || actionIsRunning('reject', rejectModalId)}
                   className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-xl transition-all flex-1"
                 >
-                  {processing === rejectModalId ? 'Rejecting...' : 'Confirm Reject'}
+                  {actionIsRunning('reject', rejectModalId) ? 'Rejecting...' : 'Confirm Reject'}
                 </button>
               </div>
             </motion.div>

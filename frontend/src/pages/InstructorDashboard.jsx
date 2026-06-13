@@ -572,8 +572,8 @@ function InstructorDashboard() {
           {analytics?.revenueCalculation?.methodology ? (
             <p className="mt-4 max-w-3xl text-xs leading-6 text-slate-400">
               {isRTL
-                ? 'يتم تقدير الإيراد من المدفوعات المعتمدة للاشتراكات، ثم توزيعه بالتساوي على الفصول المضمنة في كل باقة.'
-                : "Revenue is estimated from approved subscription payments allocated evenly across each package's included chapters."}
+                ? 'يتم تقدير الإيراد من المدفوعات الناجحة للاشتراكات، ثم توزيعه بالتساوي على الفصول المضمنة في كل باقة.'
+                : 'Revenue is estimated from successful subscription payments allocated evenly across each package\'s included chapters.'}
             </p>
           ) : null}
         </div>
