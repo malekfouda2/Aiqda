@@ -20,16 +20,26 @@ const consultationBookingSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  currency: {
+    type: String,
+    default: 'SAR'
+  },
   paymentReference: {
     type: String,
-    required: function() {
-      return this.priceType === 'fixed';
-    }
+    default: null
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'rejected', 'cancelled'],
+    enum: ['payment_pending', 'payment_failed', 'pending', 'confirmed', 'rejected', 'cancelled'],
     default: 'pending'
+  },
+  paymentFailureReason: {
+    type: String,
+    default: null
+  },
+  paidAt: {
+    type: Date,
+    default: null
   },
   zoomLink: {
     type: String

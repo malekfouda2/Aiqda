@@ -5,7 +5,7 @@ const DEFAULT_TAP_APPLE_PAY_CSS_URL = 'https://tap-sdks.b-cdn.net/apple-pay/buil
 
 const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'JOD', 'KWD', 'OMR']);
 
-const normalizeCurrency = (value) => (
+export const normalizeCurrency = (value) => (
   typeof value === 'string' && value.trim()
     ? value.trim().toUpperCase()
     : 'SAR'
@@ -149,6 +149,14 @@ export const assertTapConfigured = () => {
 export const createTapCharge = async (payload) => {
   assertTapConfigured();
   return tapRequest('/charges', {
+    method: 'POST',
+    body: payload,
+  });
+};
+
+export const createTapRefund = async (payload) => {
+  assertTapConfigured();
+  return tapRequest('/refunds', {
     method: 'POST',
     body: payload,
   });

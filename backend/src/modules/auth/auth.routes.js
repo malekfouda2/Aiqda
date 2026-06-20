@@ -5,13 +5,17 @@ import {
   authLoginRateLimit,
   authRegisterRateLimit,
   authSocialRateLimit,
-  inviteAcceptRateLimit
+  inviteAcceptRateLimit,
+  passwordResetConfirmRateLimit,
+  passwordResetRequestRateLimit
 } from '../../middlewares/rateLimit.middleware.js';
 
 const router = express.Router();
 
 router.post('/register', authRegisterRateLimit, authController.register);
 router.post('/login', authLoginRateLimit, authController.login);
+router.post('/forgot-password', passwordResetRequestRateLimit, authController.requestPasswordReset);
+router.post('/reset-password', passwordResetConfirmRateLimit, authController.resetPassword);
 router.post('/logout', authController.logout);
 router.get('/social/providers', authController.getSocialProviders);
 router.get('/social/:provider/start', authSocialRateLimit, authController.startSocialLogin);

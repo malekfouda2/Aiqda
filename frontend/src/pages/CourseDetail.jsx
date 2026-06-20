@@ -50,9 +50,11 @@ function CourseDetail() {
   const isCourseCompleted = courseJourney.isCompleted || courseProgressPercentage >= 100;
   const enrolledCount = course?.enrolledStudents?.length || 0;
   const courseAccessContext = course?.accessContext || null;
-  const hasActiveCourseSubscription = courseAccessContext?.hasActiveSubscription ?? hasSubscription;
-  const hasCurrentCourseAccess = courseAccessContext?.hasCourseAccess ?? false;
-  const canResumeEnrolledCourse = isEnrolled && hasActiveCourseSubscription && hasCurrentCourseAccess;
+  const isAdminPreviewing = user?.role === 'admin';
+  const isMemberViewActive = isEnrolled || isAdminPreviewing;
+  const hasActiveCourseSubscription = isAdminPreviewing || (courseAccessContext?.hasActiveSubscription ?? hasSubscription);
+  const hasCurrentCourseAccess = isAdminPreviewing || (courseAccessContext?.hasCourseAccess ?? false);
+  const canResumeEnrolledCourse = isMemberViewActive && hasActiveCourseSubscription && hasCurrentCourseAccess;
 
   const fetchData = async () => {
     setLoading(true);
@@ -77,7 +79,7 @@ function CourseDetail() {
           setHasSubscription(false);
         }
 
-        if (enrolled) {
+        if (enrolled || user?.role === 'admin') {
           const progressRes = await analyticsAPI.getCourseProgress(id).catch(() => null);
           setCourseProgressData(progressRes?.data || null);
         } else {
@@ -102,7 +104,7 @@ function CourseDetail() {
       return;
     }
 
-    if (!hasSubscription) {
+    if (!hasActiveCourseSubscription) {
       showError(isRTL ? 'تحتاج إلى اشتراك نشط للتسجيل' : 'You need an active subscription to enroll');
       navigate('/dashboard/subscription');
       return;
@@ -240,7 +242,7 @@ function CourseDetail() {
 
               <div className="min-w-0">
                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-                  {isEnrolled ? (
+                  {isMemberViewActive ? (
                     <div>
                       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
@@ -348,12 +350,12 @@ function CourseDetail() {
                       </div>
                       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-4">
                         <p className="font-medium text-gray-900 mb-1">
-                          {hasSubscription
+                          {hasActiveCourseSubscription
                             ? (isRTL ? 'أنت جاهز للتسجيل' : "You're ready to enroll")
                             : (isRTL ? 'تحتاج اشتراكًا نشطًا أولًا' : 'You need an active subscription first')}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {hasSubscription
+                          {hasActiveCourseSubscription
                             ? (isRTL ? 'بمجرد التسجيل ستحصل على مسار تعلم منظم داخل الفصل.' : 'Once enrolled, you will get a guided chapter path and resume flow.')
                             : (isRTL ? 'فعّل اشتراكك للوصول إلى هذا الفصل ومحتواه.' : 'Activate your subscription to access this chapter and its content.')}
                         </p>
@@ -392,7 +394,7 @@ function CourseDetail() {
                 </div>
               </div>
 
-              {isEnrolled && lessons.length > 0 && (
+              {isMemberViewActive && lessons.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <span className="px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-500">
                     {courseJourney.completedCount}/{lessons.length} {isRTL ? 'مكتمل' : 'completed'}
@@ -422,7 +424,7 @@ function CourseDetail() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + index * 0.05 }}
                     className={`p-4 rounded-2xl border transition-all ${
-                      isEnrolled && recommendedLesson?._id === lesson._id
+                      isMemberViewActive && recommendedLesson?._id === lesson._id
                         ? 'bg-gradient-to-r from-primary-500/8 via-white to-cyan-500/8 border-primary-200 shadow-sm'
                         : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-primary-200'
                     }`}
@@ -430,7 +432,7 @@ function CourseDetail() {
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                       <div className="flex items-start gap-4 flex-1 min-w-0">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-semibold border ${
-                          isEnrolled && getLessonProgressState(lesson, courseJourney.progressMap).isQualified
+                          isMemberViewActive && getLessonProgressState(lesson, courseJourney.progressMap).isQualified
                             ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
                             : 'bg-white text-gray-500 border-gray-200'
                         }`}>
@@ -442,17 +444,17 @@ function CourseDetail() {
                             <h3 className="font-medium text-gray-900 truncate">
                               {getLocalizedField(lesson, 'title', locale)}
                             </h3>
-                            {isEnrolled && recommendedLesson?._id === lesson._id && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
+                            {isMemberViewActive && recommendedLesson?._id === lesson._id && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
                               <span className="px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-500 text-xs font-medium border border-primary-100">
                                 {isRTL ? 'الخطوة التالية' : 'Up Next'}
                               </span>
                             )}
-                            {isEnrolled && getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
+                            {isMemberViewActive && getLessonProgressState(lesson, courseJourney.progressMap).isQualified && (
                               <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium border border-emerald-200">
                                 {isRTL ? 'مكتمل' : 'Completed'}
                               </span>
                             )}
-                            {isEnrolled && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && getLessonProgressState(lesson, courseJourney.progressMap).hasStarted && (
+                            {isMemberViewActive && !getLessonProgressState(lesson, courseJourney.progressMap).isQualified && getLessonProgressState(lesson, courseJourney.progressMap).hasStarted && (
                               <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-medium border border-amber-200">
                                 {isRTL ? 'قيد التقدم' : 'In Progress'}
                               </span>
@@ -465,14 +467,14 @@ function CourseDetail() {
 
                           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
                             <span>{isRTL ? `المحتوى ${index + 1} من ${lessons.length}` : `Content ${index + 1} of ${lessons.length}`}</span>
-                            {isEnrolled && (
+                            {isMemberViewActive && (
                               <span>
                                 {getLessonProgressState(lesson, courseJourney.progressMap).watchPercentage}% {isRTL ? 'مشاهدة' : 'watched'}
                               </span>
                             )}
                           </div>
 
-                          {isEnrolled && (
+                          {isMemberViewActive && (
                             <div className="mt-3 h-2 rounded-full bg-white border border-gray-200 overflow-hidden max-w-xl">
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${
@@ -504,7 +506,7 @@ function CourseDetail() {
                               ? (isRTL ? 'تابع ←' : 'Continue →')
                               : (isRTL ? 'ابدأ ←' : 'Start →')}
                         </Link>
-                      ) : isEnrolled ? (
+                      ) : isMemberViewActive ? (
                         <Link
                           to="/dashboard/subscription"
                           className="btn-secondary justify-center whitespace-nowrap"

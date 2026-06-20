@@ -1,5 +1,7 @@
 import ConsultationBooking from './consultationBooking.model.js';
 import Consultation from './consultation.model.js';
+import Payment from '../payments/payment.model.js';
+import { refundSuccessfulPayment } from '../payments/payments.service.js';
 import { sendEmail } from '../../utils/email.js';
 import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
@@ -9,6 +11,36 @@ import {
   buildConsultationBookingRejectedEmail,
   buildConsultationBookingCancelledEmail
 } from '../../utils/emailTemplates.js';
+
+const attachLatestPayments = async (bookings) => {
+  const bookingList = Array.isArray(bookings) ? bookings : bookings ? [bookings] : [];
+  if (bookingList.length === 0) {
+    return Array.isArray(bookings) ? [] : null;
+  }
+
+  const bookingIds = bookingList.map((booking) => booking._id);
+  const payments = await Payment.find({
+    consultationBooking: { $in: bookingIds },
+  }).sort({ createdAt: -1 });
+
+  const paymentByBookingId = new Map();
+  for (const payment of payments) {
+    const bookingId = payment.consultationBooking?.toString?.();
+    if (bookingId && !paymentByBookingId.has(bookingId)) {
+      paymentByBookingId.set(bookingId, payment);
+    }
+  }
+
+  const enrichedBookings = bookingList.map((booking) => {
+    const normalized = typeof booking.toObject === 'function' ? booking.toObject() : booking;
+    return {
+      ...normalized,
+      latestPayment: paymentByBookingId.get(booking._id.toString()) || null,
+    };
+  });
+
+  return Array.isArray(bookings) ? enrichedBookings : enrichedBookings[0];
+};
 
 export const create = async (data) => {
   const booking = new ConsultationBooking(data);
@@ -36,6 +68,7 @@ export const create = async (data) => {
     recipientEmail: populatedBooking.user.email,
     consultationTitle: populatedBooking.consultation.title,
     amount: populatedBooking.amount,
+    currency: populatedBooking.currency || populatedBooking.consultation?.currency || 'SAR',
     priceType: populatedBooking.priceType,
     paymentReference: populatedBooking.paymentReference,
   });
@@ -55,9 +88,10 @@ export const create = async (data) => {
 };
 
 export const getByUser = async (userId) => {
-  return ConsultationBooking.find({ user: userId })
+  const bookings = await ConsultationBooking.find({ user: userId })
     .populate('consultation')
     .sort({ createdAt: -1 });
+  return attachLatestPayments(bookings);
 };
 
 export const getAll = async (filters) => {
@@ -65,14 +99,16 @@ export const getAll = async (filters) => {
   if (filters && filters.status) {
     query.status = filters.status;
   }
-  return ConsultationBooking.find(query)
+  const bookings = await ConsultationBooking.find(query)
     .populate('consultation user')
     .sort({ createdAt: -1 });
+  return attachLatestPayments(bookings);
 };
 
 export const getById = async (id) => {
-  return ConsultationBooking.findById(id)
+  const booking = await ConsultationBooking.findById(id)
     .populate('consultation user reviewedBy');
+  return attachLatestPayments(booking);
 };
 
 export const confirm = async (id, adminId) => {
@@ -107,6 +143,18 @@ export const confirm = async (id, adminId) => {
 export const reject = async (id, adminId, reason) => {
   const booking = await ConsultationBooking.findById(id).populate('consultation user');
   if (!booking) throw new Error('Booking not found');
+
+  const latestPayment = await Payment.findOne({
+    consultationBooking: booking._id,
+    status: { $in: ['approved', 'captured'] },
+  }).sort({ createdAt: -1 });
+
+  if (latestPayment && latestPayment.refundStatus !== 'refunded') {
+    await refundSuccessfulPayment(latestPayment._id, {
+      reason: reason || 'Consultation booking rejected.',
+      refundedBy: adminId,
+    });
+  }
   
   booking.status = 'rejected';
   booking.reviewedBy = adminId;
@@ -142,8 +190,19 @@ export const cancelByUser = async (id, userId) => {
     throw new Error('Not authorized to cancel this booking');
   }
   
-  if (booking.status !== 'pending') {
+  if (!['pending', 'payment_pending'].includes(booking.status)) {
     throw new Error('Can only cancel pending bookings');
+  }
+
+  const latestPayment = await Payment.findOne({
+    consultationBooking: booking._id,
+    status: { $in: ['approved', 'captured'] },
+  }).sort({ createdAt: -1 });
+
+  if (latestPayment && latestPayment.refundStatus !== 'refunded') {
+    await refundSuccessfulPayment(latestPayment._id, {
+      reason: 'Consultation booking cancelled by member.',
+    });
   }
   
   booking.status = 'cancelled';
@@ -168,10 +227,13 @@ export const cancelByUser = async (id, userId) => {
 };
 
 export const remove = async (id) => {
-  const booking = await ConsultationBooking.findByIdAndDelete(id);
+  const booking = await ConsultationBooking.findById(id);
   if (!booking) {
     throw new Error('Booking not found');
   }
+
+  await Payment.deleteMany({ consultationBooking: booking._id });
+  await booking.deleteOne();
 
   return booking;
 };

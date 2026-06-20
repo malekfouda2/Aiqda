@@ -4,6 +4,7 @@ import { subscriptionsAPI, coursesAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, fadeIn, fadeInScale, expandVariants } from '../utils/animations';
+import { downloadCsv, formatCsvBoolean, formatCsvDate, formatCsvList } from '../utils/csv';
 import {
   formatMoney,
   getActiveBillingOptions,
@@ -17,9 +18,12 @@ import {
 
 const emptyForm = {
   name: '',
+  nameAr: '',
   scheduleDuration: '',
+  scheduleDurationAr: '',
   purchaseMode: 'self_serve',
   publicVisibility: 'visible',
+  currency: 'SAR',
   monthlyPrice: '',
   monthlySalePrice: '',
   monthlyDurationDays: 30,
@@ -30,11 +34,14 @@ const emptyForm = {
   annualSalePrice: '',
   annualDurationDays: 365,
   learningMode: '',
+  learningModeAr: '',
   focus: '',
+  focusAr: '',
   selectedCourses: [],
   includedPackages: [],
   softwareExposure: '',
-  outcome: ''
+  outcome: '',
+  outcomeAr: ''
 };
 
 function AdminSubscriptions() {
@@ -49,6 +56,7 @@ function AdminSubscriptions() {
   const [packageForm, setPackageForm] = useState({ ...emptyForm });
   const [courseSearch, setCourseSearch] = useState('');
   const [processing, setProcessing] = useState(null);
+  const currencyLabel = packageForm.currency || 'SAR';
 
   useEffect(() => {
     fetchData();
@@ -81,6 +89,7 @@ function AdminSubscriptions() {
               term: 'monthly',
               label: 'Monthly',
               price: parseFloat(packageForm.monthlyPrice),
+              currency: packageForm.currency,
               salePrice: packageForm.monthlySalePrice ? parseFloat(packageForm.monthlySalePrice) : null,
               durationDays: parseInt(packageForm.monthlyDurationDays) || 30,
             }
@@ -90,6 +99,7 @@ function AdminSubscriptions() {
               term: 'six_months',
               label: '6 Months',
               price: parseFloat(packageForm.sixMonthPrice),
+              currency: packageForm.currency,
               salePrice: packageForm.sixMonthSalePrice ? parseFloat(packageForm.sixMonthSalePrice) : null,
               durationDays: parseInt(packageForm.sixMonthDurationDays) || 180,
             }
@@ -99,6 +109,7 @@ function AdminSubscriptions() {
               term: 'annual',
               label: 'Annual',
               price: parseFloat(packageForm.annualPrice),
+              currency: packageForm.currency,
               salePrice: packageForm.annualSalePrice ? parseFloat(packageForm.annualSalePrice) : null,
               durationDays: parseInt(packageForm.annualDurationDays) || 365,
             }
@@ -107,16 +118,22 @@ function AdminSubscriptions() {
 
       const data = {
         name: packageForm.name,
+        nameAr: packageForm.nameAr,
         scheduleDuration: packageForm.scheduleDuration,
+        scheduleDurationAr: packageForm.scheduleDurationAr,
         purchaseMode: packageForm.purchaseMode,
         publicVisibility: packageForm.publicVisibility,
+        currency: packageForm.currency,
         billingOptions: packageForm.purchaseMode === 'contact_only' ? [] : billingOptions,
         learningMode: packageForm.learningMode,
+        learningModeAr: packageForm.learningModeAr,
         focus: packageForm.focus,
+        focusAr: packageForm.focusAr,
         courses: packageForm.selectedCourses,
         includedPackages: packageForm.includedPackages,
         softwareExposure: packageForm.softwareExposure.split('\n').filter(f => f.trim()),
-        outcome: packageForm.outcome
+        outcome: packageForm.outcome,
+        outcomeAr: packageForm.outcomeAr
       };
 
       if (editingPackage) {
@@ -141,9 +158,12 @@ function AdminSubscriptions() {
     const annualOption = pkg.billingOptions?.find((option) => option.term === 'annual');
     setPackageForm({
       name: pkg.name || '',
+      nameAr: pkg.nameAr || '',
       scheduleDuration: pkg.scheduleDuration || '',
+      scheduleDurationAr: pkg.scheduleDurationAr || '',
       purchaseMode: pkg.purchaseMode || 'self_serve',
       publicVisibility: pkg.publicVisibility || 'visible',
+      currency: pkg.currency || monthlyOption?.currency || 'SAR',
       monthlyPrice: monthlyOption?.price?.toString() || '',
       monthlySalePrice: monthlyOption?.salePrice?.toString() || '',
       monthlyDurationDays: monthlyOption?.durationDays || 30,
@@ -154,11 +174,14 @@ function AdminSubscriptions() {
       annualSalePrice: annualOption?.salePrice?.toString() || '',
       annualDurationDays: annualOption?.durationDays || 365,
       learningMode: pkg.learningMode || '',
+      learningModeAr: pkg.learningModeAr || '',
       focus: pkg.focus || '',
+      focusAr: pkg.focusAr || '',
       selectedCourses: (pkg.courses || []).map(c => typeof c === 'object' ? c._id : c),
       includedPackages: (pkg.includedPackages || []).map(pkgEntry => typeof pkgEntry === 'object' ? pkgEntry._id : pkgEntry),
       softwareExposure: (pkg.softwareExposure || []).join('\n'),
-      outcome: pkg.outcome || ''
+      outcome: pkg.outcome || '',
+      outcomeAr: pkg.outcomeAr || ''
     });
     setEditingPackage(pkg);
     setShowPackageForm(true);
@@ -188,6 +211,46 @@ function AdminSubscriptions() {
   );
 
   const availableIncludedPackages = packages.filter((pkg) => pkg._id !== editingPackage?._id);
+
+  const handleExportSubscriptions = () => {
+    downloadCsv({
+      filename: 'subscriptions',
+      columns: [
+        { key: 'memberName', label: 'Member Name' },
+        { key: 'memberEmail', label: 'Member Email' },
+        { key: 'packageName', label: 'Package' },
+        { key: 'billingTerm', label: 'Billing Term' },
+        { key: 'amount', label: 'Amount' },
+        { key: 'currency', label: 'Currency' },
+        { key: 'status', label: 'Status' },
+        { key: 'startDate', label: 'Start Date' },
+        { key: 'endDate', label: 'End Date' },
+        { key: 'graceEndsAt', label: 'Grace Ends At' },
+        { key: 'cancelEffectiveAt', label: 'Cancel Effective At' },
+        { key: 'autoRenewEnabled', label: 'Auto Renew Enabled' },
+        { key: 'autoRenewDisabledReason', label: 'Auto Renew Disabled Reason' },
+        { key: 'renewalFailureReason', label: 'Renewal Failure Reason' },
+        { key: 'createdAt', label: 'Created At' },
+      ],
+      rows: subscriptions.map((sub) => ({
+        memberName: sub.user?.name || '',
+        memberEmail: sub.user?.email || '',
+        packageName: sub.package?.name || '',
+        billingTerm: sub.billingTerm || '',
+        amount: sub.priceAtPurchase ?? '',
+        currency: sub.currency || sub.package?.currency || '',
+        status: sub.status || '',
+        startDate: formatCsvDate(sub.startDate),
+        endDate: formatCsvDate(sub.endDate),
+        graceEndsAt: formatCsvDate(sub.gracePeriodEndsAt),
+        cancelEffectiveAt: formatCsvDate(sub.cancelEffectiveAt),
+        autoRenewEnabled: formatCsvBoolean(sub.autoRenewEnabled),
+        autoRenewDisabledReason: sub.autoRenewDisabledReason || '',
+        renewalFailureReason: sub.renewalFailureReason || '',
+        createdAt: formatCsvDate(sub.createdAt),
+      })),
+    });
+  };
 
   const handleCancel = async (subscriptionId) => {
     setProcessing(`cancel-${subscriptionId}`);
@@ -226,6 +289,7 @@ function AdminSubscriptions() {
     switch (status) {
       case 'active': return 'bg-green-50 text-green-600';
       case 'grace_period': return 'bg-amber-50 text-amber-700';
+      case 'cancel_scheduled': return 'bg-slate-100 text-slate-700';
       case 'expired': return 'bg-red-50 text-red-600';
       case 'cancelled': return 'bg-gray-100 text-gray-500';
       default: return 'bg-yellow-50 text-yellow-600';
@@ -287,6 +351,20 @@ function AdminSubscriptions() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Name (Arabic)</label>
+                    <input
+                      type="text"
+                      value={packageForm.nameAr}
+                      onChange={(e) => setPackageForm(f => ({ ...f, nameAr: e.target.value }))}
+                      className="input-field"
+                      placeholder="مثال: البداية، برو، بريميوم"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-600 mb-2">Package Type *</label>
                     <select
                       value={packageForm.purchaseMode}
@@ -326,6 +404,30 @@ function AdminSubscriptions() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Package Currency *</label>
+                    <select
+                      value={packageForm.currency}
+                      onChange={(e) => setPackageForm((f) => ({ ...f, currency: e.target.value }))}
+                      className="input-field"
+                      required
+                    >
+                      {['SAR', 'AED', 'BHD', 'KWD', 'OMR', 'QAR', 'USD', 'EUR', 'GBP'].map((currency) => (
+                        <option key={currency} value={currency}>{currency}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 h-full">
+                      <p className="text-sm font-medium text-gray-700 mb-1">Currency Handling</p>
+                      <p className="text-sm text-gray-500 leading-6">
+                        All billing options in this package use the selected currency. Members will see and pay exactly in this currency.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-600 mb-2">Schedule / Duration *</label>
                     <input
                       type="text"
@@ -336,6 +438,20 @@ function AdminSubscriptions() {
                       required
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Schedule / Duration (Arabic)</label>
+                    <input
+                      type="text"
+                      value={packageForm.scheduleDurationAr}
+                      onChange={(e) => setPackageForm(f => ({ ...f, scheduleDurationAr: e.target.value }))}
+                      className="input-field"
+                      placeholder="مثال: 3 أشهر، فصل دراسي واحد، 8 أسابيع"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 h-full">
                       <p className="text-sm font-medium text-gray-700 mb-1">Billing Setup</p>
@@ -351,7 +467,7 @@ function AdminSubscriptions() {
                     <h3 className="text-base font-semibold text-gray-900 mb-4">Monthly Billing</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-2">Monthly Price (SAR)</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">{`Monthly Price (${currencyLabel})`}</label>
                         <input
                           type="number"
                           value={packageForm.monthlyPrice}
@@ -390,7 +506,7 @@ function AdminSubscriptions() {
                     <h3 className="text-base font-semibold text-gray-900 mb-4">6-Month Billing</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-2">6-Month Price (SAR)</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">{`6-Month Price (${currencyLabel})`}</label>
                         <input
                           type="number"
                           value={packageForm.sixMonthPrice}
@@ -429,7 +545,7 @@ function AdminSubscriptions() {
                     <h3 className="text-base font-semibold text-gray-900 mb-4">Annual Billing</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-2">Annual Price (SAR)</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">{`Annual Price (${currencyLabel})`}</label>
                         <input
                           type="number"
                           value={packageForm.annualPrice}
@@ -469,7 +585,7 @@ function AdminSubscriptions() {
                       const savings = (effectiveMonthly * 12) - effectiveAnnual;
                       return Number.isFinite(savings) && savings > 0 ? (
                         <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                          Annual savings preview: {formatMoney(savings)} SAR compared to paying monthly for 12 months.
+                          Annual savings preview: {formatMoney(savings)} {currencyLabel} compared to paying monthly for 12 months.
                         </div>
                       ) : null;
                     })()}
@@ -489,6 +605,20 @@ function AdminSubscriptions() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Development Mode (Arabic)</label>
+                    <input
+                      type="text"
+                      value={packageForm.learningModeAr}
+                      onChange={(e) => setPackageForm(f => ({ ...f, learningModeAr: e.target.value }))}
+                      className="input-field"
+                      placeholder="مثال: عبر الإنترنت، حضوري، هجين"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-600 mb-2">Focus *</label>
                     <input
                       type="text"
@@ -497,6 +627,17 @@ function AdminSubscriptions() {
                       className="input-field"
                       placeholder="e.g. 2D Animation, 3D Modeling, Motion Graphics"
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-2">Focus (Arabic)</label>
+                    <input
+                      type="text"
+                      value={packageForm.focusAr}
+                      onChange={(e) => setPackageForm(f => ({ ...f, focusAr: e.target.value }))}
+                      className="input-field"
+                      placeholder="مثال: التحريك ثنائي الأبعاد، النمذجة ثلاثية الأبعاد"
+                      dir="rtl"
                     />
                   </div>
                 </div>
@@ -653,6 +794,25 @@ function AdminSubscriptions() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Outcome (Arabic)</label>
+                  <textarea
+                    value={packageForm.outcomeAr}
+                    onChange={(e) => setPackageForm(f => ({ ...f, outcomeAr: e.target.value }))}
+                    className="input-field"
+                    rows={2}
+                    placeholder="اكتب الوصف العربي الذي سيظهر على الموقع العربي"
+                    dir="rtl"
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Arabic Translation</p>
+                  <p className="text-sm text-gray-500 leading-6">
+                    These Arabic fields are optional. When provided, the Arabic website will display them instead of the English package text.
+                  </p>
+                </div>
+
                 <div className="flex gap-3">
                   <button type="submit" className="btn-primary">
                     {editingPackage ? 'Update Package' : 'Create Package'}
@@ -688,6 +848,9 @@ function AdminSubscriptions() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-gray-900 text-lg">{pkg.name}</h3>
+                        {pkg.nameAr && (
+                          <p className="mt-1 text-sm text-gray-500" dir="rtl">{pkg.nameAr}</p>
+                        )}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span
                             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border ${
@@ -719,14 +882,14 @@ function AdminSubscriptions() {
                                 {getBillingTermLabel(option.term, 'en') || option.label || option.term}:
                                 {hasBillingSale(option) ? (
                                   <>
-                                    <span className="text-gray-400 line-through">{formatMoney(option.price)} SAR</span>
-                                    <span>{formatMoney(getEffectiveBillingPrice(option))} SAR</span>
+                                    <span className="text-gray-400 line-through">{formatMoney(option.price)} {option.currency || pkg.currency || 'SAR'}</span>
+                                    <span>{formatMoney(getEffectiveBillingPrice(option))} {option.currency || pkg.currency || 'SAR'}</span>
                                     <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 border border-rose-100">
                                       {getBillingSalePercentage(option)}% OFF
                                     </span>
                                   </>
                                 ) : (
-                                  <span>{formatMoney(option.price)} SAR</span>
+                                  <span>{formatMoney(option.price)} {option.currency || pkg.currency || 'SAR'}</span>
                                 )}
                               </span>
                             ))
@@ -760,6 +923,10 @@ function AdminSubscriptions() {
                         </span>
                       </div>
                       <div>
+                        <span className="text-gray-400">Currency:</span>{' '}
+                        <span className="text-gray-700">{pkg.currency || 'SAR'}</span>
+                      </div>
+                      <div>
                         <span className="text-gray-400">Schedule:</span>{' '}
                         <span className="text-gray-700">{pkg.scheduleDuration || '—'}</span>
                       </div>
@@ -774,6 +941,9 @@ function AdminSubscriptions() {
                       <div className="md:col-span-2 lg:col-span-3">
                         <span className="text-gray-400">Outcome:</span>{' '}
                         <span className="text-gray-700">{pkg.outcome || '—'}</span>
+                        {pkg.outcomeAr && (
+                          <p className="mt-1 text-gray-500" dir="rtl">{pkg.outcomeAr}</p>
+                        )}
                       </div>
                     </div>
                     {getPackageAccessNames(pkg).length > 1 && (
@@ -804,20 +974,33 @@ function AdminSubscriptions() {
             )}
           </motion.div>
 
-          <motion.div variants={fadeInUp} className="flex gap-3 mb-6">
-            {['pending', 'active', 'expired', 'cancelled', 'all'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filter === status
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
+          <motion.div variants={fadeInUp} className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {['pending', 'active', 'grace_period', 'cancel_scheduled', 'expired', 'cancelled', 'all'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilter(status)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                    filter === status
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleExportSubscriptions}
+              disabled={loading || subscriptions.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16" />
+              </svg>
+              Export CSV
+            </button>
           </motion.div>
 
           {loading ? (
@@ -844,7 +1027,7 @@ function AdminSubscriptions() {
                       <p className="text-gray-400 text-sm mt-1">
                         Package: {sub.package?.name}
                         {sub.billingTerm ? ` (${getBillingTermLabel(sub.billingTerm, 'en') || sub.billingTerm})` : ''}
-                        {sub.priceAtPurchase ? ` - ${formatMoney(sub.priceAtPurchase)} SAR` : ''}
+                        {sub.priceAtPurchase ? ` - ${formatMoney(sub.priceAtPurchase)} ${sub.currency || sub.package?.currency || 'SAR'}` : ''}
                       </p>
                       {sub.startDate && (
                         <p className="text-gray-400 text-sm">

@@ -5,6 +5,7 @@ import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { downloadCsv, formatCsvDate } from '../utils/csv';
 
 function AdminConsultationBookings() {
   const { showSuccess, showError } = useUIStore();
@@ -83,11 +84,51 @@ function AdminConsultationBookings() {
   const actionIsRunning = (action, id) => processing === `${action}-${id}`;
   const recordIsBusy = (id) => typeof processing === 'string' && processing.endsWith(`-${id}`);
 
+  const handleExport = () => {
+    downloadCsv({
+      filename: 'consultation-bookings',
+      columns: [
+        { key: 'createdAt', label: 'Created At' },
+        { key: 'status', label: 'Status' },
+        { key: 'memberName', label: 'Member Name' },
+        { key: 'memberEmail', label: 'Member Email' },
+        { key: 'consultationTitle', label: 'Consultation' },
+        { key: 'priceType', label: 'Price Type' },
+        { key: 'amount', label: 'Amount' },
+        { key: 'currency', label: 'Currency' },
+        { key: 'paymentReference', label: 'Payment Reference' },
+        { key: 'paymentStatus', label: 'Latest Payment Status' },
+        { key: 'refundStatus', label: 'Refund Status' },
+        { key: 'refundAmount', label: 'Refund Amount' },
+        { key: 'rejectionReason', label: 'Rejection Reason' },
+        { key: 'paymentFailureReason', label: 'Payment Failure Reason' },
+      ],
+      rows: bookings.map((booking) => ({
+        createdAt: formatCsvDate(booking.createdAt),
+        status: booking.status || '',
+        memberName: booking.user?.name || '',
+        memberEmail: booking.user?.email || '',
+        consultationTitle: booking.consultation?.title || '',
+        priceType: booking.priceType || '',
+        amount: booking.amount ?? '',
+        currency: booking.currency || booking.consultation?.currency || '',
+        paymentReference: booking.paymentReference || booking.latestPayment?.paymentReference || booking.latestPayment?.tapChargeId || '',
+        paymentStatus: booking.latestPayment?.status || '',
+        refundStatus: booking.latestPayment?.refundStatus || '',
+        refundAmount: booking.latestPayment?.refundAmount ?? '',
+        rejectionReason: booking.rejectionReason || '',
+        paymentFailureReason: booking.paymentFailureReason || booking.latestPayment?.failureReason || '',
+      })),
+    });
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed': return 'bg-green-50 text-green-600';
       case 'rejected': return 'bg-red-50 text-red-600';
       case 'cancelled': return 'bg-gray-50 text-gray-600';
+      case 'payment_failed': return 'bg-red-50 text-red-600';
+      case 'payment_pending': return 'bg-blue-50 text-blue-700';
       default: return 'bg-yellow-50 text-yellow-600';
     }
   };
@@ -97,19 +138,31 @@ function AdminConsultationBookings() {
       case 'confirmed': return 'bg-green-400';
       case 'rejected': return 'bg-red-400';
       case 'cancelled': return 'bg-gray-400';
+      case 'payment_failed': return 'bg-red-400';
+      case 'payment_pending': return 'bg-blue-400';
       default: return 'bg-yellow-400';
     }
   };
 
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
-      <motion.div variants={fadeInUp} className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Consultation Bookings</h1>
-        <p className="text-gray-500">Review and manage consultation session requests</p>
+      <motion.div variants={fadeInUp} className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Consultation Bookings</h1>
+          <p className="text-gray-500">Review and manage consultation session requests</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={loading || bookings.length === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Export CSV
+        </button>
       </motion.div>
 
       <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-        {['all', 'pending', 'confirmed', 'rejected', 'cancelled'].map((status) => (
+        {['all', 'payment_pending', 'pending', 'confirmed', 'payment_failed', 'rejected', 'cancelled'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -149,6 +202,10 @@ function AdminConsultationBookings() {
               variants={cardVariants}
               className="card group hover:border-primary-200 hover:shadow-md transition-all duration-300"
             >
+              {(() => {
+                const bookingCurrency = booking.currency || booking.consultation?.currency || 'SAR';
+                const latestReference = booking.paymentReference || booking.latestPayment?.paymentReference || booking.latestPayment?.tapChargeId;
+                return (
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex-1">
                   <div className="flex items-center gap-4 mb-4">
@@ -172,12 +229,20 @@ function AdminConsultationBookings() {
                     </span>
                     <span className="text-gray-300">•</span>
                     <span className="text-gray-700 text-sm font-medium">
-                      {booking.priceType === 'fixed' ? `${booking.amount} SAR` : 'Contract'}
+                      {booking.priceType === 'fixed' ? `${booking.amount} ${bookingCurrency}` : 'Contract'}
                     </span>
-                    {booking.paymentReference && (
+                    {latestReference && (
                       <>
                         <span className="text-gray-300">•</span>
-                        <span className="text-gray-500 text-sm font-mono">Ref: {booking.paymentReference}</span>
+                        <span className="text-gray-500 text-sm font-mono">Ref: {latestReference}</span>
+                      </>
+                    )}
+                    {booking.latestPayment?.refundStatus === 'refunded' && (
+                      <>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-sky-700 text-sm font-medium">
+                          Refunded {booking.latestPayment.refundAmount} {booking.latestPayment.refundCurrency || bookingCurrency}
+                        </span>
                       </>
                     )}
                     <span className="text-gray-300">•</span>
@@ -185,6 +250,18 @@ function AdminConsultationBookings() {
                       {new Date(booking.createdAt).toLocaleString()}
                     </span>
                   </div>
+
+                  {booking.latestPayment?.status && (
+                    <p className="mt-3 text-sm text-gray-500">
+                      Latest payment: <span className="font-medium text-gray-700">{booking.latestPayment.status}</span>
+                    </p>
+                  )}
+
+                  {booking.status === 'payment_failed' && (booking.paymentFailureReason || booking.latestPayment?.failureReason) && (
+                    <p className="mt-3 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                      <span className="font-semibold">Payment Failure:</span> {booking.paymentFailureReason || booking.latestPayment?.failureReason}
+                    </p>
+                  )}
 
                   {booking.status === 'rejected' && booking.rejectionReason && (
                     <p className="mt-3 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100">
@@ -239,6 +316,8 @@ function AdminConsultationBookings() {
                   </div>
                 )}
               </div>
+                );
+              })()}
             </motion.div>
           ))}
         </motion.div>

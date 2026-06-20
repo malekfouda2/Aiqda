@@ -39,6 +39,8 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  requestPasswordReset: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
   logout: () => api.post('/auth/logout'),
   getSocialProviders: () => api.get('/auth/social/providers'),
   completeSocialLogin: (data) => api.post('/auth/social/complete', data),
@@ -73,11 +75,13 @@ export const subscriptionsAPI = {
 export const paymentsAPI = {
   getTapConfig: () => api.get('/payments/tap/config'),
   createTapCharge: (data) => api.post('/payments/tap/charge', data),
+  createBillingProfileSetupCharge: (data) => api.post('/payments/tap/billing-profile/setup', data),
   syncTapCharge: (chargeId) => api.get(`/payments/tap/charges/${chargeId}`),
   removeSavedBillingProfile: () => api.delete('/payments/tap/billing-profile'),
   getUserPayments: () => api.get('/payments/my'),
   getAll: (status) => api.get('/payments', { params: { status } }),
   getById: (id) => api.get(`/payments/${id}`),
+  refund: (id, data = {}) => api.post(`/payments/${id}/refund`, data),
   remove: (id) => api.delete(`/payments/${id}`)
 };
 
@@ -200,6 +204,7 @@ export const consultationsAPI = {
 
 export const consultationBookingsAPI = {
   submit: (data) => api.post('/consultation-bookings', data),
+  createCheckout: (data) => api.post('/consultation-bookings/checkout', data),
   getMy: () => api.get('/consultation-bookings/my'),
   getAll: (status) => api.get('/consultation-bookings', { params: { status } }),
   getById: (id) => api.get(`/consultation-bookings/${id}`),

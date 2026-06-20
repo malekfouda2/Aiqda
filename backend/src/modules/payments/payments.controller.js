@@ -1,5 +1,23 @@
 import * as paymentsService from './payments.service.js';
 
+const getRequestOrigin = (req) => {
+  const originHeader = req.get('origin');
+  if (originHeader) {
+    return originHeader.replace(/\/$/, '');
+  }
+
+  const refererHeader = req.get('referer');
+  if (refererHeader) {
+    try {
+      return new URL(refererHeader).origin.replace(/\/$/, '');
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 export const getTapCheckoutConfig = async (req, res) => {
   try {
     const config = paymentsService.getTapCheckoutConfig();
@@ -14,10 +32,28 @@ export const createTapSubscriptionCharge = async (req, res) => {
     const result = await paymentsService.createTapSubscriptionCharge(req.user.id, {
       subscriptionId: req.body.subscriptionId,
       tokenId: req.body.tokenId,
+      useSavedPaymentMethod: req.body.useSavedPaymentMethod,
       checkoutMethod: req.body.checkoutMethod,
       phoneCountryCode: req.body.phoneCountryCode,
       phoneNumber: req.body.phoneNumber,
       checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted,
+      frontendBaseUrl: getRequestOrigin(req),
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const createTapBillingProfileSetupCharge = async (req, res) => {
+  try {
+    const result = await paymentsService.createTapBillingProfileSetupCharge(req.user.id, {
+      tokenId: req.body.tokenId,
+      checkoutMethod: req.body.checkoutMethod,
+      phoneCountryCode: req.body.phoneCountryCode,
+      phoneNumber: req.body.phoneNumber,
+      checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted,
+      frontendBaseUrl: getRequestOrigin(req),
     });
     res.status(201).json(result);
   } catch (error) {
@@ -76,6 +112,20 @@ export const removePayment = async (req, res) => {
   try {
     await paymentsService.removePayment(req.params.id);
     res.json({ message: 'Payment deleted successfully' });
+  } catch (error) {
+    const statusCode = error.message === 'Payment not found' ? 404 : 400;
+    res.status(statusCode).json({ error: error.message });
+  }
+};
+
+export const refundPayment = async (req, res) => {
+  try {
+    const payment = await paymentsService.refundSuccessfulPayment(req.params.id, {
+      reason: req.body.reason,
+      refundedBy: req.user.id,
+      amount: req.body.amount,
+    });
+    res.json(payment);
   } catch (error) {
     const statusCode = error.message === 'Payment not found' ? 404 : 400;
     res.status(statusCode).json({ error: error.message });

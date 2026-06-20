@@ -15,6 +15,10 @@ const billingOptionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  currency: {
+    type: String,
+    default: 'SAR',
+  },
   salePrice: {
     type: Number,
     default: null,
@@ -37,6 +41,15 @@ const subscriptionPackageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  nameAr: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  currency: {
+    type: String,
+    default: 'SAR'
+  },
   price: {
     type: Number,
     default: null
@@ -50,6 +63,11 @@ const subscriptionPackageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  scheduleDurationAr: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   durationDays: {
     type: Number,
     default: null
@@ -59,10 +77,20 @@ const subscriptionPackageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  learningModeAr: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   focus: {
     type: String,
     required: true,
     trim: true
+  },
+  focusAr: {
+    type: String,
+    trim: true,
+    default: ''
   },
   courses: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -79,6 +107,11 @@ const subscriptionPackageSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  outcomeAr: {
+    type: String,
+    trim: true,
+    default: ''
   },
   purchaseMode: {
     type: String,
@@ -133,7 +166,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'active', 'grace_period', 'expired', 'cancelled'],
+    enum: ['pending', 'active', 'grace_period', 'cancel_scheduled', 'expired', 'cancelled'],
     default: 'pending'
   },
   startDate: {
@@ -155,6 +188,19 @@ const subscriptionSchema = new mongoose.Schema({
   },
   approvedAt: {
     type: Date,
+    default: null
+  },
+  cancelScheduledAt: {
+    type: Date,
+    default: null
+  },
+  cancelEffectiveAt: {
+    type: Date,
+    default: null
+  },
+  cancelReason: {
+    type: String,
+    enum: ['member', 'admin', 'refunded', 'payment_failed'],
     default: null
   },
   activatedAt: {
@@ -210,6 +256,10 @@ subscriptionSchema.methods.isValid = function() {
   const now = new Date();
 
   if (this.status === 'active') {
+    return Boolean(this.endDate) && now <= this.endDate;
+  }
+
+  if (this.status === 'cancel_scheduled') {
     return Boolean(this.endDate) && now <= this.endDate;
   }
 

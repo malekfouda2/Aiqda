@@ -9,6 +9,14 @@ import { getVimeoAccountInfo, getVimeoVideoDetails } from '../video/video.servic
 
 const roundCurrency = (value) => Math.round(value * 100) / 100;
 const toIdString = (value) => value?.toString();
+const getNetPaymentAmount = (payment = {}) => {
+  const grossAmount = Number(payment.amount || 0);
+  const refundedAmount = payment.refundStatus === 'refunded'
+    ? Number(payment.refundAmount || 0)
+    : 0;
+
+  return Math.max(0, grossAmount - refundedAmount);
+};
 const LIVE_ACTIVITY_WINDOW_MS = 2 * 60 * 1000;
 const LIVE_ACTIVITY_WINDOW_MINUTES = LIVE_ACTIVITY_WINDOW_MS / (60 * 1000);
 const MEMBER_REWARD_ACTIVITY_WINDOW_DAYS = 14;
@@ -457,14 +465,14 @@ const getCourseRevenueAllocation = async (courseIds = []) => {
     subscription: { $in: subscriptions.map((subscription) => subscription._id) },
     status: { $in: ['approved', 'captured'] }
   })
-    .select('subscription amount')
+    .select('subscription amount refundStatus refundAmount')
     .lean();
 
   for (const payment of payments) {
     const packageId = subscriptionPackageMap.get(payment.subscription.toString());
     const packageCourses = packageCourseMap.get(packageId) || [];
     const packageCourseCount = packageCourses.length || 1;
-    const revenueShare = Number(payment.amount || 0) / packageCourseCount;
+    const revenueShare = getNetPaymentAmount(payment) / packageCourseCount;
 
     for (const courseId of packageCourses) {
       if (!revenueByCourse.has(courseId)) {

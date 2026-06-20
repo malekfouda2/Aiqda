@@ -9,7 +9,12 @@ const paymentSchema = new mongoose.Schema({
   subscription: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subscription',
-    required: true
+    default: null
+  },
+  consultationBooking: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ConsultationBooking',
+    default: null
   },
   amount: {
     type: Number,
@@ -59,7 +64,7 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentType: {
     type: String,
-    enum: ['initial', 'renewal', 'recovery'],
+    enum: ['initial', 'renewal', 'recovery', 'consultation', 'billing_profile_setup'],
     default: 'initial'
   },
   checkoutMethod: {
@@ -153,12 +158,67 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  refundStatus: {
+    type: String,
+    enum: ['none', 'pending', 'refunded', 'failed'],
+    default: 'none',
+  },
+  refundAmount: {
+    type: Number,
+    default: null,
+  },
+  refundCurrency: {
+    type: String,
+    default: null,
+  },
+  refundReason: {
+    type: String,
+    default: null,
+  },
+  refundedAt: {
+    type: Date,
+    default: null,
+  },
+  refundedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  tapRefundId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  tapRefundStatus: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  refundSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
   chargeSnapshot: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
   }
 }, {
   timestamps: true
+});
+
+paymentSchema.pre('validate', function(next) {
+  if (!this.subscription && !this.consultationBooking) {
+    if (this.paymentType === 'billing_profile_setup') {
+      return next();
+    }
+    return next(new Error('A payment must belong to a subscription or consultation booking.'));
+  }
+
+  if (this.subscription && this.consultationBooking) {
+    return next(new Error('A payment cannot belong to both a subscription and a consultation booking.'));
+  }
+
+  return next();
 });
 
 paymentSchema.index(

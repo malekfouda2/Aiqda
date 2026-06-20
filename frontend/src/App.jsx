@@ -19,7 +19,9 @@ const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
 const UserContentAccessPolicy = lazy(() => import('./pages/UserContentAccessPolicy'));
 const StudioContentSubmissionFramework = lazy(() => import('./pages/StudioContentSubmissionFramework'));
 const Login = lazy(() => import('./pages/Login'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Register = lazy(() => import('./pages/Register'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const SocialAuthCallback = lazy(() => import('./pages/SocialAuthCallback'));
 const InstructorSetup = lazy(() => import('./pages/InstructorSetup'));
 const Courses = lazy(() => import('./pages/Courses'));
@@ -137,7 +139,9 @@ function App() {
             element={renderLazyPage(StudioContentSubmissionFramework)}
           />
           <Route path="/login" element={renderLazyPage(Login)} />
+          <Route path="/forgot-password" element={renderLazyPage(ForgotPassword)} />
           <Route path="/register" element={renderLazyPage(Register)} />
+          <Route path="/reset-password" element={renderLazyPage(ResetPassword)} />
           <Route path="/auth/social/callback" element={renderLazyPage(SocialAuthCallback)} />
           <Route path="/instructor-setup" element={<LegacyPathRedirect to="/creator-setup" />} />
           <Route path="/apply-instructor" element={<LegacyPathRedirect to="/apply-creator" />} />

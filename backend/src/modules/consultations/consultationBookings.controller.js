@@ -1,17 +1,18 @@
 import * as consultationBookingsService from './consultationBookings.service.js';
 import * as consultationsService from './consultations.service.js';
+import * as paymentsService from '../payments/payments.service.js';
 
 export const submitBooking = async (req, res) => {
   try {
-    const { consultationId, paymentReference } = req.body;
+    const { consultationId } = req.body;
     const consultation = await consultationsService.getById(consultationId);
     
     if (!consultation) {
       return res.status(404).json({ error: 'Consultation not found' });
     }
     
-    if (consultation.priceType === 'fixed' && !paymentReference) {
-      return res.status(400).json({ error: 'Payment reference is required for fixed price consultations' });
+    if (consultation.priceType === 'fixed') {
+      return res.status(400).json({ error: 'Fixed-price consultations must be completed through electronic checkout.' });
     }
     
     const bookingData = {
@@ -19,11 +20,27 @@ export const submitBooking = async (req, res) => {
       user: req.user.id,
       priceType: consultation.priceType,
       amount: consultation.price,
-      paymentReference
+      currency: consultation.currency,
     };
     
     const booking = await consultationBookingsService.create(bookingData);
     res.status(201).json(booking);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const createCheckout = async (req, res) => {
+  try {
+    const result = await paymentsService.createTapConsultationCharge(req.user.id, {
+      consultationId: req.body.consultationId,
+      tokenId: req.body.tokenId,
+      checkoutMethod: req.body.checkoutMethod,
+      phoneCountryCode: req.body.phoneCountryCode,
+      phoneNumber: req.body.phoneNumber,
+      checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted,
+    });
+    res.status(201).json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

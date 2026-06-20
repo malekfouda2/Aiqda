@@ -21,6 +21,7 @@ export const refundPolicySections = [
       text('Paid access to a digital library of pre-recorded content.', 'وصول مدفوع إلى مكتبة رقمية من المحتوى المسجل مسبقًا.'),
       text('Upon initiating a purchase, access to content is granted immediately.', 'يتم منح الوصول إلى المحتوى فور بدء عملية الشراء.'),
       text('The payment is authorized at checkout and finalized after 24 hours.', 'يتم تفويض الدفع عند إتمام الطلب ويُعتمد نهائيًا بعد 24 ساعة.'),
+      text('A temporary authorization charge of 1 SAR may be applied to verify the selected payment method when a package is selected for purchase.', 'قد يتم تطبيق مبلغ تفويض مؤقت بقيمة 1 ريال سعودي للتحقق من وسيلة الدفع المختارة عند اختيار باقة للشراء.'),
     ],
   },
   {
@@ -31,6 +32,7 @@ export const refundPolicySections = [
     bullets: [
       text('During this 24-hour period, the transaction remains eligible for cancellation.', 'خلال هذه الفترة البالغة 24 ساعة تبقى العملية قابلة للإلغاء.'),
       text('No final charge is considered completed until the 24-hour period has passed.', 'لا يُعتبر الخصم نهائيًا قبل انقضاء فترة الـ 24 ساعة.'),
+      text('Once a refund request has been approved by Aiqda, the refund may take up to fifteen (15) business days to be processed and reflected in the user’s original payment method, subject to the processing timelines of the payment provider or issuing bank.', 'بعد موافقة Aiqda على طلب الاسترداد، قد يستغرق تنفيذ الاسترداد وظهوره في وسيلة الدفع الأصلية للمستخدم مدة تصل إلى خمسة عشر (15) يوم عمل، وذلك وفقًا للمدد الزمنية الخاصة بمزود الدفع أو البنك المصدر.'),
     ],
   },
   {

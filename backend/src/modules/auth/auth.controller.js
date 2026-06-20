@@ -9,6 +9,8 @@ const isAuthValidationError = (message) => [
   'Password is required',
   'Password must be at least 8 characters',
   'Please provide a valid email address',
+  'Reset token is required',
+  'Password reset link is invalid or has expired',
   'Social login token is required',
   'Social login session is invalid or has expired',
 ].includes(message);
@@ -141,6 +143,24 @@ export const acceptInstructorInvite = async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const result = await authService.requestPasswordReset(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(isAuthValidationError(error.message) ? 400 : 500).json({ error: error.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const result = await authService.resetPassword(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(isAuthValidationError(error.message) ? 400 : 500).json({ error: error.message });
   }
 };
 

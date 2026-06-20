@@ -110,6 +110,24 @@ const phoneSchema = new mongoose.Schema({
   _id: false,
 });
 
+const passwordResetSchema = new mongoose.Schema({
+  tokenHash: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  expiresAt: {
+    type: Date,
+    default: null,
+  },
+  requestedAt: {
+    type: Date,
+    default: null,
+  },
+}, {
+  _id: false,
+});
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -152,6 +170,10 @@ const userSchema = new mongoose.Schema({
   mustChangePassword: {
     type: Boolean,
     default: false
+  },
+  passwordReset: {
+    type: passwordResetSchema,
+    default: null,
   },
   authProviders: {
     google: {
@@ -230,6 +252,7 @@ userSchema.methods.toJSON = function() {
     updatedAt: user.tapBillingProfileUpdatedAt || null,
   };
   delete user.password;
+  delete user.passwordReset;
   delete user.authProviders;
   delete user.authorizedDevices;
   delete user.currentSession;

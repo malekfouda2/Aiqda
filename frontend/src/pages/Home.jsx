@@ -290,6 +290,7 @@ function Home() {
                 const activeBillingOptions = getActiveBillingOptions(pkg);
                 const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
                 const selectedOption = getBillingOption(pkg, selectedTerm);
+                const selectedCurrency = selectedOption?.currency || pkg.currency || 'SAR';
                 const annualSavings = getAnnualSavings(pkg);
                 const sixMonthSavings = getSixMonthSavings(pkg);
                 const accessNames = getPackageAccessNames(pkg);
@@ -386,19 +387,19 @@ function Home() {
                           {selectedOptionOnSale && (
                             <div className="mb-2 flex items-center gap-2">
                               <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
-                                {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ريال` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} SAR`}
+                                {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ${selectedCurrency}` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ${selectedCurrency}`}
                               </span>
                             </div>
                           )}
                           {selectedOptionOnSale && (
                             <p className="text-sm text-gray-400 line-through">
-                              {formatMoney(selectedOption.price, locale)} SAR
+                              {formatMoney(selectedOption.price, locale)} {selectedCurrency}
                             </p>
                           )}
                           <span className="text-4xl font-bold text-gray-900">
                             {formatMoney(getEffectiveBillingPrice(selectedOption), locale)}
                           </span>
-                          <span className="text-gray-500 ml-1">SAR</span>
+                          <span className="text-gray-500 ml-1">{selectedCurrency}</span>
                           <p className="text-sm text-gray-500 mt-2">
                             {getBillingCadenceLabel(selectedOption.term, locale)}
                           </p>
@@ -406,13 +407,13 @@ function Home() {
                             <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                               <p className="text-sm font-semibold text-emerald-700">
                                 {isRTL
-                                  ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر`
-                                  : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
+                                  ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ${selectedCurrency} خلال 6 أشهر`
+                                  : `Save ${formatMoney(sixMonthSavings.savings, locale)} ${selectedCurrency} over 6 months`}
                               </p>
                               <p className="text-xs text-emerald-600 mt-1">
                                 {isRTL
-                                  ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.`
-                                  : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
+                                  ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ${selectedCurrency} شهريًا.`
+                                  : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ${selectedCurrency} per month.`}
                               </p>
                             </div>
                           )}
@@ -420,13 +421,13 @@ function Home() {
                             <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                               <p className="text-sm font-semibold text-emerald-700">
                                 {isRTL
-                                  ? `وفّر ${formatMoney(annualSavings.savings, locale)} ريال سنويًا`
-                                  : `Save ${formatMoney(annualSavings.savings, locale)} SAR per year`}
+                                  ? `وفّر ${formatMoney(annualSavings.savings, locale)} ${selectedCurrency} سنويًا`
+                                  : `Save ${formatMoney(annualSavings.savings, locale)} ${selectedCurrency} per year`}
                               </p>
                               <p className="text-xs text-emerald-600 mt-1">
                                 {isRTL
-                                  ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ريال شهريًا.`
-                                  : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} SAR per month.`}
+                                  ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ${selectedCurrency} شهريًا.`
+                                  : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} ${selectedCurrency} per month.`}
                               </p>
                             </div>
                           )}

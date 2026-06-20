@@ -384,6 +384,29 @@ export const buildWelcomeEmail = ({ fullName }) => buildEmailTemplate({
   ],
 });
 
+export const buildPasswordResetEmail = ({ fullName, resetUrl }) => buildEmailTemplate({
+  subject: 'Reset Your Aiqda Password',
+  greeting: `Hello ${fullName},`,
+  headline: 'Password Reset Request',
+  bodyLines: [
+    'We received a request to reset your Aiqda password.',
+    'Use link below to choose a new password. This link expires in 1 hour.',
+    'If you did not request this change, you can ignore this email.',
+  ],
+  ctaLabel: 'Reset Password',
+  ctaUrl: resetUrl,
+});
+
+export const buildPasswordResetConfirmationEmail = ({ fullName }) => buildEmailTemplate({
+  subject: 'Your Aiqda Password Was Reset',
+  greeting: `Hello ${fullName},`,
+  headline: 'Password Updated',
+  bodyLines: [
+    'Your Aiqda password was updated successfully.',
+    'If you did not make this change, contact support immediately.',
+  ],
+});
+
 export const buildInstructorAccountReadyEmail = ({ fullName, loginUrl }) => buildEmailTemplate({
   subject: 'Your Aiqda Creator Account Is Ready',
   greeting: `Hello ${fullName},`,
@@ -396,7 +419,13 @@ export const buildInstructorAccountReadyEmail = ({ fullName, loginUrl }) => buil
   ctaUrl: loginUrl,
 });
 
-export const buildSubscriptionRequestReceivedEmail = ({ recipientName, packageName, billingLabel, amount }) => buildEmailTemplate({
+export const buildSubscriptionRequestReceivedEmail = ({
+  recipientName,
+  packageName,
+  billingLabel,
+  amount,
+  currency = 'SAR',
+}) => buildEmailTemplate({
   subject: 'We Received Your Aiqda Subscription Request',
   greeting: `Hello ${recipientName},`,
   headline: 'Your Subscription Request Is Pending Payment',
@@ -406,11 +435,18 @@ export const buildSubscriptionRequestReceivedEmail = ({ recipientName, packageNa
   ],
   listItems: [
     billingLabel ? `Billing term: ${billingLabel}` : null,
-    amount != null ? `Amount due: ${amount} SAR` : null,
+    amount != null ? `Amount due: ${amount} ${currency}` : null,
   ].filter(Boolean),
 });
 
-export const buildSubscriptionRequestAdminNotificationEmail = ({ recipientName, recipientEmail, packageName, billingLabel, amount }) => buildEmailTemplate({
+export const buildSubscriptionRequestAdminNotificationEmail = ({
+  recipientName,
+  recipientEmail,
+  packageName,
+  billingLabel,
+  amount,
+  currency = 'SAR',
+}) => buildEmailTemplate({
   subject: `New Subscription Request: ${packageName}`,
   greeting: 'Hello team,',
   headline: 'A New Subscription Request Was Submitted',
@@ -422,7 +458,7 @@ export const buildSubscriptionRequestAdminNotificationEmail = ({ recipientName, 
     `Email: ${recipientEmail}`,
     `Package: ${packageName}`,
     billingLabel ? `Billing term: ${billingLabel}` : null,
-    amount != null ? `Expected amount: ${amount} SAR` : null,
+    amount != null ? `Expected amount: ${amount} ${currency}` : null,
   ].filter(Boolean),
 });
 
@@ -479,6 +515,7 @@ export const buildConsultationBookingAdminNotificationEmail = ({
   recipientEmail,
   consultationTitle,
   amount,
+  currency = 'SAR',
   priceType,
   paymentReference,
 }) => buildEmailTemplate({
@@ -493,7 +530,7 @@ export const buildConsultationBookingAdminNotificationEmail = ({
     `Email: ${recipientEmail}`,
     `Consultation: ${consultationTitle}`,
     priceType ? `Price type: ${priceType}` : null,
-    amount != null ? `Amount: ${amount} SAR` : null,
+    amount != null ? `Amount: ${amount} ${currency}` : null,
     paymentReference ? `Payment reference: ${paymentReference}` : null,
   ].filter(Boolean),
 });

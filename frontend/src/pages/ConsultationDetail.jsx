@@ -1,13 +1,29 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { consultationsAPI, consultationBookingsAPI } from '../services/api';
+import { consultationsAPI, consultationBookingsAPI, paymentsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
+import CheckoutDisclaimerModal from '../components/CheckoutDisclaimerModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { pageVariants, fadeInUp, cardVariants, staggerContainer } from '../utils/animations';
+import TapCardCheckout from '../components/TapCardCheckout';
+import TapApplePayCheckout from '../components/TapApplePayCheckout';
+import { pageVariants, fadeInUp } from '../utils/animations';
 import { getLocalizedArrayField, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+
+const splitName = (value = '') => {
+  const normalizedName = String(value).trim();
+  if (!normalizedName) {
+    return { firstName: 'Aiqda', lastName: 'Member' };
+  }
+
+  const [firstName, ...rest] = normalizedName.split(/\s+/);
+  return {
+    firstName: firstName || 'Aiqda',
+    lastName: rest.join(' ') || 'Member',
+  };
+};
 
 const getConsultationModeLabel = (consultation, locale) => {
   if (locale === 'ar') {
@@ -27,24 +43,200 @@ const getConsultationModeLabel = (consultation, locale) => {
   return consultation.mode;
 };
 
+const getFriendlyCheckoutMessage = (message, isRTL) => {
+  const normalizedMessage = String(message || '').trim();
+  if (!normalizedMessage) {
+    return '';
+  }
+
+  if (/tap checkout is not configured|tap is not configured/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'الدفع الإلكتروني غير متاح حاليًا. يرجى المحاولة مرة أخرى لاحقًا.'
+      : 'Electronic checkout is not available right now. Please try again later.';
+  }
+
+  if (/apple pay is not available/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'Apple Pay غير متاح على هذا الجهاز أو النطاق حاليًا.'
+      : 'Apple Pay is not available on this device or domain right now.';
+  }
+
+  if (/did not return a payment token|continuation url|card sdk|secure payment form|interrupted|card checkout/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'تعذر تجهيز نموذج الدفع الآمن. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+      : 'We could not prepare the secure payment form. Please refresh the page and try again.';
+  }
+
+  if (/consultation booking is already in progress/i.test(normalizedMessage)) {
+    return isRTL
+      ? 'يوجد بالفعل طلب حجز أو عملية دفع جارية لهذه الاستشارة.'
+      : 'A consultation booking or payment is already in progress for this session.';
+  }
+
+  return normalizedMessage
+    .replace(/\bTap\b/gi, isRTL ? 'وسيلة الدفع' : 'payment method')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 function ConsultationDetail() {
   const { locale, isRTL } = useLocale();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
-  
+  const tapCardRef = useRef(null);
+  const applePayRef = useRef(null);
+
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentReference, setPaymentReference] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showCheckoutDisclaimer, setShowCheckoutDisclaimer] = useState(false);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [tapConfig, setTapConfig] = useState(null);
+  const [tapConfigError, setTapConfigError] = useState('');
+  const [tapConfigLoading, setTapConfigLoading] = useState(false);
+  const [tapSdkState, setTapSdkState] = useState({ ready: false, valid: false, error: '' });
+  const [applePayState, setApplePayState] = useState({ ready: false, error: '' });
+  const [selectedCheckoutMethod, setSelectedCheckoutMethod] = useState('card');
+  const [applePayArmed, setApplePayArmed] = useState(false);
+  const [phoneCountryCode, setPhoneCountryCode] = useState(user?.phone?.countryCode || '966');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone?.number || '');
+  const [paymentSyncing, setPaymentSyncing] = useState(false);
+
+  const tapChargeId = searchParams.get('tap_id');
+  const checkoutCurrency = consultation?.currency || tapConfig?.currency || 'SAR';
+  const applePayAvailable = Boolean(tapConfig?.applePay?.enabled);
+  const fallbackTapConfigError = isRTL
+    ? 'الدفع الإلكتروني غير متاح حاليًا.'
+    : 'Electronic checkout is not available right now.';
 
   useEffect(() => {
     fetchConsultation();
   }, [id]);
 
+  useEffect(() => {
+    if (!user?.phone?.countryCode && !user?.phone?.number) {
+      return;
+    }
+
+    setPhoneCountryCode((current) => current || user.phone.countryCode || '966');
+    setPhoneNumber((current) => current || user.phone.number || '');
+  }, [user]);
+
+  useEffect(() => {
+    if (!tapChargeId || !consultation || consultation.priceType !== 'fixed') {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const syncTapCharge = async () => {
+      setPaymentSyncing(true);
+      try {
+        const response = await paymentsAPI.syncTapCharge(tapChargeId);
+        if (cancelled) {
+          return;
+        }
+
+        const payment = response.data;
+        if (payment.status === 'captured' || payment.status === 'approved') {
+          setIsSubmitted(true);
+          showSuccess(
+            isRTL
+              ? 'تم استلام الدفع وإرسال طلب الحجز للمراجعة.'
+              : 'Payment received and your consultation request was sent for review.'
+          );
+        } else if (payment.status === 'failed' || payment.status === 'cancelled' || payment.status === 'rejected') {
+          showError(
+            getFriendlyCheckoutMessage(
+              payment.failureReason || payment.tapResponseMessage,
+              isRTL
+            ) || (isRTL ? 'تعذر إكمال الدفع.' : 'The payment could not be completed.')
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          showError(error.response?.data?.error || (isRTL ? 'تعذر التحقق من حالة الدفع الآن.' : 'We could not confirm the payment status yet.'));
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentSyncing(false);
+          const nextParams = new URLSearchParams(searchParams.toString());
+          nextParams.delete('tap_id');
+          nextParams.delete('tap_redirect');
+          nextParams.delete('consultationBookingId');
+          setSearchParams(nextParams, { replace: true });
+        }
+      }
+    };
+
+    syncTapCharge();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [consultation, isRTL, searchParams, setSearchParams, showError, showSuccess, tapChargeId]);
+
+  useEffect(() => {
+    if (!consultation || consultation.priceType !== 'fixed') {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const fetchTapCheckoutConfig = async () => {
+      setTapConfigLoading(true);
+      try {
+        const response = await paymentsAPI.getTapConfig();
+        if (!cancelled) {
+          setTapConfig(response.data);
+          setTapConfigError('');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setTapConfig(null);
+          setTapConfigError(
+            getFriendlyCheckoutMessage(
+              error.response?.data?.error,
+              isRTL
+            ) || fallbackTapConfigError
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setTapConfigLoading(false);
+        }
+      }
+    };
+
+    fetchTapCheckoutConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [consultation, fallbackTapConfigError, isRTL]);
+
+  useEffect(() => {
+    if (!applePayArmed || !applePayState.ready || submittingPayment) {
+      return;
+    }
+
+    try {
+      applePayRef.current?.start();
+    } catch (error) {
+      setApplePayArmed(false);
+      showError(
+        getFriendlyCheckoutMessage(error.message, isRTL)
+          || (isRTL ? 'تعذر فتح Apple Pay الآن.' : 'We could not open Apple Pay right now.')
+      );
+    }
+  }, [applePayArmed, applePayState.ready, isRTL, showError, submittingPayment]);
+
   const fetchConsultation = async () => {
+    setLoading(true);
     try {
       const response = await consultationsAPI.getById(id);
       setConsultation(response.data);
@@ -56,15 +248,30 @@ function ConsultationDetail() {
     }
   };
 
-  const handleSubmitBooking = async (e) => {
-    e.preventDefault();
+  const fetchTapCheckoutConfig = async () => {
+    setTapConfigLoading(true);
+    try {
+      const response = await paymentsAPI.getTapConfig();
+      setTapConfig(response.data);
+      setTapConfigError('');
+      return response.data;
+    } catch (error) {
+      const message = getFriendlyCheckoutMessage(
+        error.response?.data?.error,
+        isRTL
+      ) || fallbackTapConfigError;
+      setTapConfig(null);
+      setTapConfigError(message);
+      return null;
+    } finally {
+      setTapConfigLoading(false);
+    }
+  };
+
+  const handleSubmitInquiry = async (event) => {
+    event.preventDefault();
     if (!user) {
       navigate('/login', { state: { from: { pathname: `/consultations/${id}` } } });
-      return;
-    }
-
-    if (consultation.priceType === 'fixed' && !paymentReference) {
-      showError(isRTL ? 'مرجع الدفع مطلوب' : 'Payment reference is required');
       return;
     }
 
@@ -72,7 +279,6 @@ function ConsultationDetail() {
     try {
       await consultationBookingsAPI.submit({
         consultationId: id,
-        paymentReference: consultation.priceType === 'fixed' ? paymentReference : undefined
       });
       setIsSubmitted(true);
       showSuccess(isRTL ? 'تم إرسال طلب الحجز بنجاح!' : 'Your booking has been submitted successfully!');
@@ -83,10 +289,145 @@ function ConsultationDetail() {
     }
   };
 
-  const copyToClipboard = (text, label) => {
-    navigator.clipboard.writeText(text);
-    showSuccess(isRTL ? `تم نسخ ${label} إلى الحافظة!` : `${label} copied to clipboard!`);
+  const ensureCheckoutReady = async () => {
+    if (!consultation || consultation.priceType !== 'fixed') {
+      return null;
+    }
+
+    let activeTapConfig = tapConfig;
+    if (!activeTapConfig) {
+      activeTapConfig = await fetchTapCheckoutConfig();
+      if (!activeTapConfig) {
+        showError(
+          isRTL
+            ? 'تعذر تحميل نموذج الدفع الآن. يرجى المحاولة مرة أخرى خلال لحظات.'
+            : 'We could not load the payment form right now. Please try again in a moment.'
+        );
+        return null;
+      }
+    }
+
+    if (!phoneCountryCode.trim() || !phoneNumber.trim()) {
+      showError(isRTL ? 'يرجى إدخال رقم الهاتف لإكمال الدفع.' : 'Please enter your phone number to complete checkout.');
+      return null;
+    }
+
+    return activeTapConfig;
   };
+
+  const handleBeginCheckout = async (method = 'card') => {
+    const activeTapConfig = await ensureCheckoutReady();
+    if (!activeTapConfig) {
+      return;
+    }
+
+    setSelectedCheckoutMethod(method === 'apple_pay' ? 'apple_pay' : 'card');
+    setApplePayState({ ready: false, error: '' });
+    setShowCheckoutDisclaimer(true);
+  };
+
+  const submitTokenizedCheckout = async ({ tokenId, checkoutMethod }) => {
+    const response = await consultationBookingsAPI.createCheckout({
+      consultationId: id,
+      tokenId,
+      checkoutMethod,
+      phoneCountryCode,
+      phoneNumber,
+      checkoutDisclaimerAccepted: true,
+    });
+
+    const payment = response.data?.payment;
+    const redirectUrl = response.data?.redirectUrl;
+
+    if (payment?.status === 'captured' || payment?.status === 'approved') {
+      setShowCheckoutDisclaimer(false);
+      setApplePayArmed(false);
+      setIsSubmitted(true);
+      showSuccess(
+        isRTL
+          ? 'تم استلام الدفع وإرسال طلب الحجز للمراجعة.'
+          : 'Payment received and your consultation request was sent for review.'
+      );
+      return;
+    }
+
+    if (redirectUrl) {
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
+  };
+
+  const handleConfirmCheckout = async () => {
+    if (selectedCheckoutMethod === 'apple_pay') {
+      setApplePayArmed(true);
+      setShowCheckoutDisclaimer(false);
+      return;
+    }
+
+    if (!tapCardRef.current) {
+      showError(isRTL ? 'نموذج البطاقة غير جاهز بعد.' : 'The card form is not ready yet.');
+      return;
+    }
+
+    setSubmittingPayment(true);
+    try {
+      const tokenResponse = await tapCardRef.current.tokenize();
+      const tokenId = tokenResponse?.id;
+      if (!tokenId) {
+        throw new Error(isRTL ? 'تعذر تجهيز تفاصيل الدفع الآمنة.' : 'We could not prepare your secure payment details.');
+      }
+
+      await submitTokenizedCheckout({
+        tokenId,
+        checkoutMethod: 'card',
+      });
+    } catch (error) {
+      showError(
+        getFriendlyCheckoutMessage(
+          error.response?.data?.error || error.message,
+          isRTL
+        ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+      );
+    } finally {
+      setSubmittingPayment(false);
+      setShowCheckoutDisclaimer(false);
+    }
+  };
+
+  const handleApplePayTokenReady = async (tokenId) => {
+    setSubmittingPayment(true);
+    try {
+      await submitTokenizedCheckout({
+        tokenId,
+        checkoutMethod: 'apple_pay',
+      });
+    } catch (error) {
+      showError(
+        getFriendlyCheckoutMessage(
+          error.response?.data?.error || error.message,
+          isRTL
+        ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+      );
+    } finally {
+      setSubmittingPayment(false);
+      setApplePayArmed(false);
+    }
+  };
+
+  const tapCustomer = useMemo(() => {
+    const { firstName, lastName } = splitName(user?.name || '');
+
+    return {
+      firstName,
+      lastName,
+      nameOnCard: [firstName, lastName].filter(Boolean).join(' '),
+      email: user?.email || '',
+      phoneCountryCode,
+      phoneNumber,
+    };
+  }, [phoneCountryCode, phoneNumber, user?.email, user?.name]);
 
   if (loading) {
     return (
@@ -114,7 +455,7 @@ function ConsultationDetail() {
   return (
     <div className="min-h-screen py-12 relative overflow-hidden">
       <div className="absolute inset-0 mesh-gradient opacity-30" />
-      
+
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="floating-orb w-[400px] h-[400px] bg-cyan-100/40 top-[-100px] right-[-100px] animate-float-slow" />
         <div className="floating-orb w-[300px] h-[300px] bg-primary-100/40 bottom-[-100px] left-[-50px] animate-float" />
@@ -134,7 +475,6 @@ function ConsultationDetail() {
           </Link>
 
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left Column: Details */}
             <div className="lg:w-3/5">
               <motion.div variants={fadeInUp} className="card p-8">
                 <div className="flex items-center gap-3 mb-6">
@@ -143,7 +483,7 @@ function ConsultationDetail() {
                   </span>
                   <span className="text-gray-400 font-medium">{localizedDuration}</span>
                 </div>
-                
+
                 <h1 className="text-4xl font-bold text-gray-900 mb-6">{getLocalizedField(consultation, 'title', locale)}</h1>
                 <p className="text-gray-600 text-lg leading-relaxed mb-8">
                   {getLocalizedField(consultation, 'description', locale)}
@@ -155,8 +495,8 @@ function ConsultationDetail() {
                       <span className="text-primary-500">🎯</span> {isRTL ? 'نقاط التركيز' : 'Focus Points'}
                     </h3>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {localizedFocusPoints.map((point, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      {localizedFocusPoints.map((point, index) => (
+                        <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
                           <span className="text-primary-500 font-bold">✓</span>
                           <span className="text-gray-700 text-sm">{point}</span>
                         </div>
@@ -167,7 +507,6 @@ function ConsultationDetail() {
               </motion.div>
             </div>
 
-            {/* Right Column: Booking Form */}
             <div className="lg:w-2/5">
               <motion.div variants={fadeInUp} className="sticky top-8">
                 {isSubmitted ? (
@@ -175,12 +514,13 @@ function ConsultationDetail() {
                     <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-emerald-100 flex items-center justify-center text-4xl">
                       🎉
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Booking Submitted!</h2>
-                    <p className="sr-only">{isRTL ? 'تم إرسال الحجز' : 'Booking Submitted!'}</p>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                      {isRTL ? 'تم استلام الحجز' : 'Booking Submitted'}
+                    </h2>
                     <p className="text-gray-600 mb-8 leading-relaxed">
                       {isRTL
-                        ? 'تم إرسال طلب الحجز. ستراجع الإدارة الطلب وتؤكد جلسة Zoom الخاصة بك.'
-                        : 'Your booking has been submitted. Admin will review and confirm your Zoom session.'}
+                        ? 'تم استلام طلب الحجز بنجاح. سيقوم فريقنا بمراجعته ثم تأكيد الجلسة ومشاركة الرابط معك.'
+                        : 'Your consultation request has been received successfully. Our team will review it, confirm the session, and share the meeting link with you.'}
                     </p>
                     <Link to="/dashboard/consultations" className="btn-primary w-full justify-center">
                       {isRTL ? 'عرض حجوزاتي' : 'View My Bookings'}
@@ -195,92 +535,198 @@ function ConsultationDetail() {
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-2">{isRTL ? 'سجّل الدخول للحجز' : 'Login to Book'}</h3>
                         <p className="text-gray-500 mb-6">{isRTL ? 'يجب تسجيل الدخول لحجز استشارة.' : 'You need to be logged in to book a consultation.'}</p>
-                        <Link 
-                          to="/login" 
+                        <Link
+                          to="/login"
                           state={{ from: { pathname: `/consultations/${id}` } }}
                           className="btn-primary w-full justify-center"
                         >
                           {isRTL ? 'سجّل الدخول الآن' : 'Login Now'}
                         </Link>
                       </div>
-                    ) : (
-                      <form onSubmit={handleSubmitBooking}>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                          {consultation.priceType === 'fixed'
-                            ? (isRTL ? 'احجز الجلسة' : 'Book Session')
-                            : (isRTL ? 'أرسل استفسارًا' : 'Submit Inquiry')}
+                    ) : consultation.priceType === 'fixed' ? (
+                      <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-gray-900">
+                          {isRTL ? 'إتمام الحجز والدفع' : 'Complete Booking & Payment'}
                         </h2>
 
-                        {consultation.priceType === 'fixed' ? (
-                          <div className="space-y-6">
-                            <div className="p-4 rounded-2xl bg-primary-50 border border-primary-100">
-                              <p className="text-sm text-primary-700 font-medium mb-1">{isRTL ? 'المبلغ المطلوب تحويله' : 'Price to Transfer'}</p>
-                              <p className="text-3xl font-bold text-primary-900">
-                                {consultation.price} <span className="text-lg">{consultation.currency}</span>
-                              </p>
-                            </div>
-
-                            <div className="space-y-4">
-                              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">{isRTL ? 'طريقة الحجز' : 'How to Book'}</h3>
-                              
-                              <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">1</div>
-                                <p className="text-sm text-gray-600 pt-1">{isRTL ? <>حوّل <b>{consultation.price} SAR</b> إلى بنك البلاد</> : <>Transfer <b>{consultation.price} SAR</b> to Bank Albilad</>}</p>
-                              </div>
-
-                              <div className="ml-12 p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
-                                <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'اسم البنك' : 'Bank Name'}</p>
-                                  <p className="text-sm font-semibold text-gray-800">Bank Albilad</p>
-                                </div>
-                                <div className="group cursor-pointer" onClick={() => copyToClipboard('SA5915000452146048350009', 'IBAN')}>
-                                  <div className="flex justify-between items-center">
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold">IBAN</p>
-                                    <span className="text-[10px] text-primary-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">{isRTL ? 'نسخ' : 'Copy'}</span>
-                                  </div>
-                                  <p className="text-sm font-mono font-semibold text-gray-800">SA5915000452146048350009</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'رقم الحساب' : 'Account Number'}</p>
-                                  <p className="text-sm font-semibold text-gray-800">452146049350009</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{isRTL ? 'رقم السجل التجاري' : 'CR Number'}</p>
-                                  <p className="text-sm font-semibold text-gray-800">7049447043</p>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">2</div>
-                                <div className="flex-1 pt-1">
-                                  <p className="text-sm text-gray-600 mb-3">{isRTL ? 'أدخل رقم مرجع الدفع أدناه' : 'Enter your payment reference number below'}</p>
-                                  <input
-                                    type="text"
-                                    required
-                                    placeholder={isRTL ? 'رقم المرجع' : 'Reference Number'}
-                                    className="input-field"
-                                    value={paymentReference}
-                                    onChange={(e) => setPaymentReference(e.target.value)}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm">3</div>
-                                <p className="text-sm text-gray-600 pt-1">{isRTL ? 'اضغط على "إرسال الحجز"' : 'Click "Submit Booking"'}</p>
-                              </div>
-                            </div>
+                        {paymentSyncing && (
+                          <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-4">
+                            <p className="text-sm leading-7 text-primary-700">
+                              {isRTL ? 'جارٍ التحقق من حالة الدفع...' : 'Confirming your payment status...'}
+                            </p>
                           </div>
-                        ) : (
-                          <div className="space-y-6">
-                            <div className="p-4 rounded-2xl bg-cyan-50 border border-cyan-100">
-                              <p className="text-sm text-cyan-700 font-medium">{isRTL ? 'حسب الاتفاق' : 'Contract Based'}</p>
-                              <p className="text-sm text-cyan-600 mt-2 italic">
-                                {isRTL ? 'سيتواصل معك فريقنا لمناقشة التسعير ونطاق التعاون.' : 'Our team will contact you to discuss pricing and collaboration scope.'}
-                              </p>
+                        )}
+
+                        <div className="p-4 rounded-2xl bg-primary-50 border border-primary-100">
+                          <p className="text-sm text-primary-700 font-medium mb-1">{isRTL ? 'المبلغ المطلوب' : 'Amount Due'}</p>
+                          <p className="text-3xl font-bold text-primary-900">
+                            {consultation.price} <span className="text-lg">{consultation.currency || checkoutCurrency}</span>
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-4">
+                          <p className="text-sm leading-7 text-gray-600">
+                            {isRTL
+                              ? 'أكمل الحجز عبر نموذج دفع آمن. نطلب رقم الهاتف لإتمام عملية الدفع والتواصل إذا لزم الأمر.'
+                              : 'Complete this booking through a secure payment form. We ask for your phone number to complete checkout and contact you if needed.'}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">
+                              {isRTL ? 'رمز الدولة' : 'Country Code'}
+                            </label>
+                            <input
+                              type="text"
+                              value={phoneCountryCode}
+                              onChange={(event) => setPhoneCountryCode(event.target.value)}
+                              className="input-field"
+                              placeholder="966"
+                              inputMode="numeric"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">
+                              {isRTL ? 'رقم الهاتف' : 'Phone Number'}
+                            </label>
+                            <input
+                              type="text"
+                              value={phoneNumber}
+                              onChange={(event) => setPhoneNumber(event.target.value)}
+                              className="input-field"
+                              placeholder={isRTL ? '5xxxxxxxx' : '5xxxxxxxx'}
+                              inputMode="numeric"
+                            />
+                          </div>
+                        </div>
+
+                        {tapConfigLoading && (
+                          <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-4">
+                            <p className="text-sm leading-7 text-primary-700">
+                              {isRTL ? 'جارٍ تجهيز نموذج الدفع الآمن...' : 'Preparing the secure payment form...'}
+                            </p>
+                          </div>
+                        )}
+
+                        {tapConfigError && !tapConfigLoading && (
+                          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+                            <p className="text-sm leading-7 text-red-700">{tapConfigError}</p>
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() => fetchTapCheckoutConfig()}
+                                className="btn-secondary"
+                              >
+                                {isRTL ? 'إعادة المحاولة' : 'Retry'}
+                              </button>
                             </div>
                           </div>
                         )}
+
+                        {tapConfig && (
+                          <div className="space-y-6">
+                            <TapCardCheckout
+                              ref={tapCardRef}
+                              sdkUrl={tapConfig.sdkUrl}
+                              publicKey={tapConfig.publicKey}
+                              merchantId={tapConfig.merchantId}
+                              amount={Number(consultation.price || 0)}
+                              currency={consultation.currency || tapConfig.currency || checkoutCurrency}
+                              locale={isRTL ? 'ar' : 'en'}
+                              direction={isRTL ? 'rtl' : 'ltr'}
+                              customer={tapCustomer}
+                              onSdkStateChange={setTapSdkState}
+                            />
+
+                            {applePayAvailable ? (
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-900">Apple Pay</p>
+                                    <p className="mt-1 text-sm leading-7 text-gray-600">
+                                      {isRTL
+                                        ? 'إذا كنت تستخدم جهاز Apple ومتصفحًا يدعم Apple Pay، يمكنك إتمام الحجز مباشرة عبره.'
+                                        : 'If you are using a supported Apple device and browser, you can complete this booking with Apple Pay.'}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBeginCheckout('apple_pay')}
+                                    disabled={submittingPayment || tapConfigLoading}
+                                    className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {applePayArmed
+                                      ? (isRTL ? 'جارٍ تجهيز Apple Pay...' : 'Preparing Apple Pay...')
+                                      : (isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay')}
+                                  </button>
+                                </div>
+
+                                {applePayArmed && (
+                                  <div className="mt-4">
+                                    <TapApplePayCheckout
+                                      ref={applePayRef}
+                                      config={{
+                                        ...tapConfig.applePay,
+                                        publicKey: tapConfig.publicKey,
+                                      }}
+                                      amount={Number(consultation.price || 0)}
+                                      currency={consultation.currency || tapConfig.currency || checkoutCurrency}
+                                      locale={isRTL ? 'ar' : 'en'}
+                                      customer={tapCustomer}
+                                      onReadyStateChange={setApplePayState}
+                                      onTokenReady={handleApplePayTokenReady}
+                                    />
+                                  </div>
+                                )}
+
+                                {applePayState.error && (
+                                  <p className="mt-3 text-sm text-red-600">{applePayState.error}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
+                                <p className="text-sm leading-7 text-gray-600">
+                                  {isRTL
+                                    ? 'سيظهر Apple Pay على النطاق الآمن المباشر وعند استخدام جهاز ومتصفح مدعومين.'
+                                    : 'Apple Pay will appear on the secure live domain when using a supported Apple device and browser.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <button
+                            type="button"
+                            onClick={() => handleBeginCheckout('card')}
+                            disabled={!tapConfig || !tapSdkState.ready || submittingPayment || tapConfigLoading}
+                            className="btn-primary flex-1 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {submittingPayment
+                              ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...')
+                              : (isRTL ? 'ادفع الآن' : 'Pay Now')}
+                          </button>
+                        </div>
+
+                        {tapSdkState.error && (
+                          <p className="text-sm text-red-600">{tapSdkState.error}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSubmitInquiry}>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                          {isRTL ? 'أرسل استفسارًا' : 'Submit Inquiry'}
+                        </h2>
+
+                        <div className="space-y-6">
+                          <div className="p-4 rounded-2xl bg-cyan-50 border border-cyan-100">
+                            <p className="text-sm text-cyan-700 font-medium">{isRTL ? 'حسب الاتفاق' : 'Contract Based'}</p>
+                            <p className="text-sm text-cyan-600 mt-2 italic">
+                              {isRTL ? 'سيتواصل معك فريقنا لمناقشة التسعير ونطاق التعاون.' : 'Our team will contact you to discuss pricing and collaboration scope.'}
+                            </p>
+                          </div>
+                        </div>
 
                         <button
                           type="submit"
@@ -289,9 +735,7 @@ function ConsultationDetail() {
                         >
                           {submitting
                             ? (isRTL ? 'جارٍ الإرسال...' : 'Submitting...')
-                            : consultation.priceType === 'fixed'
-                              ? (isRTL ? 'إرسال الحجز' : 'Submit Booking')
-                              : (isRTL ? 'إرسال الاستفسار' : 'Submit Inquiry')}
+                            : (isRTL ? 'إرسال الاستفسار' : 'Submit Inquiry')}
                         </button>
                       </form>
                     )}
@@ -302,6 +746,16 @@ function ConsultationDetail() {
           </div>
         </motion.div>
       </div>
+
+      <CheckoutDisclaimerModal
+        open={showCheckoutDisclaimer}
+        onConfirm={handleConfirmCheckout}
+        onCancel={() => {
+          setShowCheckoutDisclaimer(false);
+          setApplePayArmed(false);
+        }}
+        isSubmitting={submittingPayment}
+      />
     </div>
   );
 }

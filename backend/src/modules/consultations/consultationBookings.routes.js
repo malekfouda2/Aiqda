@@ -5,6 +5,7 @@ import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
 const router = express.Router();
 
 router.post('/', authenticate, consultationBookingsController.submitBooking);
+router.post('/checkout', authenticate, consultationBookingsController.createCheckout);
 router.get('/my', authenticate, consultationBookingsController.getMyBookings);
 router.get('/', authenticate, isAdmin, consultationBookingsController.getAllBookings);
 router.get('/:id', authenticate, isAdmin, consultationBookingsController.getBookingById);

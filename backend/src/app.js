@@ -88,10 +88,14 @@ const allowedOrigins = [
   'http://127.0.0.1:5000',
   'http://localhost:5001',
   'http://127.0.0.1:5001',
+  'http://localhost:5002',
+  'http://127.0.0.1:5002',
   'http://localhost:5005',
   'http://127.0.0.1:5005',
   'https://a2f9d045-a532-4991-b5f1-5e7645823ac8-00-rx0jwqf0xpdj.worf.replit.dev'
 ].filter(Boolean);
+
+const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -101,7 +105,9 @@ app.use(cors({
     }
 
     const normalizedOrigin = origin.replace(/\/$/, '');
-    const isAllowed = allowedOrigins.some((allowed) => normalizedOrigin === allowed.replace(/\/$/, ''));
+    const isAllowed =
+      allowedOrigins.some((allowed) => normalizedOrigin === allowed.replace(/\/$/, '')) ||
+      localhostOriginPattern.test(normalizedOrigin);
 
     if (isAllowed) {
       callback(null, true);

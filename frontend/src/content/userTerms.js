@@ -75,6 +75,7 @@ export const userTermsSections = [
       text('Content is for personal, non-commercial use only.', 'المحتوى مخصص للاستخدام الشخصي غير التجاري فقط.'),
       text('You will not copy, distribute, resell, or exploit content.', 'لن تقوم بنسخ المحتوى أو توزيعه أو إعادة بيعه أو استغلاله.'),
       text('You will not misrepresent content as certified training.', 'لن تقدم المحتوى على أنه تدريب معتمد.'),
+      text('During the first twenty-four (24) hours after subscribing to a package, you will have access to one (1) video per chapter only; full chapter access will be provided after the twenty-four (24) hour period has passed.', 'خلال الأربع والعشرين (24) ساعة الأولى بعد الاشتراك في أي باقة، يقتصر وصولك على فيديو واحد (1) فقط من كل فصل؛ ويتم منح الوصول الكامل إلى الفصل بعد انقضاء مدة الأربع والعشرين (24) ساعة.'),
       text('Unauthorized use may result in account suspension.', 'قد يؤدي الاستخدام غير المصرح به إلى تعليق الحساب.'),
       text('Unauthorized use may result in legal action if necessary.', 'وقد يؤدي كذلك إلى اتخاذ إجراءات قانونية عند الحاجة.'),
     ],

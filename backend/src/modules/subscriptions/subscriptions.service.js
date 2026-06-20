@@ -1,7 +1,8 @@
 import { Subscription, SubscriptionPackage } from './subscription.model.js';
 import User from '../users/user.model.js';
 import Payment from '../payments/payment.model.js';
-import { getSubscriptionCurrency } from '../payments/tap.service.js';
+import { refundSuccessfulPayment } from '../payments/payments.service.js';
+import { getSubscriptionCurrency, normalizeCurrency } from '../payments/tap.service.js';
 import { sendEmail } from '../../utils/email.js';
 import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
@@ -25,7 +26,8 @@ const BILLING_TERM_ORDER = {
 
 const VALID_BILLING_TERMS = Object.keys(BILLING_TERM_LABELS);
 const DEFAULT_SIX_MONTH_DURATION_DAYS = 180;
-const CURRENT_ACCESS_STATUSES = ['active', 'grace_period'];
+const CURRENT_ACCESS_STATUSES = ['active', 'grace_period', 'cancel_scheduled'];
+const DEFAULT_REFUND_WINDOW_HOURS = 24;
 
 const PACKAGE_POPULATE = [
   { path: 'courses', select: 'title category level' },
@@ -72,6 +74,11 @@ const toNullableNumber = (value) => {
 
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : null;
+};
+
+const getRefundWindowHours = () => {
+  const normalized = Number(process.env.PAYMENT_REFUND_WINDOW_HOURS || DEFAULT_REFUND_WINDOW_HOURS);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : DEFAULT_REFUND_WINDOW_HOURS;
 };
 
 const getEffectiveBillingPrice = (option = {}) => {
@@ -134,13 +141,14 @@ const ensureDefaultSixMonthOption = (billingOptions = []) => {
 
   const monthlyOption = optionsByTerm.get('monthly');
   if (monthlyOption && !optionsByTerm.has('six_months')) {
-    optionsByTerm.set('six_months', {
-      term: 'six_months',
-      label: BILLING_TERM_LABELS.six_months,
-      price: Number(monthlyOption.price) * 6,
-      durationDays: Number(monthlyOption.durationDays) > 0
-        ? Number(monthlyOption.durationDays) * 6
-        : DEFAULT_SIX_MONTH_DURATION_DAYS,
+      optionsByTerm.set('six_months', {
+        term: 'six_months',
+        label: BILLING_TERM_LABELS.six_months,
+        price: Number(monthlyOption.price) * 6,
+        currency: monthlyOption.currency || 'SAR',
+        durationDays: Number(monthlyOption.durationDays) > 0
+          ? Number(monthlyOption.durationDays) * 6
+          : DEFAULT_SIX_MONTH_DURATION_DAYS,
       isActive: true,
     });
   }
@@ -153,6 +161,10 @@ const buildCurrentSubscriptionAccessQuery = (userId = null, now = new Date()) =>
   $or: [
     {
       status: 'active',
+      endDate: { $gt: now },
+    },
+    {
+      status: 'cancel_scheduled',
       endDate: { $gt: now },
     },
     {
@@ -180,6 +192,12 @@ export const getBillingOptionForPackage = (pkg = {}, requestedTerm = null) => {
 };
 
 const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
+  const fallbackCurrency = normalizeCurrency(
+    packageData.currency
+    ?? existingPackage?.currency
+    ?? getSubscriptionCurrency()
+  );
+
   if (Array.isArray(packageData.billingOptions)) {
     const optionsByTerm = new Map();
 
@@ -216,6 +234,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
           ? rawOption.label.trim()
           : BILLING_TERM_LABELS[term],
         price,
+        currency: normalizeCurrency(rawOption.currency || fallbackCurrency),
         salePrice: (() => {
           const normalizedSalePrice = toNullableNumber(rawOption.salePrice);
           if (normalizedSalePrice === null) {
@@ -251,6 +270,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
         term: option.term,
         label: option.label || BILLING_TERM_LABELS[option.term] || option.term,
         price: option.price,
+        currency: normalizeCurrency(option.currency || existingPackage?.currency || fallbackCurrency),
         salePrice: option.salePrice ?? null,
         durationDays: option.durationDays,
         isActive: option.isActive !== false,
@@ -275,6 +295,7 @@ const normalizeBillingOptions = (packageData = {}, existingPackage = null) => {
       term: 'monthly',
       label: BILLING_TERM_LABELS.monthly,
       price: legacyPrice,
+      currency: fallbackCurrency,
       salePrice: null,
       durationDays: legacyDuration,
       isActive: true,
@@ -301,19 +322,37 @@ const buildPackagePayload = (packageData = {}, existingPackage = null) => {
 
   const payload = {
     name: typeof packageData.name === 'string' ? packageData.name.trim() : existingPackage?.name,
+    nameAr: typeof packageData.nameAr === 'string' ? packageData.nameAr.trim() : (existingPackage?.nameAr || ''),
+    currency: defaultBillingOption?.currency || normalizeCurrency(
+      packageData.currency
+      ?? existingPackage?.currency
+      ?? getSubscriptionCurrency()
+    ),
     price: defaultBillingOption ? getEffectiveBillingPrice(defaultBillingOption) : null,
     billingOptions,
     scheduleDuration: typeof packageData.scheduleDuration === 'string'
       ? packageData.scheduleDuration.trim()
       : existingPackage?.scheduleDuration,
+    scheduleDurationAr: typeof packageData.scheduleDurationAr === 'string'
+      ? packageData.scheduleDurationAr.trim()
+      : (existingPackage?.scheduleDurationAr || ''),
     durationDays: defaultBillingOption?.durationDays ?? null,
     learningMode: typeof packageData.learningMode === 'string'
       ? packageData.learningMode.trim()
       : existingPackage?.learningMode,
+    learningModeAr: typeof packageData.learningModeAr === 'string'
+      ? packageData.learningModeAr.trim()
+      : (existingPackage?.learningModeAr || ''),
     focus: typeof packageData.focus === 'string' ? packageData.focus.trim() : existingPackage?.focus,
+    focusAr: typeof packageData.focusAr === 'string'
+      ? packageData.focusAr.trim()
+      : (existingPackage?.focusAr || ''),
     courses: packageData.courses ?? existingPackage?.courses ?? [],
     softwareExposure: packageData.softwareExposure ?? existingPackage?.softwareExposure ?? [],
     outcome: typeof packageData.outcome === 'string' ? packageData.outcome.trim() : existingPackage?.outcome,
+    outcomeAr: typeof packageData.outcomeAr === 'string'
+      ? packageData.outcomeAr.trim()
+      : (existingPackage?.outcomeAr || ''),
     purchaseMode,
     publicVisibility: normalizePublicVisibility(
       packageData.publicVisibility ?? existingPackage?.publicVisibility
@@ -552,7 +591,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
     status: 'pending',
     billingTerm: billingOption.term,
     priceAtPurchase: getEffectiveBillingPrice(billingOption),
-    currency: getSubscriptionCurrency(),
+    currency: normalizeCurrency(billingOption.currency || pkg.currency || getSubscriptionCurrency()),
     durationDaysSnapshot: billingOption.durationDays,
     purchaseModeSnapshot: pkg.purchaseMode,
   });
@@ -570,6 +609,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
       packageName: pkg.name,
       billingLabel,
       amount: subscription.priceAtPurchase,
+      currency: subscription.currency,
     });
 
     try {
@@ -589,6 +629,7 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
       packageName: pkg.name,
       billingLabel,
       amount: subscription.priceAtPurchase,
+      currency: subscription.currency,
     });
 
     try {
@@ -686,6 +727,14 @@ export const updateAutoRenewPreference = async (subscriptionId, requester, enabl
   );
 };
 
+const findLatestCurrentCyclePayment = async (subscriptionId) => (
+  Payment.findOne({
+    subscription: subscriptionId,
+    status: { $in: ['approved', 'captured'] },
+    paymentType: { $in: ['initial', 'recovery'] },
+  }).sort({ createdAt: -1 })
+);
+
 export const cancelSubscription = async (subscriptionId) => {
   const subscription = await Subscription.findById(subscriptionId)
     .populate('package')
@@ -695,19 +744,43 @@ export const cancelSubscription = async (subscriptionId) => {
     throw new Error('Subscription not found');
   }
 
-  subscription.status = 'cancelled';
+  const now = new Date();
+  const latestPayment = await findLatestCurrentCyclePayment(subscription._id);
+  const paymentWithinRefundWindow = Boolean(
+    latestPayment?.createdAt
+    && (now.getTime() - new Date(latestPayment.createdAt).getTime()) <= (getRefundWindowHours() * 60 * 60 * 1000)
+    && latestPayment.refundStatus !== 'refunded'
+  );
+
+  let refundedNow = false;
+  if (paymentWithinRefundWindow) {
+    await refundSuccessfulPayment(latestPayment._id, {
+      reason: 'Subscription cancelled within refund window.',
+    });
+    refundedNow = true;
+  }
+
+  subscription.status = refundedNow ? 'cancelled' : 'cancel_scheduled';
   subscription.autoRenewEnabled = false;
-  subscription.autoRenewDisabledAt = new Date();
+  subscription.autoRenewDisabledAt = now;
   subscription.autoRenewDisabledReason = 'admin';
   subscription.nextRenewalRetryAt = null;
   subscription.gracePeriodEndsAt = null;
+  subscription.cancelScheduledAt = now;
+  subscription.cancelReason = refundedNow ? 'refunded' : 'admin';
+  subscription.cancelEffectiveAt = refundedNow
+    ? now
+    : (subscription.endDate || now);
+  if (refundedNow) {
+    subscription.endDate = now;
+  }
   await subscription.save();
 
   if (subscription.user?.email) {
     const emailTemplate = buildSubscriptionCancelledEmail({
       recipientName: subscription.user.name,
       packageName: subscription.package?.name || 'your subscription',
-      endDate: subscription.endDate?.toLocaleDateString() || null,
+      endDate: refundedNow ? null : (subscription.endDate?.toLocaleDateString() || null),
       checkoutUrl: process.env.FRONTEND_URL
         ? `${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard/subscription`
         : null,

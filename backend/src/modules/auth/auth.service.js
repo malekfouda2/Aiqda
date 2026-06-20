@@ -1,10 +1,16 @@
+import { createHash, randomBytes } from 'node:crypto';
 import User from '../users/user.model.js';
 import { hashPassword, comparePassword } from '../../utils/password.js';
 import { verifyToken } from '../../utils/jwt.js';
 import { getSocialOnlyLoginMessageForUser } from './socialAuth.service.js';
 import { clearAuthenticatedSessionForUser, createAuthenticatedSessionForUser } from './authSession.service.js';
 import { sendEmail } from '../../utils/email.js';
-import { buildInstructorAccountReadyEmail, buildWelcomeEmail } from '../../utils/emailTemplates.js';
+import {
+  buildInstructorAccountReadyEmail,
+  buildPasswordResetConfirmationEmail,
+  buildPasswordResetEmail,
+  buildWelcomeEmail
+} from '../../utils/emailTemplates.js';
 import {
   hasAcceptedPlatformNoticeInput,
   PLATFORM_NOTICE_ERROR_MESSAGE,
@@ -12,9 +18,18 @@ import {
 } from '../../config/platformNotice.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const PASSWORD_RESET_RESPONSE_MESSAGE = 'If account exists for this email, password reset instructions were sent.';
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 const normalizeName = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeToken = (value) => (typeof value === 'string' ? value.trim() : '');
+const hashResetToken = (token) => createHash('sha256').update(token).digest('hex');
+const getFrontendBaseUrl = () => (
+  process.env.FRONTEND_URL
+  || process.env.APP_URL
+  || 'http://localhost:5000'
+).replace(/\/$/, '');
 
 export const register = async ({ email, password, name, platformNoticeAccepted, deviceContext }) => {
   const normalizedEmail = normalizeEmail(email);
@@ -171,6 +186,106 @@ export const acceptInstructorInvite = async ({ token, password }) => {
 
   return {
     message: 'Your creator account is ready. You can now sign in.',
+  };
+};
+
+export const requestPasswordReset = async ({ email }) => {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required');
+  }
+
+  if (!EMAIL_REGEX.test(normalizedEmail)) {
+    throw new Error('Please provide a valid email address');
+  }
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user || !user.isActive) {
+    return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
+  }
+
+  const resetToken = randomBytes(32).toString('hex');
+  const now = new Date();
+
+  user.passwordReset = {
+    tokenHash: hashResetToken(resetToken),
+    requestedAt: now,
+    expiresAt: new Date(now.getTime() + PASSWORD_RESET_TOKEN_TTL_MS),
+  };
+  await user.save();
+
+  const resetUrl = `${getFrontendBaseUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
+  const resetEmail = buildPasswordResetEmail({
+    fullName: user.name,
+    resetUrl,
+  });
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: resetEmail.subject,
+      text: resetEmail.text,
+      html: resetEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send password reset email:', error.message);
+  }
+
+  return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
+};
+
+export const resetPassword = async ({ token, password }) => {
+  const normalizedToken = normalizeToken(token);
+
+  if (!normalizedToken) {
+    throw new Error('Reset token is required');
+  }
+
+  if (!password || password.length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
+
+  const tokenHash = hashResetToken(normalizedToken);
+  const user = await User.findOne({
+    'passwordReset.tokenHash': tokenHash,
+  });
+
+  if (!user) {
+    throw new Error('Password reset link is invalid or has expired');
+  }
+
+  const expiresAt = user.passwordReset?.expiresAt ? new Date(user.passwordReset.expiresAt) : null;
+  if (!expiresAt || expiresAt <= new Date()) {
+    user.passwordReset = null;
+    await user.save();
+    throw new Error('Password reset link is invalid or has expired');
+  }
+
+  user.password = await hashPassword(password);
+  user.mustChangePassword = false;
+  user.passwordReset = null;
+  user.currentSession = null;
+  user.currentSessions = [];
+  await user.save();
+
+  const confirmationEmail = buildPasswordResetConfirmationEmail({
+    fullName: user.name,
+  });
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: confirmationEmail.subject,
+      text: confirmationEmail.text,
+      html: confirmationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send password reset confirmation email:', error.message);
+  }
+
+  return {
+    message: 'Password reset successful. You can now sign in.',
   };
 };
 

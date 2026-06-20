@@ -116,8 +116,10 @@ function Subscription() {
   const [requesting, setRequesting] = useState(false);
   const [selectedTerms, setSelectedTerms] = useState({});
   const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutPurpose, setCheckoutPurpose] = useState('subscription');
   const [showCheckoutDisclaimer, setShowCheckoutDisclaimer] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [autoChargingSavedMethod, setAutoChargingSavedMethod] = useState(false);
   const [tapConfig, setTapConfig] = useState(null);
   const [tapConfigError, setTapConfigError] = useState('');
   const [tapConfigLoading, setTapConfigLoading] = useState(false);
@@ -141,7 +143,21 @@ function Subscription() {
   const checkoutSubscription = pendingSubscription || recoverySubscription || null;
   const checkoutMode = pendingSubscription ? 'initial' : recoverySubscription ? 'recovery' : null;
   const isRecoveryCheckout = checkoutMode === 'recovery';
-  const checkoutCurrency = checkoutSubscription?.currency || tapConfig?.currency || 'SAR';
+  const isBillingProfileSetupCheckout = checkoutPurpose === 'billing_profile';
+  const checkoutAmount = isBillingProfileSetupCheckout
+    ? Number(tapConfig?.billingProfileSetup?.amount || 0)
+    : Number(checkoutSubscription?.priceAtPurchase || 0);
+  const checkoutCurrency = isBillingProfileSetupCheckout
+    ? tapConfig?.billingProfileSetup?.currency || tapConfig?.currency || 'SAR'
+    : checkoutSubscription?.currency || tapConfig?.currency || 'SAR';
+
+  const clearPaymentQueryParams = () => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    ['tap_id', 'tap_redirect', 'billingProfileSetup', 'data', 'subscriptionId', 'consultationBookingId'].forEach((key) => {
+      nextParams.delete(key);
+    });
+    setSearchParams(nextParams, { replace: true });
+  };
 
   useEffect(() => {
     if (!hasAcceptedCurrentPlatformNotice()) {
@@ -247,7 +263,11 @@ function Subscription() {
 
         const payment = response.data;
         if (payment.status === 'captured' || payment.status === 'approved') {
-          showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
+          showSuccess(
+            payment.paymentType === 'billing_profile_setup'
+              ? (isRTL ? 'تم حفظ وسيلة الدفع بنجاح.' : 'Your payment method was saved successfully.')
+              : (isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.')
+          );
         } else if (payment.status === 'failed' || payment.status === 'cancelled' || payment.status === 'rejected') {
           showError(
             getFriendlyBillingMessage(
@@ -265,10 +285,7 @@ function Subscription() {
       } finally {
         if (!cancelled) {
           setPaymentSyncing(false);
-          const nextParams = new URLSearchParams(searchParams.toString());
-          nextParams.delete('tap_id');
-          nextParams.delete('tap_redirect');
-          setSearchParams(nextParams, { replace: true });
+          clearPaymentQueryParams();
         }
       }
     };
@@ -279,6 +296,18 @@ function Subscription() {
       cancelled = true;
     };
   }, [hasAcceptedCurrentPlatformNotice, isRTL, refreshProfile, searchParams, setSearchParams, showError, showSuccess, tapChargeId]);
+
+  useEffect(() => {
+    if (tapChargeId) {
+      return;
+    }
+
+    if (!searchParams.get('billingProfileSetup') && !searchParams.get('data') && !searchParams.get('tap_redirect')) {
+      return;
+    }
+
+    clearPaymentQueryParams();
+  }, [searchParams, setSearchParams, tapChargeId]);
 
   const fetchLatestSubscriptions = async () => {
     const [activeRes, userSubsRes] = await Promise.all([
@@ -339,13 +368,67 @@ function Subscription() {
     setRequesting(true);
     try {
       const response = await subscriptionsAPI.requestSubscription(packageId, billingTerm);
-      setPendingSubscription(response.data);
+      const nextSubscription = response.data;
+      setCheckoutPurpose('subscription');
+      setPendingSubscription(nextSubscription);
+
+      if (savedBillingProfile?.hasSavedCard) {
+        setShowCheckout(false);
+        await startSavedPaymentMethodCharge(nextSubscription._id);
+        return;
+      }
+
       setShowCheckout(true);
       showSuccess(isRTL ? 'تم إنشاء طلب الاشتراك. أكمل الدفع الإلكتروني لتفعيل الوصول.' : 'Subscription request created. Complete electronic checkout to activate access.');
     } catch (error) {
       showError(error.response?.data?.error || (isRTL ? 'تعذر طلب الاشتراك' : 'Failed to request subscription'));
     } finally {
       setRequesting(false);
+    }
+  };
+
+  const startSavedPaymentMethodCharge = async (subscriptionId) => {
+    if (!subscriptionId) {
+      return false;
+    }
+
+    setAutoChargingSavedMethod(true);
+    try {
+      const response = await paymentsAPI.createTapCharge({
+        subscriptionId,
+        useSavedPaymentMethod: true,
+        checkoutMethod: 'saved_card',
+        checkoutDisclaimerAccepted: true,
+      });
+
+      const payment = response.data?.payment;
+      const redirectUrl = response.data?.redirectUrl;
+
+      if (payment?.status === 'captured' || payment?.status === 'approved') {
+        showSuccess(isRTL ? 'تم استخدام وسيلة الدفع المحفوظة وتفعيل الاشتراك.' : 'Your saved payment method was used and the subscription is now active.');
+        setShowCheckout(false);
+        await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
+        clearPaymentQueryParams();
+        return true;
+      }
+
+      if (redirectUrl) {
+        window.location.assign(redirectUrl);
+        return true;
+      }
+
+      throw new Error(isRTL ? 'تعذر إكمال الدفع باستخدام وسيلة الدفع المحفوظة.' : 'We could not complete the charge using your saved payment method.');
+    } catch (error) {
+      showError(
+        getFriendlyBillingMessage(
+          error.response?.data?.error || error.message,
+          isRTL
+        ) || (isRTL ? 'تعذر استخدام وسيلة الدفع المحفوظة. يمكنك تحديث البطاقة أو إكمال الدفع يدويًا.' : 'We could not use your saved payment method. You can update the card or complete checkout manually.')
+      );
+      setShowCheckout(true);
+      return false;
+    } finally {
+      setAutoChargingSavedMethod(false);
     }
   };
 
@@ -379,8 +462,19 @@ function Subscription() {
     }
   };
 
-  const ensureCheckoutReady = async () => {
-    if (!checkoutSubscription) {
+  const openBillingProfileCheckout = async () => {
+    if (!hasAcceptedCurrentPlatformNotice()) {
+      showError(isRTL ? 'يرجى قبول الشروط والأحكام الخاصة بالمستخدمين قبل المتابعة.' : 'Please accept the Terms & Conditions For Users before continuing.');
+      return;
+    }
+
+    setCheckoutPurpose('billing_profile');
+    setShowCheckout(true);
+    await ensureCheckoutReady('billing_profile');
+  };
+
+  const ensureCheckoutReady = async (purpose = checkoutPurpose) => {
+    if (purpose !== 'billing_profile' && !checkoutSubscription) {
       return null;
     }
 
@@ -417,18 +511,26 @@ function Subscription() {
   };
 
   const submitTokenizedCheckout = async ({ tokenId, checkoutMethod }) => {
-    if (!checkoutSubscription) {
+    if (!isBillingProfileSetupCheckout && !checkoutSubscription) {
       return;
     }
 
-    const response = await paymentsAPI.createTapCharge({
-      subscriptionId: checkoutSubscription._id,
-      tokenId,
-      checkoutMethod,
-      phoneCountryCode,
-      phoneNumber,
-      checkoutDisclaimerAccepted: true,
-    });
+    const response = isBillingProfileSetupCheckout
+      ? await paymentsAPI.createBillingProfileSetupCharge({
+          tokenId,
+          checkoutMethod,
+          phoneCountryCode,
+          phoneNumber,
+          checkoutDisclaimerAccepted: true,
+        })
+      : await paymentsAPI.createTapCharge({
+          subscriptionId: checkoutSubscription._id,
+          tokenId,
+          checkoutMethod,
+          phoneCountryCode,
+          phoneNumber,
+          checkoutDisclaimerAccepted: true,
+        });
 
     const payment = response.data?.payment;
     const redirectUrl = response.data?.redirectUrl;
@@ -436,7 +538,15 @@ function Subscription() {
     if (payment?.status === 'captured' || payment?.status === 'approved') {
       setShowCheckoutDisclaimer(false);
       setApplePayArmed(false);
-      showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
+      showSuccess(
+        isBillingProfileSetupCheckout
+          ? (isRTL ? 'تم حفظ وسيلة الدفع بنجاح.' : 'Your payment method was saved successfully.')
+          : (isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.')
+      );
+      if (isBillingProfileSetupCheckout) {
+        setShowCheckout(false);
+        setCheckoutPurpose('subscription');
+      }
       await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
       return;
     }
@@ -450,7 +560,7 @@ function Subscription() {
   };
 
   const handleConfirmCheckout = async () => {
-    if (!checkoutSubscription) {
+    if (!isBillingProfileSetupCheckout && !checkoutSubscription) {
       return;
     }
 
@@ -536,6 +646,8 @@ function Subscription() {
     ? formatDate(savedBillingProfile.updatedAt)
     : '';
   const applePayAvailable = Boolean(tapConfig?.applePay?.enabled);
+  const isGracePeriod = activeSubscription?.status === 'grace_period';
+  const isCancelScheduled = activeSubscription?.status === 'cancel_scheduled';
   const currentSubscriptionEndsLabel = activeSubscription?.status === 'grace_period'
     ? formatDate(activeSubscription.gracePeriodEndsAt)
     : formatDate(activeSubscription?.endDate);
@@ -638,31 +750,51 @@ function Subscription() {
         </div>
       )}
 
+      {autoChargingSavedMethod && (
+        <div className="card border-primary-200 bg-primary-50 mb-8">
+          <p className="text-sm text-primary-700">
+            {isRTL ? 'جارٍ استخدام وسيلة الدفع المحفوظة لإكمال الاشتراك...' : 'Using your saved payment method to complete the subscription...'}
+          </p>
+        </div>
+      )}
+
       {activeSubscription && (
-        <div className={`card mb-8 ${activeSubscription.status === 'grace_period' ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+        <div className={`card mb-8 ${
+          isGracePeriod
+            ? 'bg-amber-50 border-amber-200'
+            : isCancelScheduled
+              ? 'bg-slate-50 border-slate-200'
+              : 'bg-green-50 border-green-200'
+        }`}>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${activeSubscription.status === 'grace_period' ? 'bg-amber-100' : 'bg-green-50'}`}>
-                  <span className="text-2xl">{activeSubscription.status === 'grace_period' ? '⚠️' : '✅'}</span>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  isGracePeriod ? 'bg-amber-100' : isCancelScheduled ? 'bg-slate-100' : 'bg-green-50'
+                }`}>
+                  <span className="text-2xl">{isGracePeriod ? '⚠️' : isCancelScheduled ? '🗓️' : '✅'}</span>
                 </div>
                 <div>
-                  <h3 className={`text-lg font-semibold ${activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-600'}`}>
-                    {activeSubscription.status === 'grace_period'
+                  <h3 className={`text-lg font-semibold ${isGracePeriod ? 'text-amber-700' : isCancelScheduled ? 'text-slate-700' : 'text-green-600'}`}>
+                    {isGracePeriod
                       ? (isRTL ? 'اشتراك في فترة سماح' : 'Subscription In Grace Period')
+                      : isCancelScheduled
+                        ? (isRTL ? 'إلغاء مجدول' : 'Cancellation Scheduled')
                       : (isRTL ? 'اشتراك نشط' : 'Active Subscription')}
                   </h3>
-                  <p className={activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-600'}>
+                  <p className={isGracePeriod ? 'text-amber-700' : isCancelScheduled ? 'text-slate-700' : 'text-green-600'}>
                     {activeSubscription.package?.name}
                     {activeSubscription.billingTerm ? ` (${getBillingTermLabel(activeSubscription.billingTerm, locale) || activeSubscription.billingTerm})` : ''}
-                    {' '} - {activeSubscription.status === 'grace_period'
+                    {' '} - {isGracePeriod
                       ? (isRTL ? 'فترة السماح تنتهي في' : 'Grace access ends')
+                      : isCancelScheduled
+                        ? (isRTL ? 'الوصول يستمر حتى' : 'Access remains until')
                       : (isRTL ? 'ينتهي في' : 'Expires')} {currentSubscriptionEndsLabel}
                   </p>
                 </div>
               </div>
 
-              {activeSubscription.status === 'grace_period' && (
+              {isGracePeriod && (
                 <div className="rounded-2xl border border-amber-200 bg-white/80 px-4 py-4">
                   <p className="text-sm font-semibold text-amber-800">
                     {isRTL ? 'تعذر تجديد الاشتراك تلقائيًا.' : 'We could not renew this membership automatically.'}
@@ -682,7 +814,10 @@ function Subscription() {
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
-                      onClick={() => setShowCheckout(true)}
+                      onClick={() => {
+                        setCheckoutPurpose('subscription');
+                        setShowCheckout(true);
+                      }}
                       className="btn-primary"
                     >
                       {isRTL ? 'استعادة الاشتراك الآن' : 'Restore Subscription Now'}
@@ -702,10 +837,23 @@ function Subscription() {
                   </div>
                 </div>
               )}
+
+              {isCancelScheduled && (
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {isRTL ? 'تم إيقاف التجديد التلقائي لهذا الاشتراك.' : 'Automatic renewal is off for this membership.'}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">
+                    {isRTL
+                      ? 'سيبقى الوصول متاحًا حتى نهاية الفترة الحالية، وبعدها ينتهي الاشتراك تلقائيًا ما لم تبدأ عملية دفع جديدة.'
+                      : 'Access stays available until current period ends, then membership expires automatically unless you start a new checkout.'}
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className={`rounded-2xl border bg-white/80 px-4 py-4 ${activeSubscription.status === 'grace_period' ? 'border-amber-100' : 'border-green-100'}`}>
-              <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${activeSubscription.status === 'grace_period' ? 'text-amber-700' : 'text-green-700'}`}>
+            <div className={`rounded-2xl border bg-white/80 px-4 py-4 ${isGracePeriod ? 'border-amber-100' : isCancelScheduled ? 'border-slate-100' : 'border-green-100'}`}>
+              <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${isGracePeriod ? 'text-amber-700' : isCancelScheduled ? 'text-slate-700' : 'text-green-700'}`}>
                 {isRTL ? 'الفوترة والتجديد' : 'Billing & Renewal'}
               </p>
 
@@ -759,7 +907,16 @@ function Subscription() {
                         : 'Automatic renewal is not available on this membership yet. It will appear here once a valid payment method is saved to your account.')}
               </p>
 
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={openBillingProfileCheckout}
+                  className="btn-secondary"
+                >
+                  {savedBillingProfile?.hasSavedCard
+                    ? (isRTL ? 'تحديث وسيلة الدفع' : 'Update Payment Method')
+                    : (isRTL ? 'إعداد وسيلة الدفع' : 'Set Up Payment Method')}
+                </button>
                 {activeSubscription.autoRenewEnabled ? (
                   <button
                     type="button"
@@ -783,10 +940,10 @@ function Subscription() {
                       : (isRTL ? 'تشغيل التجديد التلقائي' : 'Turn On Auto-Renew')}
                   </button>
                 )}
-                {activeSubscription.status === 'grace_period' && (
+                {isGracePeriod && (
                   <button
                     type="button"
-                    onClick={() => setShowCheckout(true)}
+                    onClick={openBillingProfileCheckout}
                     className="btn-secondary"
                   >
                     {isRTL ? 'تحديث وسيلة الدفع' : 'Update Payment Method'}
@@ -822,31 +979,106 @@ function Subscription() {
               </div>
             </div>
             <button
-              onClick={() => setShowCheckout(true)}
+              onClick={() => {
+                if (savedBillingProfile?.hasSavedCard && pendingSubscription?._id) {
+                  void startSavedPaymentMethodCharge(pendingSubscription._id);
+                  return;
+                }
+                setCheckoutPurpose('subscription');
+                setShowCheckout(true);
+              }}
               className="btn-primary"
             >
-              {isRTL ? 'متابعة الدفع' : 'Continue Checkout'}
+              {savedBillingProfile?.hasSavedCard
+                ? (isRTL ? 'استخدم وسيلة الدفع المحفوظة' : 'Use Saved Payment Method')
+                : (isRTL ? 'متابعة الدفع' : 'Continue Checkout')}
             </button>
           </div>
         </div>
       )}
 
-      {showCheckout && checkoutSubscription && (
+      {!activeSubscription && !pendingSubscription && user && !showCheckout && (
         <div className="card mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'الدفع الإلكتروني' : 'Electronic Checkout'}</h2>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isRTL ? 'وسيلة الدفع المحفوظة' : 'Saved Payment Method'}
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-gray-600">
+                {savedBillingProfile?.hasSavedCard
+                  ? (savedCardSummary || (isRTL ? 'توجد وسيلة دفع محفوظة على هذا الحساب.' : 'A saved payment method is stored on this account.'))
+                  : (isRTL ? 'لا توجد وسيلة دفع محفوظة على هذا الحساب حتى الآن.' : 'No saved payment method is stored on this account yet.')}
+              </p>
+              {savedBillingUpdatedLabel && (
+                <p className="mt-2 text-xs text-gray-400">
+                  {isRTL ? `آخر تحديث: ${savedBillingUpdatedLabel}` : `Updated: ${savedBillingUpdatedLabel}`}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={openBillingProfileCheckout}
+                className="btn-primary"
+              >
+                {savedBillingProfile?.hasSavedCard
+                  ? (isRTL ? 'تحديث وسيلة الدفع' : 'Update Payment Method')
+                  : (isRTL ? 'إعداد وسيلة الدفع' : 'Set Up Payment Method')}
+              </button>
+              {savedBillingProfile?.hasSavedCard && (
+                <button
+                  type="button"
+                  onClick={handleRemoveSavedPaymentMethod}
+                  disabled={removingBillingProfile}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {removingBillingProfile
+                    ? (isRTL ? 'جارٍ الإزالة...' : 'Removing...')
+                    : (isRTL ? 'إزالة وسيلة الدفع المحفوظة' : 'Remove Saved Payment Method')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCheckout && (checkoutSubscription || isBillingProfileSetupCheckout) && (
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+            {isBillingProfileSetupCheckout
+              ? (isRTL ? 'إعداد وسيلة الدفع' : 'Saved Payment Method Setup')
+              : (isRTL ? 'الدفع الإلكتروني' : 'Electronic Checkout')}
+          </h2>
 
           <div className="rounded-2xl border border-yellow-100 bg-yellow-50/80 px-4 py-4 mb-6">
             <p className="text-sm text-yellow-800 leading-7">
-              {isRecoveryCheckout
-                ? (isRTL ? 'أنت تكمل دفعة استعادة الاشتراك من أجل ' : 'You are completing a subscription recovery payment for ')
-                : (isRTL ? 'أنت تدفع مقابل ' : 'You are paying for ')}
-              <span className="font-semibold">{checkoutSubscription.package?.name}</span>
-              {checkoutSubscription.billingTerm ? ` (${getBillingTermLabel(checkoutSubscription.billingTerm, locale) || checkoutSubscription.billingTerm})` : ''}.
-              {checkoutSubscription.priceAtPurchase
-                ? (isRTL
-                  ? ` المبلغ المطلوب هو ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`
-                  : ` The required amount is ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`)
-                : ''}
+              {isBillingProfileSetupCheckout ? (
+                <>
+                  {isRTL
+                    ? 'سيتم استخدام هذه العملية لحفظ أو تحديث وسيلة الدفع الخاصة بك للتجديدات المستقبلية.'
+                    : 'This checkout will save or update your payment method for future renewals.'}
+                  {checkoutAmount > 0 && (
+                    <>
+                      {isRTL
+                        ? ` مبلغ التحقق المطلوب هو ${formatMoney(checkoutAmount, locale)} ${checkoutCurrency}.`
+                        : ` The verification amount is ${formatMoney(checkoutAmount, locale)} ${checkoutCurrency}.`}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {isRecoveryCheckout
+                    ? (isRTL ? 'أنت تكمل دفعة استعادة الاشتراك من أجل ' : 'You are completing a subscription recovery payment for ')
+                    : (isRTL ? 'أنت تدفع مقابل ' : 'You are paying for ')}
+                  <span className="font-semibold">{checkoutSubscription.package?.name}</span>
+                  {checkoutSubscription.billingTerm ? ` (${getBillingTermLabel(checkoutSubscription.billingTerm, locale) || checkoutSubscription.billingTerm})` : ''}.
+                  {checkoutSubscription.priceAtPurchase
+                    ? (isRTL
+                      ? ` المبلغ المطلوب هو ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`
+                      : ` The required amount is ${formatMoney(checkoutSubscription.priceAtPurchase, locale)} ${checkoutSubscription.currency || checkoutCurrency}.`)
+                    : ''}
+                </>
+              )}
             </p>
           </div>
 
@@ -858,7 +1090,7 @@ function Subscription() {
             </p>
           </div>
 
-          {isRecoveryCheckout && (
+          {!isBillingProfileSetupCheckout && isRecoveryCheckout && (
             <div className="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-4 mb-6">
               <p className="text-sm leading-7 text-amber-900/80">
                 {isRTL
@@ -927,8 +1159,8 @@ function Subscription() {
                 sdkUrl={tapConfig.sdkUrl}
                 publicKey={tapConfig.publicKey}
                 merchantId={tapConfig.merchantId}
-                amount={Number(checkoutSubscription.priceAtPurchase || 0)}
-                currency={checkoutSubscription.currency || tapConfig.currency || checkoutCurrency}
+                amount={checkoutAmount}
+                currency={checkoutCurrency}
                 locale={isRTL ? 'ar' : 'en'}
                 direction={isRTL ? 'rtl' : 'ltr'}
                 customer={tapCustomer}
@@ -966,8 +1198,8 @@ function Subscription() {
                           ...tapConfig.applePay,
                           publicKey: tapConfig.publicKey,
                         }}
-                        amount={Number(checkoutSubscription.priceAtPurchase || 0)}
-                        currency={checkoutSubscription.currency || tapConfig.currency || checkoutCurrency}
+                        amount={checkoutAmount}
+                        currency={checkoutCurrency}
                         locale={isRTL ? 'ar' : 'en'}
                         customer={tapCustomer}
                         onReadyStateChange={setApplePayState}
@@ -1007,6 +1239,7 @@ function Subscription() {
               type="button"
               onClick={() => {
                 setShowCheckout(false);
+                setCheckoutPurpose('subscription');
                 setShowCheckoutDisclaimer(false);
                 setApplePayArmed(false);
                 setApplePayState({ ready: false, error: '' });
@@ -1032,6 +1265,7 @@ function Subscription() {
             const activeBillingOptions = getActiveBillingOptions(pkg);
             const selectedTerm = selectedTerms[pkg._id] || getDefaultBillingTerm(pkg);
             const selectedOption = getBillingOption(pkg, selectedTerm);
+            const selectedCurrency = selectedOption?.currency || pkg.currency || 'SAR';
             const annualSavings = getAnnualSavings(pkg);
             const sixMonthSavings = getSixMonthSavings(pkg);
             const accessNames = getPackageAccessNames(pkg);
@@ -1112,37 +1346,37 @@ function Subscription() {
                         {selectedOptionOnSale && (
                           <div className="mb-2 flex items-center gap-2">
                             <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 border border-rose-100">
-                              {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ريال` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} SAR`}
+                              {isRTL ? `وفّر ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ${selectedCurrency}` : `Save ${formatMoney(getBillingSaleAmount(selectedOption), locale)} ${selectedCurrency}`}
                             </span>
                           </div>
                         )}
                         {selectedOptionOnSale && (
                           <p className="text-sm text-gray-400 line-through">
-                            {formatMoney(selectedOption.price, locale)} SAR
+                            {formatMoney(selectedOption.price, locale)} {selectedCurrency}
                           </p>
                         )}
                         <span className="text-3xl font-bold text-gray-900">{formatMoney(getEffectiveBillingPrice(selectedOption), locale)}</span>
-                        <span className="text-gray-500"> SAR</span>
+                        <span className="text-gray-500"> {selectedCurrency}</span>
                         <p className="text-sm text-gray-500 mt-1">
                           {getBillingCadenceLabel(selectedOption.term, locale)}
                         </p>
                         {selectedOption.term === 'six_months' && sixMonthSavings && (
                           <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                             <p className="text-sm font-semibold text-emerald-700">
-                              {isRTL ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ريال خلال 6 أشهر` : `Save ${formatMoney(sixMonthSavings.savings, locale)} SAR over 6 months`}
+                              {isRTL ? `وفّر ${formatMoney(sixMonthSavings.savings, locale)} ${selectedCurrency} خلال 6 أشهر` : `Save ${formatMoney(sixMonthSavings.savings, locale)} ${selectedCurrency} over 6 months`}
                             </p>
                             <p className="text-xs text-emerald-600 mt-1">
-                              {isRTL ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} SAR per month.`}
+                              {isRTL ? `ما يعادل ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ${selectedCurrency} شهريًا.` : `Equivalent to ${formatMoney(sixMonthSavings.monthlyEquivalent, locale)} ${selectedCurrency} per month.`}
                             </p>
                           </div>
                         )}
                         {selectedOption.term === 'annual' && annualSavings && (
                           <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                             <p className="text-sm font-semibold text-emerald-700">
-                              {isRTL ? `وفّر ${formatMoney(annualSavings.savings, locale)} ريال سنويًا` : `Save ${formatMoney(annualSavings.savings, locale)} SAR each year`}
+                              {isRTL ? `وفّر ${formatMoney(annualSavings.savings, locale)} ${selectedCurrency} سنويًا` : `Save ${formatMoney(annualSavings.savings, locale)} ${selectedCurrency} each year`}
                             </p>
                             <p className="text-xs text-emerald-600 mt-1">
-                              {isRTL ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ريال شهريًا.` : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} SAR per month.`}
+                              {isRTL ? `ما يعادل ${formatMoney(annualSavings.monthlyEquivalent, locale)} ${selectedCurrency} شهريًا.` : `Equivalent to ${formatMoney(annualSavings.monthlyEquivalent, locale)} ${selectedCurrency} per month.`}
                             </p>
                           </div>
                         )}
@@ -1212,10 +1446,10 @@ function Subscription() {
                 ) : (
                   <button
                     onClick={() => handleRequestSubscription(pkg._id, selectedOption?.term)}
-                    disabled={requesting || !selectedOption}
+                    disabled={requesting || autoChargingSavedMethod || !selectedOption}
                     className="btn-primary w-full mt-auto disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {requesting
+                    {(requesting || autoChargingSavedMethod)
                       ? (isRTL ? 'جارٍ المعالجة...' : 'Processing...')
                       : (isRTL
                         ? `اختر ${getBillingTermLabel(selectedOption?.term, locale) || 'الخطة'}`

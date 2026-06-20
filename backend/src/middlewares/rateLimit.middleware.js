@@ -217,6 +217,20 @@ export const authLoginRateLimit = createIpRateLimiter({
   message: 'Too many login attempts. Please try again later.',
 });
 
+export const passwordResetRequestRateLimit = createIpRateLimiter({
+  namespace: 'password-reset-request',
+  windowMs: parsePositiveInteger(process.env.PASSWORD_RESET_REQUEST_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+  max: parsePositiveInteger(process.env.PASSWORD_RESET_REQUEST_RATE_LIMIT_MAX, 5),
+  message: 'Too many password reset requests. Please try again later.',
+});
+
+export const passwordResetConfirmRateLimit = createIpRateLimiter({
+  namespace: 'password-reset-confirm',
+  windowMs: parsePositiveInteger(process.env.PASSWORD_RESET_CONFIRM_RATE_LIMIT_WINDOW_MS, 30 * 60 * 1000),
+  max: parsePositiveInteger(process.env.PASSWORD_RESET_CONFIRM_RATE_LIMIT_MAX, 10),
+  message: 'Too many password reset attempts. Please try again later.',
+});
+
 export const inviteAcceptRateLimit = createIpRateLimiter({
   namespace: 'invite-accept',
   windowMs: parsePositiveInteger(process.env.INVITE_ACCEPT_RATE_LIMIT_WINDOW_MS, 30 * 60 * 1000),

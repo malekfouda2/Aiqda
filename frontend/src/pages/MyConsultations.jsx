@@ -36,6 +36,8 @@ function MyConsultations() {
       case 'confirmed': return 'bg-green-50 text-green-600';
       case 'rejected': return 'bg-red-50 text-red-600';
       case 'cancelled': return 'bg-gray-50 text-gray-600';
+      case 'payment_failed': return 'bg-red-50 text-red-600';
+      case 'payment_pending': return 'bg-blue-50 text-blue-700';
       case 'pending':
       default: return 'bg-yellow-50 text-yellow-600';
     }
@@ -46,6 +48,8 @@ function MyConsultations() {
       case 'confirmed': return 'bg-green-400';
       case 'rejected': return 'bg-red-400';
       case 'cancelled': return 'bg-gray-400';
+      case 'payment_failed': return 'bg-red-400';
+      case 'payment_pending': return 'bg-blue-400';
       case 'pending':
       default: return 'bg-yellow-400';
     }
@@ -87,6 +91,7 @@ function MyConsultations() {
         >
           {bookings.map((booking) => {
             const safeZoomLink = getSafeExternalHref(booking.zoomLink);
+            const bookingCurrency = booking.currency || booking.consultation?.currency || 'SAR';
 
             return (
               <motion.div
@@ -116,19 +121,41 @@ function MyConsultations() {
                     </span>
                     <span className="text-gray-300">•</span>
                     <span className="text-gray-600 font-medium">
-                      {booking.priceType === 'fixed' ? `${booking.amount} SAR` : (isRTL ? 'حسب الاتفاق' : 'Contract Based')}
+                      {booking.priceType === 'fixed' ? `${booking.amount} ${bookingCurrency}` : (isRTL ? 'حسب الاتفاق' : 'Contract Based')}
                     </span>
-                    {booking.paymentReference && (
+                    {(booking.paymentReference || booking.latestPayment?.paymentReference || booking.latestPayment?.tapChargeId) && (
                       <>
                         <span className="text-gray-300">•</span>
-                        <span className="text-gray-500 text-sm">{isRTL ? 'المرجع:' : 'Ref:'} {booking.paymentReference}</span>
+                        <span className="text-gray-500 text-sm">
+                          {isRTL ? 'المرجع:' : 'Ref:'} {booking.paymentReference || booking.latestPayment?.paymentReference || booking.latestPayment?.tapChargeId}
+                        </span>
                       </>
                     )}
                   </div>
 
+                  {booking.status === 'payment_pending' && (
+                    <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-100 text-blue-700 text-sm">
+                      {isRTL ? 'تم إنشاء عملية الدفع وما زالت قيد التأكيد.' : 'Your payment was created and is still awaiting confirmation.'}
+                    </div>
+                  )}
+
+                  {booking.status === 'payment_failed' && (
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm">
+                      <span className="font-semibold">{isRTL ? 'فشل الدفع:' : 'Payment failed:'}</span>{' '}
+                      {booking.paymentFailureReason || booking.latestPayment?.failureReason || (isRTL ? 'يرجى المحاولة مرة أخرى.' : 'Please try again.')}
+                    </div>
+                  )}
+
                   {booking.status === 'rejected' && booking.rejectionReason && (
                     <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm">
                       <span className="font-semibold">{isRTL ? 'السبب:' : 'Reason:'}</span> {booking.rejectionReason}
+                    </div>
+                  )}
+
+                  {booking.latestPayment?.refundStatus === 'refunded' && (
+                    <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-100 text-sky-700 text-sm">
+                      <span className="font-semibold">{isRTL ? 'تم الاسترداد:' : 'Refunded:'}</span>{' '}
+                      {booking.latestPayment.refundAmount} {booking.latestPayment.refundCurrency || bookingCurrency}
                     </div>
                   )}
 

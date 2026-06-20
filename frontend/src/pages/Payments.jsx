@@ -29,6 +29,40 @@ const getFriendlyPaymentReason = (message, isRTL) => {
     .trim();
 };
 
+const getPaymentTypeLabel = (payment, isRTL) => {
+  switch (payment.paymentType) {
+    case 'renewal':
+      return isRTL ? 'تجديد تلقائي' : 'Automatic renewal';
+    case 'recovery':
+      return isRTL ? 'استعادة الاشتراك' : 'Recovery checkout';
+    case 'consultation':
+      return isRTL ? 'استشارة' : 'Consultation';
+    case 'billing_profile_setup':
+      return isRTL ? 'إعداد وسيلة الدفع' : 'Payment method setup';
+    default:
+      return isRTL ? 'دفع أولي' : 'Initial checkout';
+  }
+};
+
+const getPaymentContextLabel = (payment, isRTL) => {
+  if (payment.consultationBooking?.consultation?.title) {
+    return payment.consultationBooking.consultation.title;
+  }
+
+  if (payment.subscription?.package?.name) {
+    const billingTerm = payment.subscription.billingTerm;
+    return billingTerm
+      ? `${payment.subscription.package.name} (${billingTerm.replace(/_/g, ' ')})`
+      : payment.subscription.package.name;
+  }
+
+  if (payment.paymentType === 'billing_profile_setup') {
+    return isRTL ? 'حفظ وسيلة الدفع' : 'Saved payment method';
+  }
+
+  return '—';
+};
+
 function Payments() {
   const { formatDate, isRTL } = useLocale();
   const [payments, setPayments] = useState([]);
@@ -79,7 +113,7 @@ function Payments() {
     >
       <motion.div variants={fadeInUp}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{isRTL ? 'سجل المدفوعات' : 'Payment History'}</h1>
-        <p className="text-gray-500 mb-8">{isRTL ? 'اطلع على جميع عمليات الدفع الخاصة باشتراكك' : 'View all subscription payment attempts and confirmations'}</p>
+        <p className="text-gray-500 mb-8">{isRTL ? 'اطلع على جميع عمليات الدفع والاسترداد الخاصة بحسابك' : 'View all payment attempts, confirmations, and refunds on your account'}</p>
       </motion.div>
 
       {payments.length === 0 ? (
@@ -90,54 +124,87 @@ function Payments() {
         </motion.div>
       ) : (
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
-          {payments.map((payment) => (
-            <motion.div key={payment._id} variants={cardVariants} className="card">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
-                      {payment.status}
-                    </span>
-                    <span className="text-gray-400 text-sm">
-                      {formatDate(payment.createdAt)}
-                    </span>
+          {payments.map((payment) => {
+            const currency = payment.currency || 'SAR';
+            const refundCurrency = payment.refundCurrency || currency;
+
+            return (
+              <motion.div key={payment._id} variants={cardVariants} className="card">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${getStatusColor(payment.status)}`}>
+                        {payment.status}
+                      </span>
+                      {payment.refundStatus && payment.refundStatus !== 'not_refunded' && (
+                        <span className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${
+                          payment.refundStatus === 'refunded'
+                            ? 'bg-sky-50 text-sky-700'
+                            : payment.refundStatus === 'failed'
+                              ? 'bg-rose-50 text-rose-600'
+                              : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {payment.refundStatus === 'refunded'
+                            ? (isRTL ? 'تم الاسترداد' : 'Refunded')
+                            : payment.refundStatus === 'pending'
+                              ? (isRTL ? 'استرداد قيد المعالجة' : 'Refund pending')
+                              : (isRTL ? 'فشل الاسترداد' : 'Refund failed')}
+                        </span>
+                      )}
+                      <span className="text-gray-400 text-sm">
+                        {formatDate(payment.createdAt)}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-900 font-medium">
+                      {isRTL ? 'السياق:' : 'Context:'} {getPaymentContextLabel(payment, isRTL)}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      {isRTL ? 'المرجع:' : 'Reference:'} {payment.paymentReference || payment.tapChargeId || '—'}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      {isRTL ? 'نوع العملية:' : 'Type:'} {getPaymentTypeLabel(payment, isRTL)}
+                    </p>
+                    {payment.checkoutMethod && (
+                      <p className="text-gray-400 text-sm">
+                        {isRTL ? 'وسيلة الدفع:' : 'Method:'} {payment.checkoutMethod === 'apple_pay'
+                          ? 'Apple Pay'
+                          : payment.checkoutMethod === 'saved_card'
+                            ? (isRTL ? 'البطاقة المحفوظة' : 'Saved payment method')
+                            : (isRTL ? 'البطاقة' : 'Card')}
+                      </p>
+                    )}
+                    {(payment.status === 'rejected' || payment.status === 'failed' || payment.status === 'cancelled') && (payment.rejectionReason || payment.failureReason) && (
+                      <p className="text-red-600 text-sm">
+                        {isRTL ? 'السبب:' : 'Reason:'} {getFriendlyPaymentReason(payment.rejectionReason || payment.failureReason, isRTL)}
+                      </p>
+                    )}
+                    {payment.refundReason && (
+                      <p className="text-sky-700 text-sm">
+                        {isRTL ? 'سبب الاسترداد:' : 'Refund reason:'} {payment.refundReason}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-gray-900 font-medium">
-                    {isRTL ? 'المرجع:' : 'Reference:'} {payment.paymentReference || payment.tapChargeId || '—'}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {isRTL ? 'المبلغ:' : 'Amount:'} {payment.amount} {payment.currency || 'SAR'}
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    {isRTL ? 'نوع العملية:' : 'Type:'} {payment.paymentType === 'renewal'
-                      ? (isRTL ? 'تجديد تلقائي' : 'Automatic renewal')
-                      : payment.paymentType === 'recovery'
-                        ? (isRTL ? 'استعادة الاشتراك' : 'Recovery checkout')
-                        : (isRTL ? 'دفع أولي' : 'Initial checkout')}
-                  </p>
-                  {payment.checkoutMethod && (
-                    <p className="text-gray-400 text-sm">
-                      {isRTL ? 'وسيلة الدفع:' : 'Method:'} {payment.checkoutMethod === 'apple_pay'
-                        ? 'Apple Pay'
-                        : payment.checkoutMethod === 'saved_card'
-                          ? (isRTL ? 'البطاقة المحفوظة' : 'Saved payment method')
-                          : (isRTL ? 'البطاقة' : 'Card')}
+
+                  <div className="lg:text-right">
+                    <p className="text-lg font-semibold text-gray-900">
+                      {payment.amount} {currency}
                     </p>
-                  )}
+                    {payment.refundStatus === 'refunded' && (
+                      <p className="text-sm text-sky-700 mt-1">
+                        {isRTL ? 'المسترد:' : 'Refunded:'} {payment.refundAmount} {refundCurrency}
+                      </p>
+                    )}
+                    {payment.refundedAt && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {isRTL ? 'تاريخ الاسترداد:' : 'Refunded on:'} {formatDate(payment.refundedAt)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-gray-900">
-                    {payment.amount} {payment.currency || 'SAR'}
-                  </p>
-                  {(payment.status === 'rejected' || payment.status === 'failed' || payment.status === 'cancelled') && (payment.rejectionReason || payment.failureReason) && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {isRTL ? 'السبب:' : 'Reason:'} {getFriendlyPaymentReason(payment.rejectionReason || payment.failureReason, isRTL)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </motion.div>
       )}
     </motion.div>

@@ -87,6 +87,11 @@ function Login() {
                 placeholder={isRTL ? 'أدخل كلمة المرور' : 'Enter your password'}
                 required
               />
+              <div className={`mt-2 flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
+                <Link to="/forgot-password" className="text-sm text-primary-500 hover:text-primary-600 font-medium transition-colors">
+                  {isRTL ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
+                </Link>
+              </div>
             </div>
 
             <button

@@ -1,22 +1,32 @@
 import Payment from './payment.model.js';
 import User from '../users/user.model.js';
 import { Subscription } from '../subscriptions/subscription.model.js';
+import ConsultationBooking from '../consultations/consultationBooking.model.js';
+import Consultation from '../consultations/consultation.model.js';
 import {
   CHECKOUT_DISCLAIMER_ERROR_MESSAGE,
   hasAcceptedCheckoutDisclaimer,
   REFUND_POLICY_VERSION
 } from '../../config/refundPolicy.js';
 import { sendEmail } from '../../utils/email.js';
+import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
 import {
   buildSubscriptionActivatedEmail,
+  buildSubscriptionCancelledEmail,
+  buildSubscriptionGraceExpiredEmail,
   buildSubscriptionRenewedEmail,
   buildSubscriptionRenewalFailedEmail,
-  buildSubscriptionGraceExpiredEmail,
+  buildConsultationBookingAdminNotificationEmail,
+  buildConsultationBookingCancelledEmail,
+  buildConsultationBookingConfirmedEmail,
+  buildConsultationBookingReceivedEmail,
+  buildConsultationBookingRejectedEmail,
 } from '../../utils/emailTemplates.js';
 import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
 import {
   assertTapConfigured,
   createTapCharge,
+  createTapRefund,
   createTapSavedCardToken,
   getTapApplePayCssUrl,
   getTapApplePayDomain,
@@ -28,16 +38,19 @@ import {
   getTapPublicKey,
   isTapApplePayConfigured,
   mapTapChargeStatus,
+  normalizeCurrency,
   retrieveTapCharge,
   verifyTapChargeHashString,
 } from './tap.service.js';
 
-const LEGACY_PENDING_STATUSES = ['submitted', 'initiated'];
-const LEGACY_SUCCESS_STATUSES = ['approved', 'captured'];
+const PENDING_PAYMENT_STATUSES = ['submitted', 'initiated'];
+const SUCCESSFUL_PAYMENT_STATUSES = ['approved', 'captured'];
 const FAILURE_STATUSES = ['rejected', 'failed', 'cancelled'];
-const ACTIVE_ACCESS_STATUSES = ['active', 'grace_period'];
+const ACTIVE_ACCESS_STATUSES = ['active', 'grace_period', 'cancel_scheduled'];
 const DEFAULT_GRACE_PERIOD_DAYS = 7;
 const DEFAULT_RENEWAL_RETRY_DELAYS_HOURS = [12, 36, 72];
+const DEFAULT_BILLING_PROFILE_SETUP_AMOUNT = 1;
+const DEFAULT_REFUND_WINDOW_HOURS = 24;
 
 const parsePositiveInteger = (value, fallback) => {
   const normalized = Number(value);
@@ -63,8 +76,26 @@ const getGracePeriodDays = () => parsePositiveInteger(
   DEFAULT_GRACE_PERIOD_DAYS
 );
 
+const getRefundWindowHours = () => parsePositiveInteger(
+  process.env.PAYMENT_REFUND_WINDOW_HOURS,
+  DEFAULT_REFUND_WINDOW_HOURS
+);
+
+const getBillingProfileSetupAmount = () => {
+  const normalized = Number(process.env.TAP_BILLING_PROFILE_SETUP_AMOUNT || DEFAULT_BILLING_PROFILE_SETUP_AMOUNT);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : DEFAULT_BILLING_PROFILE_SETUP_AMOUNT;
+};
+
+const getBillingProfileSetupCurrency = () => normalizeCurrency(
+  process.env.TAP_BILLING_PROFILE_SETUP_CURRENCY || getSubscriptionCurrency()
+);
+
 const populatePaymentQuery = (query) => query
   .populate('user', 'name email')
+  .populate({
+    path: 'consultationBooking',
+    populate: { path: 'consultation', select: 'title duration mode priceType currency' },
+  })
   .populate({
     path: 'subscription',
     populate: { path: 'package', select: 'name durationDays' },
@@ -128,8 +159,10 @@ const buildTapWebhookUrl = () => {
   return `${baseUrl}/api/payments/tap/webhook`;
 };
 
-const buildTapRedirectUrl = (subscriptionId) => {
-  const baseUrl = getFrontendBaseUrl();
+const normalizeBaseUrl = (value) => String(value || '').trim().replace(/\/$/, '');
+
+const buildTapRedirectUrl = (subscriptionId, frontendBaseUrl = null) => {
+  const baseUrl = normalizeBaseUrl(frontendBaseUrl) || getFrontendBaseUrl();
   if (!baseUrl) {
     throw new Error('FRONTEND_URL or APP_URL is required for Tap redirect handling.');
   }
@@ -137,6 +170,34 @@ const buildTapRedirectUrl = (subscriptionId) => {
   const params = new URLSearchParams({
     tap_redirect: '1',
     subscriptionId: subscriptionId,
+  });
+
+  return `${baseUrl}/dashboard/subscription?${params.toString()}`;
+};
+
+const buildTapConsultationRedirectUrl = (consultationId, bookingId, frontendBaseUrl = null) => {
+  const baseUrl = normalizeBaseUrl(frontendBaseUrl) || getFrontendBaseUrl();
+  if (!baseUrl) {
+    throw new Error('FRONTEND_URL or APP_URL is required for Tap redirect handling.');
+  }
+
+  const params = new URLSearchParams({
+    tap_redirect: '1',
+    consultationBookingId: bookingId,
+  });
+
+  return `${baseUrl}/consultations/${consultationId}?${params.toString()}`;
+};
+
+const buildTapBillingProfileRedirectUrl = (frontendBaseUrl = null) => {
+  const baseUrl = normalizeBaseUrl(frontendBaseUrl) || getFrontendBaseUrl();
+  if (!baseUrl) {
+    throw new Error('FRONTEND_URL or APP_URL is required for Tap redirect handling.');
+  }
+
+  const params = new URLSearchParams({
+    tap_redirect: '1',
+    billingProfileSetup: '1',
   });
 
   return `${baseUrl}/dashboard/subscription?${params.toString()}`;
@@ -242,9 +303,9 @@ const buildRenewalCycleKey = (subscription) => {
   return `${subscription._id.toString()}:${anchor.toISOString()}`;
 };
 
-const isSuccessfulPaymentStatus = (status) => LEGACY_SUCCESS_STATUSES.includes(status);
+const isSuccessfulPaymentStatus = (status) => SUCCESSFUL_PAYMENT_STATUSES.includes(status);
 
-const isPendingPaymentStatus = (status) => LEGACY_PENDING_STATUSES.includes(status);
+const isPendingPaymentStatus = (status) => PENDING_PAYMENT_STATUSES.includes(status);
 
 const normalizePaymentFilter = (status) => {
   if (!status || status === 'all') {
@@ -253,9 +314,9 @@ const normalizePaymentFilter = (status) => {
 
   switch (status) {
     case 'pending':
-      return { status: { $in: LEGACY_PENDING_STATUSES } };
+      return { status: { $in: PENDING_PAYMENT_STATUSES } };
     case 'successful':
-      return { status: { $in: LEGACY_SUCCESS_STATUSES } };
+      return { status: { $in: SUCCESSFUL_PAYMENT_STATUSES } };
     case 'unsuccessful':
       return { status: { $in: FAILURE_STATUSES } };
     default:
@@ -277,6 +338,30 @@ const updateSubscriptionAutoRenewState = (subscription, {
     subscription.renewalFailureReason = null;
     subscription.renewalFailureCount = 0;
   }
+};
+
+const isRefundedPayment = (payment = {}) => (
+  payment.refundStatus === 'refunded'
+  && Number(payment.refundAmount || 0) > 0
+);
+
+const getNetPaymentAmount = (payment = {}) => {
+  const grossAmount = Number(payment.amount || 0);
+  const refundedAmount = isRefundedPayment(payment) ? Number(payment.refundAmount || 0) : 0;
+  return Math.max(0, grossAmount - refundedAmount);
+};
+
+const isRefundEligible = (payment, now = new Date()) => {
+  if (!payment || !isSuccessfulPaymentStatus(payment.status) || isRefundedPayment(payment)) {
+    return false;
+  }
+
+  const createdAt = payment.createdAt instanceof Date ? payment.createdAt : new Date(payment.createdAt || 0);
+  if (Number.isNaN(createdAt.getTime())) {
+    return false;
+  }
+
+  return (now.getTime() - createdAt.getTime()) <= (getRefundWindowHours() * 60 * 60 * 1000);
 };
 
 const sendSubscriptionActivationEmail = async ({ payment, subscription, renewal = false }) => {
@@ -350,6 +435,250 @@ const sendSubscriptionGraceExpiredEmail = async ({ payment, subscription }) => {
   } catch (error) {
     console.error('Failed to send subscription grace expiration email:', error.message);
   }
+};
+
+const sendConsultationBookingReceivedEmail = async (booking) => {
+  if (!booking?.user?.email) {
+    return;
+  }
+
+  const receivedEmail = buildConsultationBookingReceivedEmail({
+    recipientName: booking.user.name,
+    consultationTitle: booking.consultation?.title || 'your consultation',
+  });
+
+  try {
+    await sendEmail({
+      to: booking.user.email,
+      subject: receivedEmail.subject,
+      text: receivedEmail.text,
+      html: receivedEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation booking acknowledgement email:', error.message);
+  }
+};
+
+const sendConsultationBookingAdminNotification = async (booking, payment = null) => {
+  if (!booking?.user?.email) {
+    return;
+  }
+
+  const adminNotificationEmail = buildConsultationBookingAdminNotificationEmail({
+    recipientName: booking.user.name,
+    recipientEmail: booking.user.email,
+    consultationTitle: booking.consultation?.title || 'Consultation',
+    amount: booking.amount,
+    currency: booking.currency || payment?.currency || booking.consultation?.currency || getSubscriptionCurrency(),
+    priceType: booking.priceType,
+    paymentReference: payment?.paymentReference || payment?.tapChargeId || booking.paymentReference,
+  });
+
+  try {
+    await sendAdminNotificationEmail({
+      replyTo: booking.user.email,
+      subject: adminNotificationEmail.subject,
+      text: adminNotificationEmail.text,
+      html: adminNotificationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation booking admin notification email:', error.message);
+  }
+};
+
+const sendConsultationBookingCancelledEmailMessage = async (booking) => {
+  if (!booking?.user?.email) {
+    return;
+  }
+
+  const cancellationEmail = buildConsultationBookingCancelledEmail({
+    recipientName: booking.user.name,
+    consultationTitle: booking.consultation?.title || 'your consultation',
+  });
+
+  try {
+    await sendEmail({
+      to: booking.user.email,
+      subject: cancellationEmail.subject,
+      text: cancellationEmail.text,
+      html: cancellationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation cancellation email:', error.message);
+  }
+};
+
+const sendConsultationBookingRejectedEmailMessage = async (booking, reason) => {
+  if (!booking?.user?.email) {
+    return;
+  }
+
+  const rejectionEmail = buildConsultationBookingRejectedEmail({
+    recipientName: booking.user.name,
+    consultationTitle: booking.consultation?.title || 'your consultation',
+    reason,
+  });
+
+  try {
+    await sendEmail({
+      to: booking.user.email,
+      subject: rejectionEmail.subject,
+      text: rejectionEmail.text,
+      html: rejectionEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation rejection email:', error.message);
+  }
+};
+
+const sendConsultationBookingConfirmedEmailMessage = async (booking) => {
+  if (!booking?.user?.email) {
+    return;
+  }
+
+  const confirmationEmail = buildConsultationBookingConfirmedEmail({
+    recipientName: booking.user.name,
+    consultationTitle: booking.consultation?.title || 'your consultation',
+    zoomLink: booking.zoomLink,
+  });
+
+  try {
+    await sendEmail({
+      to: booking.user.email,
+      subject: confirmationEmail.subject,
+      text: confirmationEmail.text,
+      html: confirmationEmail.html,
+    });
+  } catch (error) {
+    console.error('Failed to send consultation confirmation email:', error.message);
+  }
+};
+
+const markPaymentRefundState = async (payment, {
+  refundStatus,
+  refundAmount = null,
+  refundCurrency = null,
+  refundReason = null,
+  refundedBy = null,
+  tapRefundId = null,
+  tapRefundStatus = null,
+  refundSnapshot = null,
+} = {}) => {
+  payment.refundStatus = refundStatus;
+  payment.refundAmount = refundAmount;
+  payment.refundCurrency = refundCurrency;
+  payment.refundReason = refundReason;
+  payment.refundedBy = refundedBy || null;
+  payment.tapRefundId = tapRefundId;
+  payment.tapRefundStatus = tapRefundStatus;
+  payment.refundSnapshot = refundSnapshot;
+  payment.refundedAt = refundStatus === 'refunded' ? new Date() : null;
+  await payment.save();
+  return payment;
+};
+
+const revokeSubscriptionAccessAfterRefund = async (payment) => {
+  const paymentRecord = payment?.subscription
+    ? payment
+    : await populatePaymentQuery(Payment.findById(payment?._id || payment));
+
+  if (!paymentRecord?.subscription || getNetPaymentAmount(paymentRecord) > 0) {
+    return paymentRecord;
+  }
+
+  const subscription = await Subscription.findById(
+    paymentRecord.subscription._id || paymentRecord.subscription
+  ).populate('package user');
+
+  if (!subscription) {
+    return paymentRecord;
+  }
+
+  const now = paymentRecord.refundedAt || new Date();
+
+  subscription.status = 'cancelled';
+  subscription.endDate = now;
+  subscription.gracePeriodEndsAt = null;
+  subscription.nextRenewalRetryAt = null;
+  subscription.renewalFailureReason = null;
+  subscription.renewalFailureCount = 0;
+  subscription.renewalProcessingAt = null;
+  subscription.cancelScheduledAt = now;
+  subscription.cancelEffectiveAt = now;
+  subscription.cancelReason = 'refunded';
+  updateSubscriptionAutoRenewState(subscription, {
+    enabled: false,
+    reason: 'admin',
+    at: now,
+  });
+
+  await subscription.save();
+
+  return paymentRecord;
+};
+
+export const refundSuccessfulPayment = async (paymentId, {
+  reason,
+  refundedBy = null,
+  amount = null,
+} = {}) => {
+  const payment = await populatePaymentQuery(Payment.findById(paymentId));
+  if (!payment) {
+    throw new Error('Payment not found');
+  }
+
+  if (!isSuccessfulPaymentStatus(payment.status)) {
+    throw new Error('Only successful payments can be refunded.');
+  }
+
+  if (isRefundedPayment(payment)) {
+    return payment;
+  }
+
+  const refundAmount = Number(amount ?? payment.amount ?? 0);
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+    throw new Error('A valid refund amount is required.');
+  }
+
+  await markPaymentRefundState(payment, {
+    refundStatus: 'pending',
+    refundAmount,
+    refundCurrency: payment.currency,
+    refundReason: reason,
+    refundedBy,
+  });
+
+  try {
+    const refund = await createTapRefund({
+      charge_id: payment.tapChargeId,
+      amount: refundAmount,
+      currency: payment.currency,
+      reason: reason || 'Refund requested by Aiqda.',
+    });
+
+    await markPaymentRefundState(payment, {
+      refundStatus: 'refunded',
+      refundAmount,
+      refundCurrency: payment.currency,
+      refundReason: reason,
+      refundedBy,
+      tapRefundId: refund.id || null,
+      tapRefundStatus: refund.status || null,
+      refundSnapshot: refund,
+    });
+    await revokeSubscriptionAccessAfterRefund(payment);
+  } catch (error) {
+    await markPaymentRefundState(payment, {
+      refundStatus: 'failed',
+      refundAmount,
+      refundCurrency: payment.currency,
+      refundReason: error.message || reason,
+      refundedBy,
+    });
+    throw error;
+  }
+
+  return populatePaymentQuery(Payment.findById(payment._id));
 };
 
 const activateOrRenewSubscriptionFromPayment = async (payment, activationSource) => {
@@ -548,6 +877,63 @@ const finalizeFailedRenewalFromPayment = async (payment, reason) => {
   return populatePaymentQuery(Payment.findById(paymentRecord._id));
 };
 
+const finalizeConsultationBookingFromPayment = async (payment, failureReason = null) => {
+  const paymentRecord = payment.user && payment.consultationBooking
+    ? payment
+    : await populatePaymentQuery(
+      Payment.findById(payment._id || payment)
+    );
+
+  if (!paymentRecord?.consultationBooking) {
+    return paymentRecord;
+  }
+
+  const booking = await ConsultationBooking.findById(paymentRecord.consultationBooking._id || paymentRecord.consultationBooking)
+    .populate('consultation user');
+  if (!booking) {
+    return paymentRecord;
+  }
+
+  if (isSuccessfulPaymentStatus(paymentRecord.status)) {
+    booking.status = 'pending';
+    booking.paymentFailureReason = null;
+    booking.paymentReference = paymentRecord.paymentReference || paymentRecord.tapChargeId || booking.paymentReference;
+    booking.paidAt = new Date();
+    await booking.save();
+    await sendConsultationBookingReceivedEmail(booking);
+    await sendConsultationBookingAdminNotification(booking, paymentRecord);
+  } else {
+    booking.status = 'payment_failed';
+    booking.paymentFailureReason = failureReason || paymentRecord.failureReason || paymentRecord.tapResponseMessage || 'The consultation payment could not be completed.';
+    await booking.save();
+  }
+
+  return populatePaymentQuery(Payment.findById(paymentRecord._id));
+};
+
+const finalizeBillingProfileSetupPayment = async (payment) => {
+  const paymentRecord = payment.user
+    ? payment
+    : await populatePaymentQuery(Payment.findById(payment._id || payment));
+
+  if (!paymentRecord) {
+    return null;
+  }
+
+  if (isSuccessfulPaymentStatus(paymentRecord.status) && !isRefundedPayment(paymentRecord)) {
+    try {
+      await refundSuccessfulPayment(paymentRecord._id, {
+        reason: 'Automatic refund after saved payment method setup.',
+      });
+    } catch (error) {
+      paymentRecord.failureReason = paymentRecord.failureReason || error.message;
+      await paymentRecord.save();
+    }
+  }
+
+  return populatePaymentQuery(Payment.findById(paymentRecord._id));
+};
+
 const applyTapChargeSnapshotToPayment = async (payment, charge, {
   verifiedWebhook = false,
   activationSource = 'tap_capture',
@@ -597,6 +983,23 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
     return finalizeFailedRenewalFromPayment(payment, payment.failureReason);
   }
 
+  if (payment.paymentType === 'billing_profile_setup' && isSuccessfulPaymentStatus(nextStatus)) {
+    return finalizeBillingProfileSetupPayment(payment);
+  }
+
+  if (payment.paymentType === 'consultation') {
+    if (!isSuccessfulPaymentStatus(previousStatus) && isSuccessfulPaymentStatus(nextStatus)) {
+      return finalizeConsultationBookingFromPayment(payment);
+    }
+
+    if (nextStatus === 'failed' || nextStatus === 'cancelled') {
+      return finalizeConsultationBookingFromPayment(
+        payment,
+        payment.failureReason || payment.tapResponseMessage
+      );
+    }
+  }
+
   if (!isSuccessfulPaymentStatus(previousStatus) && isSuccessfulPaymentStatus(nextStatus)) {
     return activateOrRenewSubscriptionFromPayment(payment, activationSource);
   }
@@ -632,6 +1035,9 @@ const findPaymentForTapCharge = async (charge, userId = null) => {
   if (orderReference.startsWith('subscription_')) {
     queries.push({ subscription: orderReference.replace(/^subscription_/, '') });
   }
+  if (orderReference.startsWith('consultation_')) {
+    queries.push({ consultationBooking: orderReference.replace(/^consultation_/, '') });
+  }
 
   for (const query of queries) {
     const scopedQuery = userId ? { ...query, user: userId } : query;
@@ -646,27 +1052,28 @@ const findPaymentForTapCharge = async (charge, userId = null) => {
 
 const buildTapChargePayload = ({
   payment,
-  subscription,
-  packageName,
   user,
   tokenId,
   phoneDetails,
   description,
+  orderReference,
+  redirectUrl,
+  metadata = {},
 }) => ({
   amount: payment.amount,
   currency: payment.currency,
   customer_initiated: true,
   threeDSecure: true,
   save_card: true,
-  description: description || `Aiqda subscription for ${packageName}`,
+  description,
   metadata: {
     udf1: payment._id.toString(),
-    udf2: subscription._id.toString(),
     udf3: user._id.toString(),
+    ...metadata,
   },
   reference: {
     transaction: `payment_${payment._id}`,
-    order: `subscription_${subscription._id}`,
+    order: orderReference,
     idempotent: payment._id.toString(),
   },
   customer: buildTapCustomerPayload(user, phoneDetails),
@@ -678,7 +1085,74 @@ const buildTapChargePayload = ({
     url: buildTapWebhookUrl(),
   },
   redirect: {
-    url: buildTapRedirectUrl(subscription._id.toString()),
+    url: redirectUrl,
+  },
+});
+
+const buildSubscriptionTapChargePayload = ({
+  payment,
+  subscription,
+  packageName,
+  user,
+  tokenId,
+  phoneDetails,
+  description,
+  frontendBaseUrl,
+}) => buildTapChargePayload({
+  payment,
+  user,
+  tokenId,
+  phoneDetails,
+  description: description || `Aiqda subscription for ${packageName}`,
+  orderReference: `subscription_${subscription._id}`,
+  redirectUrl: buildTapRedirectUrl(subscription._id.toString(), frontendBaseUrl),
+  metadata: {
+    udf2: subscription._id.toString(),
+  },
+});
+
+const buildConsultationTapChargePayload = ({
+  payment,
+  booking,
+  consultationTitle,
+  user,
+  tokenId,
+  phoneDetails,
+  frontendBaseUrl,
+}) => buildTapChargePayload({
+  payment,
+  user,
+  tokenId,
+  phoneDetails,
+  description: `Aiqda consultation booking for ${consultationTitle}`,
+  orderReference: `consultation_${booking._id}`,
+  redirectUrl: buildTapConsultationRedirectUrl(
+    booking.consultation?._id?.toString?.() || booking.consultation.toString(),
+    booking._id.toString(),
+    frontendBaseUrl
+  ),
+  metadata: {
+    udf2: booking._id.toString(),
+    udf5: 'consultation',
+  },
+});
+
+const buildBillingProfileSetupChargePayload = ({
+  payment,
+  user,
+  tokenId,
+  phoneDetails,
+  frontendBaseUrl,
+}) => buildTapChargePayload({
+  payment,
+  user,
+  tokenId,
+  phoneDetails,
+  description: 'Aiqda saved payment method setup',
+  orderReference: `billing_profile_${user._id}`,
+  redirectUrl: buildTapBillingProfileRedirectUrl(frontendBaseUrl),
+  metadata: {
+    udf5: 'billing_profile_setup',
   },
 });
 
@@ -722,23 +1196,69 @@ const buildTapRecurringChargePayload = ({
   },
 });
 
+const buildSavedCardSubscriptionChargePayload = ({
+  payment,
+  subscription,
+  packageName,
+  user,
+  tokenId,
+  isRecoveryCheckout = false,
+}) => ({
+  amount: payment.amount,
+  currency: payment.currency,
+  customer_initiated: false,
+  threeDSecure: false,
+  save_card: false,
+  description: isRecoveryCheckout
+    ? `Aiqda subscription recovery for ${packageName}`
+    : `Aiqda subscription for ${packageName}`,
+  metadata: {
+    udf1: payment._id.toString(),
+    udf2: subscription._id.toString(),
+    udf3: user._id.toString(),
+    udf5: 'saved_card_subscription',
+  },
+  reference: {
+    transaction: `payment_${payment._id}`,
+    order: `subscription_${subscription._id}`,
+    idempotent: payment._id.toString(),
+  },
+  customer: {
+    id: user.tapCustomerId,
+  },
+  merchant: getTapMerchantId() ? { id: getTapMerchantId() } : undefined,
+  source: {
+    id: tokenId,
+  },
+  payment_agreement: {
+    id: user.tapPaymentAgreementId,
+  },
+  post: {
+    url: buildTapWebhookUrl(),
+  },
+});
+
 export const createTapSubscriptionCharge = async (userId, paymentData) => {
   assertTapConfigured();
 
   const {
     subscriptionId,
     tokenId,
+    useSavedPaymentMethod,
     checkoutMethod,
     phoneCountryCode,
     phoneNumber,
     checkoutDisclaimerAccepted,
+    frontendBaseUrl,
   } = paymentData;
 
   if (!subscriptionId) {
     throw new Error('Subscription id is required.');
   }
 
-  if (!tokenId?.trim()) {
+  const wantsSavedPaymentMethod = useSavedPaymentMethod === true || useSavedPaymentMethod === 'true';
+
+  if (!wantsSavedPaymentMethod && !tokenId?.trim()) {
     throw new Error('A secure payment token is required.');
   }
 
@@ -752,7 +1272,7 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
       user: userId,
       status: { $in: ['pending', 'grace_period'] }
     }).populate('package'),
-    User.findById(userId).select('name email phone tapCustomerId'),
+    User.findById(userId).select('name email phone tapCustomerId tapCardId tapPaymentAgreementId'),
   ]);
 
   if (!subscription) {
@@ -763,7 +1283,9 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     throw new Error('User not found');
   }
 
-  const allowedCheckoutMethod = checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card';
+  const allowedCheckoutMethod = wantsSavedPaymentMethod
+    ? 'saved_card'
+    : (checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card');
   const isRecoveryCheckout = subscription.status === 'grace_period';
   const existingPayment = await Payment.findOne(
     isRecoveryCheckout
@@ -780,7 +1302,7 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
               status: { $in: ['initiated'] },
             },
             {
-              status: { $in: LEGACY_SUCCESS_STATUSES },
+              status: { $in: SUCCESSFUL_PAYMENT_STATUSES },
             },
           ],
         }
@@ -794,10 +1316,16 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     throw new Error('A payment is already in progress for this subscription.');
   }
 
-  const phoneDetails = normalizePhoneInput(user, phoneCountryCode, phoneNumber);
+  const phoneDetails = wantsSavedPaymentMethod
+    ? null
+    : normalizePhoneInput(user, phoneCountryCode, phoneNumber);
   const expectedAmount = getExpectedSubscriptionAmount(subscription);
   if (expectedAmount === null || expectedAmount <= 0) {
     throw new Error('This subscription does not have a valid payable amount.');
+  }
+
+  if (wantsSavedPaymentMethod && (!user.tapCustomerId || !user.tapCardId || !user.tapPaymentAgreementId)) {
+    throw new Error('No saved payment method is available for this membership right now.');
   }
 
   const payment = await Payment.create({
@@ -807,9 +1335,9 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     currency: subscription.currency || getSubscriptionCurrency(),
     provider: 'tap',
     status: 'initiated',
-    customerInitiated: true,
-    threeDSecure: true,
-    saveCard: true,
+    customerInitiated: !wantsSavedPaymentMethod,
+    threeDSecure: !wantsSavedPaymentMethod,
+    saveCard: !wantsSavedPaymentMethod,
     paymentType: isRecoveryCheckout ? 'recovery' : 'initial',
     checkoutMethod: allowedCheckoutMethod,
     checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
@@ -817,17 +1345,108 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
   });
 
   try {
+    const charge = wantsSavedPaymentMethod
+      ? await (async () => {
+          const savedCardToken = await createTapSavedCardToken({
+            cardId: user.tapCardId,
+            customerId: user.tapCustomerId,
+          });
+
+          return createTapCharge(
+            buildSavedCardSubscriptionChargePayload({
+              payment,
+              subscription,
+              packageName: subscription.package?.name || 'your membership',
+              user,
+              tokenId: savedCardToken.id,
+              isRecoveryCheckout,
+            })
+          );
+        })()
+      : await createTapCharge(
+          buildSubscriptionTapChargePayload({
+            payment,
+            subscription,
+            packageName: subscription.package?.name || 'Aiqda subscription',
+            user,
+            tokenId: tokenId.trim(),
+            phoneDetails,
+            frontendBaseUrl,
+            description: isRecoveryCheckout
+              ? `Aiqda subscription recovery for ${subscription.package?.name || 'your membership'}`
+              : `Aiqda subscription for ${subscription.package?.name || 'your membership'}`,
+          })
+        );
+
+    const syncedPayment = await applyTapChargeSnapshotToPayment(payment, charge, {
+      activationSource: wantsSavedPaymentMethod ? 'tap_saved_card_charge' : 'tap_charge',
+      phoneDetails,
+    });
+
+    return {
+      payment: syncedPayment,
+      chargeId: charge.id || null,
+      chargeStatus: charge.status || null,
+      redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
+    };
+  } catch (error) {
+    payment.status = 'failed';
+    payment.failureReason = error.message;
+    payment.tapResponseMessage = error.message;
+    await payment.save();
+    throw error;
+  }
+};
+
+export const createTapBillingProfileSetupCharge = async (userId, paymentData) => {
+  assertTapConfigured();
+
+  const {
+    tokenId,
+    checkoutMethod,
+    phoneCountryCode,
+    phoneNumber,
+    checkoutDisclaimerAccepted,
+    frontendBaseUrl,
+  } = paymentData;
+
+  if (!tokenId?.trim()) {
+    throw new Error('A secure payment token is required.');
+  }
+
+  if (!hasAcceptedCheckoutDisclaimer(checkoutDisclaimerAccepted)) {
+    throw new Error(CHECKOUT_DISCLAIMER_ERROR_MESSAGE);
+  }
+
+  const user = await User.findById(userId).select('name email phone tapCustomerId');
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const phoneDetails = normalizePhoneInput(user, phoneCountryCode, phoneNumber);
+  const payment = await Payment.create({
+    user: userId,
+    amount: getBillingProfileSetupAmount(),
+    currency: getBillingProfileSetupCurrency(),
+    provider: 'tap',
+    status: 'initiated',
+    customerInitiated: true,
+    threeDSecure: true,
+    saveCard: true,
+    paymentType: 'billing_profile_setup',
+    checkoutMethod: checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card',
+    checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
+    checkoutDisclaimerAcceptedAt: new Date(),
+  });
+
+  try {
     const charge = await createTapCharge(
-      buildTapChargePayload({
+      buildBillingProfileSetupChargePayload({
         payment,
-        subscription,
-        packageName: subscription.package?.name || 'Aiqda subscription',
         user,
         tokenId: tokenId.trim(),
         phoneDetails,
-        description: isRecoveryCheckout
-          ? `Aiqda subscription recovery for ${subscription.package?.name || 'your membership'}`
-          : `Aiqda subscription for ${subscription.package?.name || 'your membership'}`,
+        frontendBaseUrl,
       })
     );
 
@@ -843,6 +1462,119 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
       redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
     };
   } catch (error) {
+    payment.status = 'failed';
+    payment.failureReason = error.message;
+    payment.tapResponseMessage = error.message;
+    await payment.save();
+    throw error;
+  }
+};
+
+export const createTapConsultationCharge = async (userId, paymentData) => {
+  assertTapConfigured();
+
+  const {
+    consultationId,
+    tokenId,
+    checkoutMethod,
+    phoneCountryCode,
+    phoneNumber,
+    checkoutDisclaimerAccepted,
+  } = paymentData;
+
+  if (!consultationId) {
+    throw new Error('Consultation id is required.');
+  }
+
+  if (!tokenId?.trim()) {
+    throw new Error('A secure payment token is required.');
+  }
+
+  if (!hasAcceptedCheckoutDisclaimer(checkoutDisclaimerAccepted)) {
+    throw new Error(CHECKOUT_DISCLAIMER_ERROR_MESSAGE);
+  }
+
+  const [user, consultation] = await Promise.all([
+    User.findById(userId).select('name email phone tapCustomerId'),
+    Consultation.findById(consultationId),
+  ]);
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (!consultation || consultation.isActive === false) {
+    throw new Error('Consultation not found');
+  }
+
+  if (consultation.priceType !== 'fixed') {
+    throw new Error('This consultation does not require upfront payment.');
+  }
+
+  const existingOpenBooking = await ConsultationBooking.findOne({
+    consultation: consultationId,
+    user: userId,
+    status: { $in: ['payment_pending', 'pending', 'confirmed'] },
+  });
+  if (existingOpenBooking) {
+    throw new Error('A consultation booking is already in progress for this session.');
+  }
+
+  const phoneDetails = normalizePhoneInput(user, phoneCountryCode, phoneNumber);
+  const booking = await ConsultationBooking.create({
+    consultation: consultationId,
+    user: userId,
+    priceType: consultation.priceType,
+    amount: consultation.price,
+    currency: consultation.currency || getSubscriptionCurrency(),
+    status: 'payment_pending',
+  });
+
+  const payment = await Payment.create({
+    user: userId,
+    consultationBooking: booking._id,
+    amount: consultation.price,
+    currency: consultation.currency || getSubscriptionCurrency(),
+    provider: 'tap',
+    status: 'initiated',
+    customerInitiated: true,
+    threeDSecure: true,
+    saveCard: false,
+    paymentType: 'consultation',
+    checkoutMethod: checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card',
+    checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
+    checkoutDisclaimerAcceptedAt: new Date(),
+  });
+
+  try {
+    const populatedBooking = await ConsultationBooking.findById(booking._id).populate('consultation');
+    const charge = await createTapCharge(
+      buildConsultationTapChargePayload({
+        payment,
+        booking: populatedBooking,
+        consultationTitle: populatedBooking.consultation?.title || 'consultation',
+        user,
+        tokenId: tokenId.trim(),
+        phoneDetails,
+      })
+    );
+
+    const syncedPayment = await applyTapChargeSnapshotToPayment(payment, charge, {
+      activationSource: 'tap_charge',
+      phoneDetails,
+    });
+
+    return {
+      payment: syncedPayment,
+      bookingId: booking._id.toString(),
+      chargeId: charge.id || null,
+      chargeStatus: charge.status || null,
+      redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
+    };
+  } catch (error) {
+    booking.status = 'payment_failed';
+    booking.paymentFailureReason = error.message;
+    await booking.save();
     payment.status = 'failed';
     payment.failureReason = error.message;
     payment.tapResponseMessage = error.message;
@@ -1164,6 +1896,10 @@ export const getTapCheckoutConfig = () => {
     merchantId: getTapMerchantId() || null,
     sdkUrl: getTapCardSdkUrl(),
     currency: getSubscriptionCurrency(),
+    billingProfileSetup: {
+      amount: getBillingProfileSetupAmount(),
+      currency: getBillingProfileSetupCurrency(),
+    },
     applePay: {
       enabled: isTapApplePayConfigured(),
       merchantId: getTapMerchantId() || null,
