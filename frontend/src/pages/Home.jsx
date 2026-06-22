@@ -20,6 +20,7 @@ import {
   getBillingTermLabel,
   getDefaultBillingTerm,
   getEffectiveBillingPrice,
+  getVatNote,
   getBillingSaleAmount,
   getBillingSalePercentage,
   getPackageAccessNames,
@@ -402,6 +403,9 @@ function Home() {
                           <span className="text-gray-500 ml-1">{selectedCurrency}</span>
                           <p className="text-sm text-gray-500 mt-2">
                             {getBillingCadenceLabel(selectedOption.term, locale)}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {getVatNote(locale)}
                           </p>
                           {selectedOption.term === "six_months" && sixMonthSavings && (
                             <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">

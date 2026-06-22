@@ -190,6 +190,9 @@ function Payments() {
                     <p className="text-lg font-semibold text-gray-900">
                       {payment.amount} {currency}
                     </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {isRTL ? 'شامل ضريبة القيمة المضافة' : 'Includes VAT'}
+                    </p>
                     {payment.refundStatus === 'refunded' && (
                       <p className="text-sm text-sky-700 mt-1">
                         {isRTL ? 'المسترد:' : 'Refunded:'} {payment.refundAmount} {refundCurrency}

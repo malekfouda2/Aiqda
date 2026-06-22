@@ -89,7 +89,7 @@ test('application reviewers can delete creator and studio applications', async (
 test('admins can delete consultation bookings', async () => {
   const admin = await createUser({ role: 'admin' });
   const student = await createUser({ role: 'student' });
-  const consultation = await createConsultation();
+  const consultation = await createConsultation({ priceType: 'contract' });
 
   const bookingResponse = await request(suite.app)
     .post('/api/consultation-bookings')

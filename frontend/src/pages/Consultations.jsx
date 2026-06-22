@@ -166,10 +166,15 @@ function Consultations() {
                       <div>
                         <p className="text-xs text-gray-400 uppercase font-semibold">{isRTL ? 'السعر' : 'Price'}</p>
                         <p className="text-xl font-bold text-gray-900">
-                          {consultation.priceType === 'fixed' 
+                          {consultation.priceType === 'fixed'
                             ? `${consultation.price} ${consultation.currency}`
                             : (isRTL ? 'حسب الاتفاق' : 'Contract Based')}
                         </p>
+                        {consultation.priceType === 'fixed' && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {isRTL ? 'الأسعار شاملة ضريبة القيمة المضافة' : 'Prices include VAT'}
+                          </p>
+                        )}
                       </div>
                     </div>
 

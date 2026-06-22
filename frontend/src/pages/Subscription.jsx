@@ -26,6 +26,7 @@ import {
   getBillingTermLabel,
   getDefaultBillingTerm,
   getEffectiveBillingPrice,
+  getVatNote,
   getBillingSaleAmount,
   getBillingSalePercentage,
   getPackageAccessNames,
@@ -976,6 +977,9 @@ function Subscription() {
                   {pendingSubscription.priceAtPurchase ? ` - ${formatMoney(pendingSubscription.priceAtPurchase, locale)} ${pendingSubscription.currency || checkoutCurrency}` : ''}
                   {' '} - {isRTL ? 'بانتظار إتمام الدفع' : 'Awaiting checkout completion'}
                 </p>
+                {pendingSubscription.priceAtPurchase ? (
+                  <p className="text-xs text-yellow-600/80 mt-0.5">{getVatNote(locale)}</p>
+                ) : null}
               </div>
             </div>
             <button
@@ -1079,6 +1083,9 @@ function Subscription() {
                     : ''}
                 </>
               )}
+            </p>
+            <p className="text-xs text-yellow-700 mt-2">
+              {getVatNote(locale)}
             </p>
           </div>
 
@@ -1359,6 +1366,9 @@ function Subscription() {
                         <span className="text-gray-500"> {selectedCurrency}</span>
                         <p className="text-sm text-gray-500 mt-1">
                           {getBillingCadenceLabel(selectedOption.term, locale)}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {getVatNote(locale)}
                         </p>
                         {selectedOption.term === 'six_months' && sixMonthSavings && (
                           <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">

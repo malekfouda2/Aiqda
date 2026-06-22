@@ -44,6 +44,10 @@ function Footer() {
             <p className="text-sm text-gray-500 leading-relaxed">
               {t('footer.about')}
             </p>
+            <p className="text-sm text-gray-500">
+              {isRTL ? 'الرقم الوطني الموحد:' : 'Unified National Number:'}{' '}
+              <span dir="ltr" className="font-medium text-gray-700">7049447043</span>
+            </p>
             <div className={`inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
               <img
                 src="/partners/24-center-logo.png"

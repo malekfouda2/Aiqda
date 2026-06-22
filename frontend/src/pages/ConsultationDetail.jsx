@@ -562,6 +562,9 @@ function ConsultationDetail() {
                           <p className="text-3xl font-bold text-primary-900">
                             {consultation.price} <span className="text-lg">{consultation.currency || checkoutCurrency}</span>
                           </p>
+                          <p className="text-xs text-primary-700/80 mt-1">
+                            {isRTL ? 'الأسعار شاملة ضريبة القيمة المضافة' : 'Prices include VAT'}
+                          </p>
                         </div>
 
                         <div className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-4">

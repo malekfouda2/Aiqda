@@ -123,6 +123,11 @@ function MyConsultations() {
                     <span className="text-gray-600 font-medium">
                       {booking.priceType === 'fixed' ? `${booking.amount} ${bookingCurrency}` : (isRTL ? 'حسب الاتفاق' : 'Contract Based')}
                     </span>
+                    {booking.priceType === 'fixed' && (
+                      <span className="text-gray-400 text-xs">
+                        {isRTL ? '(شامل الضريبة)' : '(incl. VAT)'}
+                      </span>
+                    )}
                     {(booking.paymentReference || booking.latestPayment?.paymentReference || booking.latestPayment?.tapChargeId) && (
                       <>
                         <span className="text-gray-300">•</span>

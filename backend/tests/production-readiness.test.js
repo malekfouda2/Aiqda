@@ -173,7 +173,8 @@ test('consultation booking status flows keep working with notification emails en
   const student = await createUser({ role: 'student' });
   const consultation = await createConsultation({
     title: 'Creative Audit',
-    zoomSchedulerLink: 'https://scheduler.example.com/creative-audit'
+    zoomSchedulerLink: 'https://scheduler.example.com/creative-audit',
+    priceType: 'contract',
   });
 
   const submitResponse = await request(suite.app)

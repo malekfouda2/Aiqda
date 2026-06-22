@@ -60,6 +60,13 @@ export const getBillingCadenceLabel = (term, locale = 'en') => (
   getLocalizedValue(BILLING_TERM_CADENCE_LABELS[term] || term, locale)
 );
 
+export const VAT_INCLUSIVE_NOTE = text(
+  'Prices include VAT',
+  'الأسعار شاملة ضريبة القيمة المضافة'
+);
+
+export const getVatNote = (locale = 'en') => getLocalizedValue(VAT_INCLUSIVE_NOTE, locale);
+
 export const getEffectiveBillingPrice = (option = {}) => {
   const basePrice = Number(option?.price);
   const salePrice = Number(option?.salePrice);
