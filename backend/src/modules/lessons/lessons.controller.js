@@ -63,6 +63,24 @@ export const updateLesson = async (req, res) => {
   }
 };
 
+export const submitLessonForReview = async (req, res) => {
+  try {
+    const lesson = await lessonsService.submitLessonForReview(req.params.id, req.user.id, req.user.role);
+    res.json(lesson);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const setLessonPublishState = async (req, res) => {
+  try {
+    const lesson = await lessonsService.setLessonPublishState(req.params.id, req.body.isPublished);
+    res.json(lesson);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const deleteLesson = async (req, res) => {
   try {
     const result = await lessonsService.deleteLesson(req.params.id, req.user.id, req.user.role);

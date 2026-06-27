@@ -511,7 +511,7 @@ const buildCourseAnalyticsSnapshot = async (courses = []) => {
 
   const [lessons, lessonProgress, revenueByCourse] = await Promise.all([
     Lesson.find({ course: { $in: courseIds } })
-      .select('course title vimeoVideoId order supportingFile supportingFileName minimumWatchPercentage')
+      .select('course title vimeoVideoId order supportingFile supportingFileName minimumWatchPercentage isPublished reviewStatus')
       .sort({ course: 1, order: 1 })
       .lean(),
     LessonProgress.find({ course: { $in: courseIds } })
@@ -576,13 +576,14 @@ const getInstructorCourseDataset = async ({ activeOnly = false } = {}) => {
   }
 
   const instructors = await User.find(instructorQuery)
-    .select('name email avatar createdAt isActive')
+    .select('name email avatar createdAt isActive assignedPackages')
+    .populate('assignedPackages', 'name nameAr isActive')
     .lean();
 
   const instructorIds = instructors.map((instructor) => instructor._id);
   const courses = instructorIds.length > 0
     ? await Course.find({ instructor: { $in: instructorIds } })
-      .select('instructor title category level isPublished enrolledStudents lessonsCount createdAt')
+      .select('instructor title category level isPublished reviewStatus enrolledStudents lessonsCount createdAt')
       .lean()
     : [];
 
@@ -719,9 +720,15 @@ export const getCourseProgress = async (userId, courseId) => {
 };
 
 export const getInstructorAnalytics = async (instructorId) => {
-  const courses = await Course.find({ instructor: instructorId })
-    .select('title enrolledStudents isPublished')
-    .lean();
+  const [courses, instructor] = await Promise.all([
+    Course.find({ instructor: instructorId })
+      .select('title enrolledStudents isPublished reviewStatus')
+      .lean(),
+    User.findById(instructorId)
+      .select('assignedPackages')
+      .populate('assignedPackages', 'name nameAr isActive')
+      .lean(),
+  ]);
   const { courseMetricsById, lessonProgress } = await buildCourseAnalyticsSnapshot(courses);
 
   const courseStats = courses.map((course) => {
@@ -731,6 +738,7 @@ export const getInstructorAnalytics = async (instructorId) => {
       courseId: course._id,
       title: course.title,
       isPublished: Boolean(course.isPublished),
+      reviewStatus: course.reviewStatus || 'draft',
       enrolledCount: course.enrolledStudents?.length || 0,
       lessonsCount: courseMetrics.lessonsCount,
       videosAssigned: courseMetrics.videosAssigned,
@@ -765,6 +773,7 @@ export const getInstructorAnalytics = async (instructorId) => {
   );
 
   return {
+    assignedPackages: instructor?.assignedPackages || [],
     totalCourses: courses.length,
     publishedCourses,
     draftCourses,
@@ -791,6 +800,7 @@ export const getInstructorAnalytics = async (instructorId) => {
 
 export const getAdminAnalytics = async () => {
   const activeSince = new Date(Date.now() - LIVE_ACTIVITY_WINDOW_MS);
+  const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [
     totalCourses,
     publishedCourses,
@@ -798,7 +808,11 @@ export const getAdminAnalytics = async () => {
     courseProgress,
     qualifiedLessons,
     recentActivity,
-    lessonProgress
+    lessonProgress,
+    totalMembers,
+    newMembers30d,
+    activeSubscriptions,
+    totalInstructors
   ] = await Promise.all([
     Course.countDocuments(),
     Course.countDocuments({ isPublished: true }),
@@ -813,7 +827,11 @@ export const getAdminAnalytics = async () => {
       .limit(20),
     LessonProgress.find()
       .select('user lesson watchPercentage lastWatchedAt')
-      .lean()
+      .lean(),
+    User.countDocuments({ role: 'student' }),
+    User.countDocuments({ role: 'student', createdAt: { $gte: last30Days } }),
+    Subscription.countDocuments({ status: { $in: ['active', 'cancel_scheduled', 'grace_period'] } }),
+    User.countDocuments({ role: 'instructor' })
   ]);
   const totalEnrollments = courseProgress.length;
   const completedCourses = courseProgress.filter((progressEntry) => progressEntry.isCompleted).length;
@@ -836,6 +854,10 @@ export const getAdminAnalytics = async () => {
       activeStudentsNow,
       activeLessonsNow,
       activeWindowMinutes: LIVE_ACTIVITY_WINDOW_MINUTES,
+      totalMembers,
+      newMembers30d,
+      activeSubscriptions,
+      totalInstructors,
     },
     recentActivity
   };
@@ -857,6 +879,7 @@ export const getAdminCoursesByInstructor = async () => {
         category: course.category,
         level: course.level,
         isPublished: course.isPublished,
+        reviewStatus: course.reviewStatus || 'draft',
         createdAt: course.createdAt,
         enrolledStudents: course.enrolledStudents?.length || 0,
         lessonsCount: courseMetrics.lessonsCount,
@@ -873,6 +896,8 @@ export const getAdminCoursesByInstructor = async () => {
           minimumWatchPercentage: lesson.minimumWatchPercentage,
           hasVideo: !!lesson.vimeoVideoId,
           vimeoVideoId: lesson.vimeoVideoId,
+          isPublished: Boolean(lesson.isPublished),
+          reviewStatus: lesson.reviewStatus || 'draft',
         })),
       };
     });
@@ -900,14 +925,15 @@ export const getAdminCoursesByInstructor = async () => {
 
 export const getAdminInstructorDetail = async (instructorId) => {
   const instructor = await User.findById(instructorId)
-    .select('name email avatar role createdAt isActive')
+    .select('name email avatar role createdAt isActive assignedPackages')
+    .populate('assignedPackages', 'name nameAr isActive')
     .lean();
   if (!instructor || instructor.role !== 'instructor') {
     throw new Error('Instructor not found');
   }
 
   const courses = await Course.find({ instructor: instructorId })
-    .select('title category level isPublished enrolledStudents lessonsCount createdAt')
+    .select('title category level isPublished reviewStatus enrolledStudents lessonsCount createdAt')
     .lean();
 
   const courseIds = courses.map((course) => course._id);
@@ -940,6 +966,7 @@ export const getAdminInstructorDetail = async (instructorId) => {
       category: course.category,
       level: course.level,
       isPublished: course.isPublished,
+      reviewStatus: course.reviewStatus || 'draft',
       createdAt: course.createdAt,
       enrolledStudents: course.enrolledStudents?.length || 0,
       lessonsCount: courseMetrics.lessonsCount,
@@ -956,6 +983,8 @@ export const getAdminInstructorDetail = async (instructorId) => {
         vimeoVideoId: lesson.vimeoVideoId,
         supportingFile: lesson.supportingFile,
         supportingFileName: lesson.supportingFileName,
+        isPublished: Boolean(lesson.isPublished),
+        reviewStatus: lesson.reviewStatus || 'draft',
       })),
     };
   });
@@ -1031,6 +1060,7 @@ export const getAdminAllInstructors = async () => {
       avatar: instructor.avatar,
       isActive: instructor.isActive,
       joinedAt: instructor.createdAt,
+      assignedPackages: instructor.assignedPackages || [],
       totalCourses: courses.length,
       publishedCourses: courses.filter((course) => course.isPublished).length,
       totalStudents: countUniqueStudents(courses),

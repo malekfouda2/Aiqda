@@ -4,15 +4,18 @@ import { updateLessonCount } from '../courses/courses.service.js';
 import { LessonProgress } from '../analytics/progress.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
+import { notify } from '../notifications/notify.js';
+import { onCourseProgressChanged } from '../finance/financeHooks.js';
 
+// isPublished/reviewStatus are excluded: publish state is only changed through the
+// dedicated submit-for-review (creator) and publish (admin) flows.
 const LESSON_CREATABLE_FIELDS = [
   'course',
   'title',
   'description',
   'vimeoVideoId',
   'minimumWatchPercentage',
-  'duration',
-  'isPublished'
+  'duration'
 ];
 
 const LESSON_UPDATABLE_FIELDS = LESSON_CREATABLE_FIELDS.filter((field) => field !== 'course');
@@ -155,7 +158,78 @@ export const updateLesson = async (lessonId, updates, userId = null, userRole = 
   }
 
   Object.assign(lesson, sanitizedUpdates);
+
+  // Creator edits to live or in-review content send it back to draft for re-review.
+  if (userRole !== 'admin' && lesson.reviewStatus !== 'draft') {
+    lesson.reviewStatus = 'draft';
+    lesson.isPublished = false;
+  }
+
   await lesson.save();
+  return lesson;
+};
+
+export const submitLessonForReview = async (lessonId, userId = null, userRole = null) => {
+  const lesson = await Lesson.findById(lessonId).populate('course', 'instructor');
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  if (!canManageCourseContent(lesson.course, userId, userRole)) {
+    throw new Error('Not authorized to submit this lesson for review');
+  }
+
+  if (lesson.reviewStatus === 'pending_review') {
+    throw new Error('This content is already awaiting review');
+  }
+  if (lesson.reviewStatus === 'published') {
+    throw new Error('This content is already published');
+  }
+
+  lesson.reviewStatus = 'pending_review';
+  await lesson.save();
+
+  await notify.admins({
+    type: 'review.content_submitted',
+    title: 'Content submitted for review',
+    titleAr: 'تم إرسال محتوى للمراجعة',
+    message: `"${lesson.title}" was submitted and is awaiting your review.`,
+    messageAr: `تم إرسال "${lesson.title}" وهو بانتظار مراجعتك.`,
+    link: '/admin/chapters',
+    metadata: { lessonId: lesson._id, courseId: lesson.course?._id || lesson.course },
+  });
+
+  return lesson;
+};
+
+// Admin-only publish control for a single lesson.
+export const setLessonPublishState = async (lessonId, isPublished) => {
+  const lesson = await Lesson.findById(lessonId).populate('course', 'instructor');
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  lesson.isPublished = Boolean(isPublished);
+  lesson.reviewStatus = isPublished ? 'published' : 'draft';
+  await lesson.save();
+
+  const instructorId = lesson.course?.instructor;
+  if (instructorId) {
+    await notify.user(instructorId, {
+      type: isPublished ? 'review.content_published' : 'review.content_returned',
+      title: isPublished ? 'Your content was published' : 'Your content was returned to draft',
+      titleAr: isPublished ? 'تم نشر محتواك' : 'تمت إعادة محتواك إلى المسودة',
+      message: isPublished
+        ? `"${lesson.title}" is now live for members.`
+        : `"${lesson.title}" was returned to draft. Update it and resubmit for review.`,
+      messageAr: isPublished
+        ? `"${lesson.title}" أصبح منشورًا للأعضاء.`
+        : `تمت إعادة "${lesson.title}" إلى المسودة. عدّله وأعد إرساله للمراجعة.`,
+      link: '/creator/chapters',
+      metadata: { lessonId: lesson._id },
+    });
+  }
+
   return lesson;
 };
 
@@ -280,6 +354,11 @@ export const updateWatchProgress = async (lessonId, userId, watchPercentage, use
   }
 
   await progress.save();
+
+  if (progress.isQualified) {
+    await onCourseProgressChanged(userId, lesson.course._id);
+  }
+
   return progress;
 };
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import * as coursesController from './courses.controller.js';
-import { authenticate, authenticateOptional, isInstructor } from '../../middlewares/auth.middleware.js';
+import { authenticate, authenticateOptional, isInstructor, isAdmin } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -16,6 +16,8 @@ router.get('/my/enrolled', coursesController.getEnrolledCourses);
 router.get('/my/teaching', isInstructor, coursesController.getInstructorCourses);
 
 router.put('/:id', isInstructor, coursesController.updateCourse);
+router.post('/:id/submit-review', isInstructor, coursesController.submitCourseForReview);
+router.patch('/:id/publish', isAdmin, coursesController.setCoursePublishState);
 router.delete('/:id', isInstructor, coursesController.deleteCourse);
 router.post('/:id/enroll', coursesController.enrollStudent);
 

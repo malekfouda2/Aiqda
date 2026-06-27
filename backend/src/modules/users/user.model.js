@@ -189,6 +189,10 @@ const userSchema = new mongoose.Schema({
     type: platformNoticeAcknowledgementSchema,
     default: null,
   },
+  assignedPackages: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPackage',
+  }],
   authorizedDevices: {
     type: [authorizedDeviceSchema],
     default: [],

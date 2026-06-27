@@ -10,6 +10,8 @@ import {
 } from '../../config/refundPolicy.js';
 import { sendEmail } from '../../utils/email.js';
 import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
+import { notify } from '../notifications/notify.js';
+import { onPaymentActivated, onPaymentReversed } from '../finance/financeHooks.js';
 import {
   buildSubscriptionActivatedEmail,
   buildSubscriptionCancelledEmail,
@@ -667,6 +669,18 @@ export const refundSuccessfulPayment = async (paymentId, {
       refundSnapshot: refund,
     });
     await revokeSubscriptionAccessAfterRefund(payment);
+    await onPaymentReversed(payment, { reversedAmount: refundAmount, kind: 'refund' });
+
+    const recipientId = payment.user?._id || payment.user;
+    await notify.user(recipientId, {
+      type: 'payment.refunded',
+      title: 'Your payment was refunded',
+      titleAr: 'تم استرداد دفعتك',
+      message: `A refund of ${refundAmount} ${payment.currency || ''} has been processed.`.trim(),
+      messageAr: `تمت معالجة استرداد بقيمة ${refundAmount} ${payment.currency || ''}.`.trim(),
+      link: '/dashboard/subscription',
+      metadata: { paymentId: payment._id, refundAmount },
+    });
   } catch (error) {
     await markPaymentRefundState(payment, {
       refundStatus: 'failed',
@@ -725,6 +739,18 @@ const activateOrRenewSubscriptionFromPayment = async (payment, activationSource)
       renewal: false,
     });
 
+    await notify.user(subscription.user, {
+      type: 'subscription.activated',
+      title: 'Your subscription is active',
+      titleAr: 'اشتراكك مُفعّل',
+      message: `Your "${subscription.package?.name || 'subscription'}" is now active. Enjoy your access!`,
+      messageAr: `أصبح اشتراك "${subscription.package?.nameAr || subscription.package?.name || 'اشتراكك'}" مُفعّلًا الآن. استمتع بوصولك!`,
+      link: '/dashboard/subscription',
+      metadata: { subscriptionId: subscription._id },
+    });
+
+    await onPaymentActivated(paymentRecord._id);
+
     return populatePaymentQuery(Payment.findById(paymentRecord._id));
   }
 
@@ -758,6 +784,18 @@ const activateOrRenewSubscriptionFromPayment = async (payment, activationSource)
     subscription,
     renewal: true,
   });
+
+  await notify.user(subscription.user, {
+    type: 'subscription.renewed',
+    title: 'Your subscription renewed',
+    titleAr: 'تم تجديد اشتراكك',
+    message: `Your "${subscription.package?.name || 'subscription'}" was renewed and stays active.`,
+    messageAr: `تم تجديد اشتراك "${subscription.package?.nameAr || subscription.package?.name || 'اشتراكك'}" ويظل مُفعّلًا.`,
+    link: '/dashboard/subscription',
+    metadata: { subscriptionId: subscription._id },
+  });
+
+  await onPaymentActivated(paymentRecord._id);
 
   return populatePaymentQuery(Payment.findById(paymentRecord._id));
 };
@@ -872,6 +910,26 @@ const finalizeFailedRenewalFromPayment = async (payment, reason) => {
     payment: paymentRecord,
     subscription,
     reason: subscription.renewalFailureReason,
+  });
+
+  const renewPkgName = subscription.package?.name || 'your subscription';
+  const renewPkgNameAr = subscription.package?.nameAr || subscription.package?.name || 'اشتراكك';
+  await notify.user(subscription.user, {
+    type: subscription.status === 'grace_period' ? 'subscription.grace_period' : 'subscription.renewal_failed',
+    title: subscription.status === 'grace_period'
+      ? 'Your subscription is in grace period'
+      : 'Subscription renewal failed',
+    titleAr: subscription.status === 'grace_period'
+      ? 'اشتراكك في فترة السماح'
+      : 'فشل تجديد الاشتراك',
+    message: subscription.status === 'grace_period'
+      ? `We couldn't renew "${renewPkgName}". Update your payment method to avoid losing access.`
+      : `A renewal charge for "${renewPkgName}" failed. We'll retry shortly.`,
+    messageAr: subscription.status === 'grace_period'
+      ? `تعذّر تجديد "${renewPkgNameAr}". حدّث وسيلة الدفع لتجنّب فقدان الوصول.`
+      : `فشلت محاولة تجديد "${renewPkgNameAr}". سنعيد المحاولة قريبًا.`,
+    link: '/dashboard/subscription',
+    metadata: { subscriptionId: subscription._id },
   });
 
   return populatePaymentQuery(Payment.findById(paymentRecord._id));

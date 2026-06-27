@@ -1,6 +1,7 @@
 import ContactMessage from './contactMessage.model.js';
 import { sendEmail } from '../../utils/email.js';
 import { sendAdminNotificationEmail } from '../../utils/adminNotifications.js';
+import { notify } from '../notifications/notify.js';
 import {
   buildContactMessageAcknowledgementEmail,
   buildContactMessageAdminNotificationEmail
@@ -100,6 +101,16 @@ export const create = async (data) => {
   } catch (error) {
     console.error('Failed to send contact notification email:', error.message);
   }
+
+  await notify.admins({
+    type: 'contact.message_received',
+    title: 'New contact message',
+    titleAr: 'رسالة تواصل جديدة',
+    message: `${payload.fullName}: ${payload.subject}`,
+    messageAr: `${payload.fullName}: ${payload.subject}`,
+    link: '/admin/contact-messages',
+    metadata: { contactMessageId: contactMessage._id },
+  });
 
   return contactMessage;
 };

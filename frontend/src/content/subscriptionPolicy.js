@@ -4,6 +4,6 @@ export const SUBSCRIPTION_DEVICE_LIMIT_TITLE = text('Account Access Policy', ' �
 
 export const SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER =
   text(
-    'Each account with an active subscription is limited to a maximum of 4 devices / IP addresses for access.',
-    'كل اشتراك نشط يتيح استخدام الحساب على أربعة أجهزة كحد أقصى أو أربعة عناوين IP، لضمان تجربة مستقرة وآمنة للجميع.'
+    'Each account can be signed in on up to 2 devices at the same time. Signing in on a new device automatically signs out the oldest one.',
+    'يمكن تسجيل الدخول إلى الحساب على جهازين كحد أقصى في الوقت نفسه. تسجيل الدخول من جهاز جديد يؤدي تلقائيًا إلى تسجيل خروج الجهاز الأقدم.'
   );

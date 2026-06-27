@@ -4,6 +4,7 @@ import {
   authenticate,
   authenticateOptional,
   isInstructor,
+  isAdmin,
   requirePlatformNoticeAcknowledgement
 } from '../../middlewares/auth.middleware.js';
 import { uploadLessonFile } from '../../middlewares/upload.middleware.js';
@@ -18,6 +19,8 @@ router.get('/:id', requirePlatformNoticeAcknowledgement, lessonsController.getLe
 
 router.post('/', isInstructor, lessonsController.createLesson);
 router.put('/:id', isInstructor, lessonsController.updateLesson);
+router.post('/:id/submit-review', isInstructor, lessonsController.submitLessonForReview);
+router.patch('/:id/publish', isAdmin, lessonsController.setLessonPublishState);
 router.delete('/:id', isInstructor, lessonsController.deleteLesson);
 router.put('/course/:courseId/reorder', isInstructor, lessonsController.reorderLessons);
 router.post('/:id/upload-file', isInstructor, uploadLessonFile, lessonsController.uploadFile);

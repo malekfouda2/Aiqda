@@ -8,6 +8,7 @@ import Lesson from '../../src/modules/lessons/lesson.model.js';
 import Quiz from '../../src/modules/quizzes/quiz.model.js';
 import { LessonProgress, CourseProgress } from '../../src/modules/analytics/progress.model.js';
 import { SubscriptionPackage, Subscription } from '../../src/modules/subscriptions/subscription.model.js';
+import Payment from '../../src/modules/payments/payment.model.js';
 import Consultation from '../../src/modules/consultations/consultation.model.js';
 import { clearRateLimitStore } from '../../src/middlewares/rateLimit.middleware.js';
 import { hashPassword } from '../../src/utils/password.js';
@@ -103,6 +104,7 @@ export const authHeader = (token) => ({
 export const createCourse = async (overrides = {}) => {
   const instructorId = overrides.instructorId || (await createUser({ role: 'instructor' })).user._id;
 
+  const coursePublished = overrides.isPublished ?? true;
   return Course.create({
     title: overrides.title || 'Test Course',
     description: overrides.description || 'Test course description',
@@ -110,7 +112,8 @@ export const createCourse = async (overrides = {}) => {
     thumbnail: overrides.thumbnail || null,
     category: overrides.category || 'General',
     level: overrides.level || 'beginner',
-    isPublished: overrides.isPublished ?? true,
+    isPublished: coursePublished,
+    reviewStatus: overrides.reviewStatus ?? (coursePublished ? 'published' : 'draft'),
     enrolledStudents: overrides.enrolledStudents || [],
     lessonsCount: overrides.lessonsCount || 0
   });
@@ -121,6 +124,7 @@ export const createLesson = async (overrides = {}) => {
     throw new Error('createLesson requires a course id');
   }
 
+  const lessonPublished = overrides.isPublished ?? false;
   return Lesson.create({
     title: overrides.title || 'Test Lesson',
     description: overrides.description || 'Test lesson description',
@@ -131,7 +135,8 @@ export const createLesson = async (overrides = {}) => {
     supportingFile: overrides.supportingFile || null,
     supportingFileName: overrides.supportingFileName || null,
     duration: overrides.duration || 600,
-    isPublished: overrides.isPublished ?? false
+    isPublished: lessonPublished,
+    reviewStatus: overrides.reviewStatus ?? (lessonPublished ? 'published' : 'draft')
   });
 };
 
@@ -276,6 +281,24 @@ export const createSubscription = async (overrides = {}) => {
     nextRenewalRetryAt: overrides.nextRenewalRetryAt || null,
     renewalFailureReason: overrides.renewalFailureReason || null,
     renewalFailureCount: overrides.renewalFailureCount ?? 0,
+  });
+};
+
+export const createPayment = async (overrides = {}) => {
+  if (!overrides.user || !overrides.subscription) {
+    throw new Error('createPayment requires user and subscription ids');
+  }
+  return Payment.create({
+    user: overrides.user,
+    subscription: overrides.subscription,
+    amount: overrides.amount ?? 499,
+    currency: overrides.currency || 'SAR',
+    provider: overrides.provider || 'tap',
+    status: overrides.status || 'captured',
+    paymentType: overrides.paymentType || 'initial',
+    checkoutMethod: overrides.checkoutMethod || 'card',
+    tapChargeId: overrides.tapChargeId || `chg_${randomUUID()}`,
+    chargeSnapshot: overrides.chargeSnapshot || null,
   });
 };
 

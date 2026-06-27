@@ -25,6 +25,9 @@ import contactMessageRoutes from './modules/contact-messages/contactMessages.rou
 import teamMemberRoutes from './modules/team-members/teamMembers.routes.js';
 import partnerRoutes from './modules/partners/partners.routes.js';
 import whatsappSettingsRoutes from './modules/whatsapp-settings/whatsappSettings.routes.js';
+import notificationRoutes from './modules/notifications/notifications.routes.js';
+import searchRoutes from './modules/search/search.routes.js';
+import financeRoutes from './modules/finance/finance.routes.js';
 
 const app = express();
 
@@ -142,6 +145,9 @@ app.use('/api/contact-messages', contactMessageRoutes);
 app.use('/api/team-members', teamMemberRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/whatsapp-settings', whatsappSettingsRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/finance', financeRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aiqda API is running' });

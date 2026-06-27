@@ -10,6 +10,7 @@ import {
   buildSubscriptionRequestReceivedEmail,
   buildSubscriptionRequestAdminNotificationEmail,
 } from '../../utils/emailTemplates.js';
+import { notify } from '../notifications/notify.js';
 import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
 
 const BILLING_TERM_LABELS = {
@@ -425,7 +426,7 @@ const normalizeBillingTerm = (pkg, requestedTerm = null) => {
   return term;
 };
 
-const resolveAccessiblePackageIds = async (rootPackageId) => {
+export const resolveAccessiblePackageIds = async (rootPackageId) => {
   const visited = new Set();
   let queue = [rootPackageId.toString()];
 
@@ -642,6 +643,16 @@ export const requestSubscription = async (userId, packageId, billingTermInput) =
     } catch (error) {
       console.error('Failed to send subscription request admin notification email:', error.message);
     }
+
+    await notify.admins({
+      type: 'subscription.requested',
+      title: 'New subscription request',
+      titleAr: 'طلب اشتراك جديد',
+      message: `${user.name} requested "${pkg.name}" (${billingLabel}).`,
+      messageAr: `${user.name} طلب "${pkg.nameAr || pkg.name}" (${billingLabel}).`,
+      link: '/admin/subscriptions',
+      metadata: { subscriptionId: subscription._id },
+    });
   }
 
   return populatedSubscription;
@@ -797,6 +808,22 @@ export const cancelSubscription = async (subscriptionId) => {
       console.error('Failed to send subscription cancellation email:', error.message);
     }
   }
+
+  const cancelPkgName = subscription.package?.name || 'Your subscription';
+  const cancelPkgNameAr = subscription.package?.nameAr || subscription.package?.name || 'اشتراكك';
+  await notify.user(subscription.user?._id || subscription.user, {
+    type: 'subscription.cancelled',
+    title: 'Your subscription was cancelled',
+    titleAr: 'تم إلغاء اشتراكك',
+    message: refundedNow
+      ? `"${cancelPkgName}" was cancelled and refunded.`
+      : `"${cancelPkgName}" is cancelled. Access continues until the end of your billing period.`,
+    messageAr: refundedNow
+      ? `تم إلغاء "${cancelPkgNameAr}" واسترداد المبلغ.`
+      : `تم إلغاء "${cancelPkgNameAr}". يستمر وصولك حتى نهاية فترة الفوترة.`,
+    link: '/dashboard/subscription',
+    metadata: { subscriptionId: subscription._id },
+  });
 
   return subscription;
 };

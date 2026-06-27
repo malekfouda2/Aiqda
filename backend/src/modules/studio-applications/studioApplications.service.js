@@ -8,6 +8,7 @@ import {
   buildStudioRejectionEmail
 } from '../../utils/emailTemplates.js';
 import { normalizeExternalUrl } from '../../utils/url.js';
+import { notify } from '../notifications/notify.js';
 
 const getStudioMeetingUrl = () => {
   const meetingUrl = process.env.STUDIO_APPLICATION_MEETING_URL;
@@ -61,6 +62,16 @@ export const create = async (data) => {
   } catch (error) {
     console.error('Failed to send studio application admin notification email:', error.message);
   }
+
+  await notify.admins({
+    type: 'application.studio_submitted',
+    title: 'New studio application',
+    titleAr: 'طلب استوديو جديد',
+    message: `${application.studioName || 'A studio'} submitted a studio application.`,
+    messageAr: `${application.studioName || 'استوديو'} قدّم طلب استوديو.`,
+    link: '/admin/studio-applications',
+    metadata: { applicationId: application._id },
+  });
 
   return application;
 };

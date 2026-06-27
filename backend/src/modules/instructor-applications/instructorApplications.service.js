@@ -21,6 +21,7 @@ import crypto from 'crypto';
 import { normalizeExternalUrl } from '../../utils/url.js';
 import { deleteUploadPathIfExists, ensureUploadPathExists } from '../../utils/uploadPaths.js';
 import { isBackofficeRole } from '../../utils/roles.js';
+import { notify } from '../notifications/notify.js';
 
 const getInstructorSetupBaseUrl = () => {
   const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5000';
@@ -87,6 +88,16 @@ export const create = async (data) => {
   } catch (error) {
     console.error('Failed to send instructor application admin notification email:', error.message);
   }
+
+  await notify.admins({
+    type: 'application.creator_submitted',
+    title: 'New creator application',
+    titleAr: 'طلب صانع محتوى جديد',
+    message: `${application.fullName} applied to become a creator.`,
+    messageAr: `${application.fullName} تقدّم ليصبح صانع محتوى.`,
+    link: '/admin/creator-applications',
+    metadata: { applicationId: application._id },
+  });
 
   return application;
 };
@@ -212,6 +223,16 @@ export const approve = async (id, adminId) => {
   application.reviewedAt = new Date();
   await application.save();
 
+  await notify.user(user._id, {
+    type: 'application.creator_approved',
+    title: 'Your creator application was approved',
+    titleAr: 'تمت الموافقة على طلب صانع المحتوى',
+    message: 'Welcome aboard! You can now create and submit content as a creator.',
+    messageAr: 'مرحبًا بك! يمكنك الآن إنشاء المحتوى وإرساله كصانع محتوى.',
+    link: '/creator',
+    metadata: { applicationId: application._id },
+  });
+
   return { application, user, setupLink };
 };
 
@@ -245,6 +266,23 @@ export const reject = async (id, adminId, reason) => {
     console.error('Failed to send instructor rejection email:', error.message);
   }
   await application.save();
+
+  const applicantUser = await User.findOne({ email: application.email }).select('_id').lean();
+  if (applicantUser) {
+    await notify.user(applicantUser._id, {
+      type: 'application.creator_rejected',
+      title: 'Update on your creator application',
+      titleAr: 'تحديث بخصوص طلب صانع المحتوى',
+      message: reason
+        ? `Your creator application was not approved: ${reason}`
+        : 'Your creator application was not approved at this time.',
+      messageAr: reason
+        ? `لم تتم الموافقة على طلب صانع المحتوى: ${reason}`
+        : 'لم تتم الموافقة على طلب صانع المحتوى في الوقت الحالي.',
+      link: '/dashboard',
+      metadata: { applicationId: application._id },
+    });
+  }
 
   return application;
 };

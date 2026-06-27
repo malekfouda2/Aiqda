@@ -361,8 +361,18 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary-600">{item.title}</h3>
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.isPublished ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                        {item.isPublished ? (isRTL ? 'منشور' : 'Published') : (isRTL ? 'مسودة' : 'Draft')}
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        item.isPublished
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : item.reviewStatus === 'pending_review'
+                            ? 'bg-amber-50 text-amber-600'
+                            : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {item.isPublished
+                          ? (isRTL ? 'منشور' : 'Published')
+                          : item.reviewStatus === 'pending_review'
+                            ? (isRTL ? 'قيد المراجعة' : 'In Review')
+                            : (isRTL ? 'مسودة' : 'Draft')}
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-slate-500">
@@ -576,6 +586,38 @@ function InstructorDashboard() {
                 : 'Revenue is estimated from successful subscription payments allocated evenly across each package\'s included chapters.'}
             </p>
           ) : null}
+        </div>
+      </motion.section>
+
+      <motion.section variants={fadeInUp} className="rounded-[28px] border border-slate-100 bg-white p-6 shadow-[0_20px_70px_-55px_rgba(15,23,42,0.35)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'باقات الاشتراك المخصصة' : 'Assigned Subscription Tiers'}</p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">{isRTL ? 'الباقات التي يمكنك النشر فيها' : 'Tiers you can publish content to'}</h3>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(analytics?.assignedPackages || []).length > 0 ? (
+            analytics.assignedPackages.map((pkg) => (
+              <span
+                key={pkg._id}
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium ${
+                  pkg.isActive === false
+                    ? 'border-slate-200 bg-slate-100 text-slate-500'
+                    : 'border-primary-100 bg-primary-50 text-primary-600'
+                }`}
+              >
+                {isRTL && pkg.nameAr ? pkg.nameAr : pkg.name}
+                {pkg.isActive === false && (isRTL ? ' (غير نشطة)' : ' (inactive)')}
+              </span>
+            ))
+          ) : (
+            <p className="text-sm text-slate-400">
+              {isRTL
+                ? 'لم يتم تعيينك إلى أي باقة بعد. تواصل مع الإدارة لتعيين الباقات قبل نشر المحتوى.'
+                : 'You have not been assigned to any tier yet. Contact an admin to get assigned before publishing content.'}
+            </p>
+          )}
         </div>
       </motion.section>
 

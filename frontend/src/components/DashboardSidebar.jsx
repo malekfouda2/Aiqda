@@ -32,6 +32,10 @@ function DashboardSidebar({ type }) {
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
+    { to: '/admin/finance', icon: '💰', label: 'Finance', end: true },
+    { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
+    { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
+    { to: '/admin/finance/allocations', icon: '⚖️', label: 'Allocations' },
   ];
 
   const reviewerLinks = [
@@ -64,7 +68,7 @@ function DashboardSidebar({ type }) {
       transition={{ duration: 0.3 }}
       className="hidden w-64 shrink-0 lg:block"
     >
-      <div className="sticky top-28 xl:top-32 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="sticky top-32 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="p-5 border-b border-gray-100">
           <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse text-right' : ''}`}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
@@ -141,6 +145,10 @@ function DashboardMobileNav({ type }) {
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
+    { to: '/admin/finance', icon: '💰', label: 'Finance', end: true },
+    { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
+    { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
+    { to: '/admin/finance/allocations', icon: '⚖️', label: 'Allocations' },
   ];
   const reviewerLinks = [
     { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications', end: true },

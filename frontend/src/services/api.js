@@ -54,6 +54,7 @@ export const usersAPI = {
   update: (id, data) => api.put(`/users/${id}`, data),
   toggleStatus: (id) => api.patch(`/users/${id}/toggle-status`),
   updateRole: (id, role) => api.patch(`/users/${id}/role`, { role }),
+  assignPackages: (id, packageIds) => api.patch(`/users/${id}/assigned-packages`, { packageIds }),
   remove: (id) => api.delete(`/users/${id}`),
   acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement')
 };
@@ -91,6 +92,8 @@ export const coursesAPI = {
   getById: (id) => api.get(`/courses/${id}`),
   create: (data) => api.post('/courses', data),
   update: (id, data) => api.put(`/courses/${id}`, data),
+  submitForReview: (id) => api.post(`/courses/${id}/submit-review`),
+  setPublish: (id, isPublished) => api.patch(`/courses/${id}/publish`, { isPublished }),
   delete: (id) => api.delete(`/courses/${id}`),
   enroll: (id) => api.post(`/courses/${id}/enroll`),
   getEnrolled: () => api.get('/courses/my/enrolled'),
@@ -102,6 +105,8 @@ export const lessonsAPI = {
   getById: (id) => api.get(`/lessons/${id}`),
   create: (data) => api.post('/lessons', data),
   update: (id, data) => api.put(`/lessons/${id}`, data),
+  submitForReview: (id) => api.post(`/lessons/${id}/submit-review`),
+  setPublish: (id, isPublished) => api.patch(`/lessons/${id}/publish`, { isPublished }),
   delete: (id) => api.delete(`/lessons/${id}`),
   uploadFile: (id, file) => {
     const formData = new FormData();
@@ -133,6 +138,37 @@ export const analyticsAPI = {
   getAdminInstructors: () => api.get('/analytics/admin/instructors'),
   getAdminInstructorDetail: (id) => api.get(`/analytics/admin/instructors/${id}`),
   getLessonAnalytics: (lessonId) => api.get(`/analytics/lesson/${lessonId}`)
+};
+
+export const notificationsAPI = {
+  getAll: (params) => api.get('/notifications', { params }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
+  remove: (id) => api.delete(`/notifications/${id}`),
+  clearAll: () => api.delete('/notifications/clear-all'),
+};
+
+export const searchAPI = {
+  search: (q) => api.get('/search', { params: { q } }),
+};
+
+export const financeAPI = {
+  getOverview: (params) => api.get('/finance/overview', { params }),
+  getInstructorProfile: (id) => api.get(`/finance/instructors/${id}/profile`),
+  getEarnings: (params) => api.get('/finance/earnings', { params }),
+  bulkEarnings: (payload) => api.patch('/finance/earnings/bulk', payload),
+  exportEarnings: (params) => api.get('/finance/export/earnings.csv', { params, responseType: 'blob' }),
+  getAllocations: (packageId) => api.get('/finance/allocations', { params: { package: packageId } }),
+  saveAllocations: (payload) => api.post('/finance/allocations', payload),
+  getPayoutBatches: (instructor) => api.get('/finance/payout-batches', { params: { instructor } }),
+  createPayoutBatch: (payload) => api.post('/finance/payout-batches', payload),
+  approvePayoutBatch: (id) => api.patch(`/finance/payout-batches/${id}/approve`),
+  settlePayoutBatch: (id, payload) => api.patch(`/finance/payout-batches/${id}/settle`, payload),
+  cancelPayoutBatch: (id) => api.patch(`/finance/payout-batches/${id}/cancel`),
+  recordChargeback: (payload) => api.post('/finance/chargebacks', payload),
+  getRecoveries: () => api.get('/finance/recoveries'),
+  getAudit: (params) => api.get('/finance/audit', { params }),
 };
 
 export const contactMessagesAPI = {

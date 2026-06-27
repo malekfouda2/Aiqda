@@ -120,7 +120,7 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   assert.equal(afterLogoutProfileResponse.status, 401);
 });
 
-test('accounts can stay signed in on four approved devices at the same time', async () => {
+test('accounts can stay signed in on two approved devices at the same time', async () => {
   await createUser({
     email: 'concurrent-device-user@example.com',
     password: 'Password123!',
@@ -128,8 +128,6 @@ test('accounts can stay signed in on four approved devices at the same time', as
 
   const firstDevice = request.agent(suite.app);
   const secondDevice = request.agent(suite.app);
-  const thirdDevice = request.agent(suite.app);
-  const fourthDevice = request.agent(suite.app);
 
   const firstLoginResponse = await firstDevice
     .post('/api/auth/login')
@@ -149,29 +147,9 @@ test('accounts can stay signed in on four approved devices at the same time', as
 
   assert.equal(secondLoginResponse.status, 200);
 
-  const thirdLoginResponse = await thirdDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'concurrent-device-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(thirdLoginResponse.status, 200);
-
-  const fourthLoginResponse = await fourthDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'concurrent-device-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(fourthLoginResponse.status, 200);
-
   const profileResponses = await Promise.all([
     firstDevice.get('/api/auth/profile'),
     secondDevice.get('/api/auth/profile'),
-    thirdDevice.get('/api/auth/profile'),
-    fourthDevice.get('/api/auth/profile'),
   ]);
 
   profileResponses.forEach((response) => {
@@ -180,22 +158,20 @@ test('accounts can stay signed in on four approved devices at the same time', as
   });
 });
 
-test('accounts can only be approved on up to four devices even when all approved devices stay active', async () => {
+test('a third device signs in and kicks out the oldest signed-in device', async () => {
   await createUser({
-    email: 'four-device-limit-user@example.com',
+    email: 'device-eviction-user@example.com',
     password: 'Password123!',
   });
 
   const firstDevice = request.agent(suite.app);
   const secondDevice = request.agent(suite.app);
   const thirdDevice = request.agent(suite.app);
-  const fourthDevice = request.agent(suite.app);
-  const fifthDevice = request.agent(suite.app);
 
   const firstLoginResponse = await firstDevice
     .post('/api/auth/login')
     .send({
-      email: 'four-device-limit-user@example.com',
+      email: 'device-eviction-user@example.com',
       password: 'Password123!',
     });
 
@@ -204,7 +180,7 @@ test('accounts can only be approved on up to four devices even when all approved
   const secondLoginResponse = await secondDevice
     .post('/api/auth/login')
     .send({
-      email: 'four-device-limit-user@example.com',
+      email: 'device-eviction-user@example.com',
       password: 'Password123!',
     });
 
@@ -213,45 +189,23 @@ test('accounts can only be approved on up to four devices even when all approved
   const thirdLoginResponse = await thirdDevice
     .post('/api/auth/login')
     .send({
-      email: 'four-device-limit-user@example.com',
+      email: 'device-eviction-user@example.com',
       password: 'Password123!',
     });
 
+  // Third device is allowed in instead of being rejected.
   assert.equal(thirdLoginResponse.status, 200);
 
-  const fourthLoginResponse = await fourthDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'four-device-limit-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(fourthLoginResponse.status, 200);
-
-  const fifthLoginResponse = await fifthDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'four-device-limit-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(fifthLoginResponse.status, 403);
-  assert.equal(
-    fifthLoginResponse.body.error,
-    'This account can only be used on up to 4 devices. Please sign in from one of your approved devices.'
-  );
-
-  const profileResponses = await Promise.all([
+  const [firstProfile, secondProfile, thirdProfile] = await Promise.all([
     firstDevice.get('/api/auth/profile'),
     secondDevice.get('/api/auth/profile'),
     thirdDevice.get('/api/auth/profile'),
-    fourthDevice.get('/api/auth/profile'),
   ]);
 
-  profileResponses.forEach((response) => {
-    assert.equal(response.status, 200);
-    assert.equal(response.body.email, 'four-device-limit-user@example.com');
-  });
+  // Oldest (first) device is kicked out; the two most recent stay active.
+  assert.equal(firstProfile.status, 401);
+  assert.equal(secondProfile.status, 200);
+  assert.equal(thirdProfile.status, 200);
 });
 
 test('admin-side accounts can sign in on multiple devices without device or concurrency limits', async () => {

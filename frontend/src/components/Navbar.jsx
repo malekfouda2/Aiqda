@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LanguageToggle from './LanguageToggle';
+import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
 import { useLocale } from '../i18n/useLocale';
 
 function Navbar() {
@@ -35,31 +37,35 @@ function Navbar() {
 
   return (
     <nav dir={isRTL ? 'rtl' : 'ltr'} className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-24 sm:h-28 xl:h-32">
-          <div className="flex items-center gap-4 sm:gap-6 xl:gap-8 min-w-0">
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt={brandName} className="h-16 sm:h-20 xl:h-24 w-auto" />
+      <div className="max-w-[1600px] mx-auto px-6 lg:px-10 xl:px-14">
+        <div className="flex items-center justify-between gap-6 h-24 lg:h-28">
+          <div className="flex items-center gap-6 xl:gap-10 min-w-0">
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+              <img src="/logo.png" alt={brandName} className="h-20 lg:h-24 w-auto" />
             </Link>
 
-            <div className="hidden lg:flex items-center gap-6">
+            <div className="hidden xl:flex items-center gap-6 flex-nowrap whitespace-nowrap">
               {navLinks.map((link) => (
-                <Link key={link.to} to={link.to} className="text-gray-500 hover:text-gray-900 transition-colors">
+                <Link key={link.to} to={link.to} className="text-base font-medium text-gray-600 hover:text-gray-900 transition-colors">
                   {link.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden lg:block">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="hidden xl:block">
               <LanguageToggle />
             </div>
 
             {user ? (
-              <div className="flex items-center gap-2 sm:gap-4">
-                <div className={`hidden sm:block ${isRTL ? 'text-left' : 'text-right'}`}>
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="hidden md:block w-40 lg:w-48 xl:w-56">
+                  <GlobalSearch />
+                </div>
+                <NotificationBell />
+                <div className={`hidden 2xl:block ${isRTL ? 'text-left' : 'text-right'}`}>
+                  <p className="text-sm font-medium text-gray-900 truncate max-w-[9rem]">{user.name}</p>
                   <p className="text-xs text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
                 </div>
                 <button
@@ -82,7 +88,7 @@ function Navbar() {
 
             <button
               onClick={toggleSidebar}
-              className="lg:hidden p-2 text-gray-500 hover:text-gray-900"
+              className="xl:hidden p-2 text-gray-500 hover:text-gray-900"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -98,7 +104,7 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 top-24 sm:top-28 xl:top-32 z-40"
+            className="xl:hidden fixed inset-0 top-24 lg:top-28 z-40"
           >
             <div className="absolute inset-0 bg-black/20" onClick={closeSidebar} />
             <motion.div
@@ -109,6 +115,11 @@ function Navbar() {
               className={`absolute top-4 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl p-4 ${isRTL ? 'left-4' : 'right-4'}`}
             >
               <div className="space-y-2">
+                {user && (
+                  <div className="md:hidden pb-1">
+                    <GlobalSearch />
+                  </div>
+                )}
                 <LanguageToggle className="w-full justify-center" />
                 {navLinks.map((link) => (
                   <Link

@@ -2,7 +2,7 @@ import * as coursesService from './courses.service.js';
 
 export const createCourse = async (req, res) => {
   try {
-    const course = await coursesService.createCourse(req.body, req.user.id);
+    const course = await coursesService.createCourse(req.body, req.user.id, req.user.role);
     res.status(201).json(course);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -47,6 +47,31 @@ export const updateCourse = async (req, res) => {
       req.body,
       req.user.id,
       req.user.role
+    );
+    res.json(course);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const submitCourseForReview = async (req, res) => {
+  try {
+    const course = await coursesService.submitCourseForReview(
+      req.params.id,
+      req.user.id,
+      req.user.role
+    );
+    res.json(course);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const setCoursePublishState = async (req, res) => {
+  try {
+    const course = await coursesService.setCoursePublishState(
+      req.params.id,
+      req.body.isPublished
     );
     res.json(course);
   } catch (error) {

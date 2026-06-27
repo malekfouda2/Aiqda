@@ -3,7 +3,7 @@ import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { getDeviceIdFromRequest } from '../../utils/authCookie.js';
 import { isBackofficeRole } from '../../utils/roles.js';
 
-export const DEFAULT_MAX_AUTH_DEVICES = 4;
+export const DEFAULT_MAX_AUTH_DEVICES = 2;
 const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
 
 const parsePositiveInteger = (value, fallback) => {
@@ -155,6 +155,30 @@ export const buildDeviceContextFromRequest = (req) => ({
   ipAddress: normalizeIpAddress(req?.ip || req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress),
 });
 
+const getDeviceAge = (device) => {
+  const firstSeenAt = toDate(device?.firstSeenAt);
+  return firstSeenAt ? firstSeenAt.getTime() : 0;
+};
+
+// Evict oldest devices (and their sessions) so a new device can sign in
+// without exceeding the limit. Returns the device ids that were removed.
+const evictOldestDevicesForNewLogin = (user, limit) => {
+  if (!Array.isArray(user.authorizedDevices) || user.authorizedDevices.length < limit) {
+    return [];
+  }
+
+  // Reserve one slot for the incoming device.
+  const evictCount = user.authorizedDevices.length - limit + 1;
+  const sortedByAge = [...user.authorizedDevices].sort((a, b) => getDeviceAge(a) - getDeviceAge(b));
+  const evictedDeviceIds = sortedByAge.slice(0, evictCount).map((device) => device.deviceId);
+  const evictedSet = new Set(evictedDeviceIds);
+
+  user.authorizedDevices = user.authorizedDevices.filter((device) => !evictedSet.has(device.deviceId));
+  user.currentSessions = (user.currentSessions || []).filter((session) => !evictedSet.has(session.deviceId));
+
+  return evictedDeviceIds;
+};
+
 export const createAuthenticatedSessionForUser = async (user, deviceContext = {}) => {
   const now = new Date();
   const knownDeviceId = normalizeDeviceId(deviceContext.deviceId);
@@ -176,8 +200,9 @@ export const createAuthenticatedSessionForUser = async (user, deviceContext = {}
   normalizeCurrentSessions(user, now);
   const existingDevice = findAuthorizedDevice(user, knownDeviceId);
 
-  if (!existingDevice && Array.isArray(user.authorizedDevices) && user.authorizedDevices.length >= getMaxAuthDevices()) {
-    throw new Error(getDeviceLimitErrorMessage());
+  if (!existingDevice) {
+    // New device: evict the oldest device(s) + their sessions so this one fits.
+    evictOldestDevicesForNewLogin(user, getMaxAuthDevices());
   }
 
   const deviceId = existingDevice ? existingDevice.deviceId : (knownDeviceId || randomUUID());

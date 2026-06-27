@@ -3,6 +3,7 @@ import app from './app.js';
 import mongoose from 'mongoose';
 import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
+import { backfillContentReviewState } from './startup/contentReviewStateBackfill.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { ensureSystemUsers } from './startup/ensureSystemUsers.js';
 import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
@@ -32,6 +33,12 @@ mongoose.connect(MONGODB_URI)
     if (backfillResult.updatedLessons > 0) {
       console.log(
         `Backfilled ${backfillResult.updatedLessons} legacy lessons across ${backfillResult.updatedCourses} courses.`
+      );
+    }
+    const reviewStateResult = await backfillContentReviewState();
+    if (reviewStateResult.coursesReset > 0 || reviewStateResult.lessonsReset > 0) {
+      console.log(
+        `Reset ${reviewStateResult.coursesReset} chapters and ${reviewStateResult.lessonsReset} content items to draft for the review workflow.`
       );
     }
     const systemUserResult = await ensureSystemUsers();

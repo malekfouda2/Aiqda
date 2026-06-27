@@ -12,6 +12,8 @@ import ConsultationBooking from '../consultations/consultationBooking.model.js';
 import InstructorApplication from '../instructor-applications/instructorApplication.model.js';
 import StudioApplication from '../studio-applications/studioApplication.model.js';
 import ContactMessage from '../contact-messages/contactMessage.model.js';
+import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
+import { notify } from '../notifications/notify.js';
 
 const SELF_UPDATE_FIELDS = new Set(['name', 'avatar', 'password']);
 const ADMIN_UPDATE_FIELDS = new Set(['name', 'email', 'avatar', 'password', 'isActive']);
@@ -75,16 +77,101 @@ export const toggleUserStatus = async (userId) => {
   return user;
 };
 
+// When a creator is demoted to a member, their pending/decided creator application
+// is removed along with its uploaded files, and any tier assignments are cleared.
+const deleteCreatorApplicationsForUser = async (user) => {
+  const applications = await InstructorApplication.find({ email: user.email });
+  await Promise.all(applications.map(async (application) => {
+    await application.deleteOne();
+    await Promise.allSettled([
+      deleteUploadPathIfExists(application.cvFile),
+      deleteUploadPathIfExists(application.courseMaterialsFile),
+    ]);
+  }));
+};
+
 export const updateUserRole = async (userId, newRole) => {
   if (!USER_ROLES.includes(newRole)) {
     throw new Error('Invalid role');
   }
-  
-  const user = await User.findByIdAndUpdate(userId, { role: newRole }, { new: true });
+
+  const user = await User.findById(userId);
   if (!user) {
     throw new Error('User not found');
   }
+
+  const wasCreator = user.role === 'instructor';
+  const isDemotionToMember = wasCreator && newRole === 'student';
+
+  user.role = newRole;
+  if (newRole !== 'instructor') {
+    user.assignedPackages = [];
+  }
+  await user.save();
+
+  if (isDemotionToMember) {
+    await deleteCreatorApplicationsForUser(user);
+  }
+
+  const ROLE_LABELS = { student: 'Member', instructor: 'Creator', admin: 'Admin', applications_admin: 'Applications Admin' };
+  const ROLE_LABELS_AR = { student: 'عضو', instructor: 'صانع محتوى', admin: 'مدير', applications_admin: 'مدير الطلبات' };
+  await notify.user(user._id, {
+    type: 'role.changed',
+    title: 'Your account role was updated',
+    titleAr: 'تم تحديث دور حسابك',
+    message: `Your role is now ${ROLE_LABELS[newRole] || newRole}.`,
+    messageAr: `دورك الآن: ${ROLE_LABELS_AR[newRole] || newRole}.`,
+    link: newRole === 'instructor' ? '/creator' : '/dashboard',
+    metadata: { newRole },
+  });
+
   return user;
+};
+
+export const assignSubscriptionPackages = async (userId, packageIdsInput) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.role !== 'instructor') {
+    throw new Error('Only creators can be assigned to subscription tiers');
+  }
+
+  const packageIds = [...new Set(
+    (Array.isArray(packageIdsInput) ? packageIdsInput : [])
+      .map((entry) => entry?._id?.toString?.() || entry?.toString?.() || '')
+      .filter(Boolean)
+  )];
+
+  if (packageIds.length > 0) {
+    const found = await SubscriptionPackage.find({ _id: { $in: packageIds } }).select('_id').lean();
+    if (found.length !== packageIds.length) {
+      throw new Error('One or more selected subscription tiers were not found');
+    }
+  }
+
+  user.assignedPackages = packageIds;
+  await user.save();
+  const populated = await user.populate('assignedPackages', 'name nameAr isActive');
+
+  const tierNames = (populated.assignedPackages || []).map((pkg) => pkg.name).filter(Boolean);
+  const tierNamesAr = (populated.assignedPackages || []).map((pkg) => pkg.nameAr || pkg.name).filter(Boolean);
+  await notify.user(user._id, {
+    type: 'creator.tiers_updated',
+    title: 'Your subscription tier access was updated',
+    titleAr: 'تم تحديث وصولك لباقات الاشتراك',
+    message: tierNames.length > 0
+      ? `You can now publish content to: ${tierNames.join(', ')}.`
+      : 'You are not assigned to any subscription tier right now.',
+    messageAr: tierNamesAr.length > 0
+      ? `يمكنك الآن نشر المحتوى في: ${tierNamesAr.join('، ')}.`
+      : 'لست معيّنًا في أي باقة اشتراك حاليًا.',
+    link: '/creator',
+    metadata: { packageIds },
+  });
+
+  return populated;
 };
 
 export const deleteUser = async (userId, requester) => {

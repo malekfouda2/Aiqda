@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { analyticsAPI, paymentsAPI, subscriptionsAPI } from '../services/api';
+import { analyticsAPI, financeAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, slideInLeft, tableRowVariants } from '../utils/animations';
 import { useLocale } from '../i18n/useLocale';
 
+const sar = (n) => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR`;
+
 function AdminDashboard() {
   const { isRTL } = useLocale();
   const [analytics, setAnalytics] = useState(null);
-  const [pendingPayments, setPendingPayments] = useState([]);
-  const [pendingSubscriptions, setPendingSubscriptions] = useState([]);
+  const [finance, setFinance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
@@ -25,14 +26,12 @@ function AdminDashboard() {
 
   const fetchData = async ({ silent = false } = {}) => {
     try {
-      const [analyticsRes, paymentsRes, subsRes] = await Promise.all([
+      const [analyticsRes, financeRes] = await Promise.all([
         analyticsAPI.getAdminAnalytics(),
-        paymentsAPI.getAll('initiated'),
-        subscriptionsAPI.getAll('pending')
+        financeAPI.getOverview().catch(() => ({ data: { summary: null } })),
       ]);
       setAnalytics(analyticsRes.data);
-      setPendingPayments(paymentsRes.data);
-      setPendingSubscriptions(subsRes.data);
+      setFinance(financeRes.data?.summary || null);
       setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
@@ -51,20 +50,40 @@ function AdminDashboard() {
     );
   }
 
+  const overview = analytics?.overview || {};
+
   const statsCards = [
-    { key: 'totalCourses', label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-primary' },
-    { key: 'totalEnrollments', label: isRTL ? 'التسجيلات' : 'Enrollments', icon: '👥', iconClass: 'icon-box-success' },
-    { key: 'pendingPayments', label: isRTL ? 'مدفوعات قيد المعالجة' : 'Payments In Progress', icon: '💳', iconClass: 'icon-box-warning' },
-    { key: 'activeStudentsNow', label: isRTL ? 'أعضاء نشطون الآن' : 'Active Members Now', icon: '📡', iconClass: 'icon-box-accent' },
+    { value: overview.totalMembers || 0, label: isRTL ? 'إجمالي الأعضاء' : 'Total Members', icon: '👥', iconClass: 'icon-box-success' },
+    { value: overview.activeSubscriptions || 0, label: isRTL ? 'الاشتراكات النشطة' : 'Active Subscriptions', icon: '💳', iconClass: 'icon-box-primary' },
+    { value: overview.totalCourses || 0, label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-accent' },
+    { value: overview.activeStudentsNow || 0, label: isRTL ? 'أعضاء نشطون الآن' : 'Active Members Now', icon: '📡', iconClass: 'icon-box-warning', sub: overview.activeWindowMinutes ? (isRTL ? `آخر ${overview.activeWindowMinutes} دقائق` : `last ${overview.activeWindowMinutes} min`) : null },
+  ];
+
+  const financeRows = [
+    { label: isRTL ? 'إجمالي المدفوعات' : 'Gross payments', value: sar(finance?.grossPaid), accent: 'text-gray-900' },
+    { label: isRTL ? 'صافي النقد بعد الرسوم' : 'Net cash after fees', value: sar(finance?.netCashAfterFees), accent: 'text-emerald-600' },
+    { label: isRTL ? 'التزام المبدعين المستحق' : 'Eligible creator liability', value: sar(finance?.eligibleInstructorLiability), accent: 'text-amber-600' },
+    { label: isRTL ? 'المدفوع للمبدعين' : 'Paid to creators', value: sar(finance?.actualInstructorPayouts), accent: 'text-sky-600' },
+    { label: isRTL ? 'أرصدة الاسترداد' : 'Recovery balances', value: sar(finance?.instructorRecoveryBalances), accent: 'text-rose-600' },
+    { label: isRTL ? 'نقد المنصة بعد المدفوعات' : 'Platform cash after payouts', value: sar(finance?.platformCashAfterPayouts), accent: 'text-gray-900' },
+  ];
+
+  const memberRows = [
+    { label: isRTL ? 'إجمالي الأعضاء' : 'Total members', value: overview.totalMembers || 0, icon: '👥' },
+    { label: isRTL ? 'أعضاء جدد (30 يومًا)' : 'New members (30d)', value: overview.newMembers30d || 0, icon: '🆕' },
+    { label: isRTL ? 'الاشتراكات النشطة' : 'Active subscriptions', value: overview.activeSubscriptions || 0, icon: '💳' },
+    { label: isRTL ? 'المبدعون' : 'Creators', value: overview.totalInstructors || 0, icon: '👨‍🏫' },
+    { label: isRTL ? 'التسجيلات' : 'Enrollments', value: overview.totalEnrollments || 0, icon: '📝' },
+    { label: isRTL ? 'فصول مكتملة' : 'Completed chapters', value: overview.completedCourses || 0, icon: '✅' },
   ];
 
   const quickActions = [
+    { to: '/admin/finance', icon: '💰', iconClass: 'icon-box-success', label: isRTL ? 'المالية' : 'Finance', description: isRTL ? 'لوحة المالية' : 'Financial overview' },
     { to: '/admin/payments', icon: '💳', iconClass: 'icon-box-warning', label: isRTL ? 'المدفوعات' : 'Payments', description: isRTL ? 'متابعة Tap' : 'Track Tap status' },
     { to: '/admin/subscriptions', icon: '📋', iconClass: 'icon-box-accent', label: isRTL ? 'الاشتراكات' : 'Subscriptions', description: isRTL ? 'إدارة الخطط' : 'Manage plans' },
     { to: '/admin/users', icon: '👥', iconClass: 'icon-box-success', label: isRTL ? 'المستخدمون' : 'Users', description: isRTL ? 'إدارة المستخدمين' : 'User management' },
     { to: '/admin/chapters', icon: '📚', iconClass: 'icon-box-primary', label: isRTL ? 'الفصول' : 'Chapters', description: isRTL ? 'كتالوج الفصول' : 'Chapter catalog' },
     { to: '/admin/creator-applications', icon: '🎓', iconClass: 'icon-box-accent', label: isRTL ? 'طلبات صنّاع المحتوى' : 'Creator Apps', description: isRTL ? 'مراجعة الطلبات' : 'Review applications' },
-    { to: '/admin/studio-applications', icon: '🎬', iconClass: 'icon-box-primary', label: isRTL ? 'طلبات الاستوديوهات' : 'Studio Apps', description: isRTL ? 'مراجعة الطلبات' : 'Review studio applications' },
     { to: '/admin/consultations', icon: '🎯', iconClass: 'icon-box-success', label: isRTL ? 'الاستشارات' : 'Consultations', description: isRTL ? 'إدارة الأنواع' : 'Manage types' },
     { to: '/admin/consultation-bookings', icon: '📅', iconClass: 'icon-box-warning', label: isRTL ? 'حجوزات الاستشارات' : 'Consult Bookings', description: isRTL ? 'مراجعة الحجوزات' : 'Review bookings' },
   ];
@@ -108,17 +127,9 @@ function AdminDashboard() {
                     <span>{stat.icon}</span>
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {stat.key === 'pendingPayments' ? pendingPayments.length : (analytics?.overview?.[stat.key] || 0)}
-                    </p>
+                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                     <p className="text-gray-500 text-sm">{stat.label}</p>
-                    {stat.key === 'activeStudentsNow' && analytics?.overview?.activeWindowMinutes ? (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {isRTL
-                          ? `آخر ${analytics.overview.activeWindowMinutes} دقائق`
-                          : `last ${analytics.overview.activeWindowMinutes} min`}
-                      </p>
-                    ) : null}
+                    {stat.sub ? <p className="text-xs text-gray-400 mt-1">{stat.sub}</p> : null}
                   </div>
                 </div>
               </motion.div>
@@ -126,98 +137,56 @@ function AdminDashboard() {
           </motion.div>
 
           <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8 mb-8">
-            <motion.div
-              variants={cardVariants}
-              className="card"
-            >
+            <motion.div variants={cardVariants} className="card">
               <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="icon-box icon-box-warning w-10 h-10 text-lg">
-                      <span>💳</span>
-                    </div>
-                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'مدفوعات قيد الانتظار' : 'Pending Payments'}</h2>
+                <div className="flex items-center gap-3">
+                  <div className="icon-box icon-box-success w-10 h-10 text-lg"><span>💰</span></div>
+                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'لمحة مالية' : 'Finance Snapshot'}</h2>
                 </div>
-                <Link to="/admin/payments" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
-                  {isRTL ? 'عرض الكل ←' : 'View All →'}
+                <Link to="/admin/finance" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
+                  {isRTL ? 'عرض المالية ←' : 'View Finance →'}
                 </Link>
               </div>
-              
-              {pendingPayments.length === 0 ? (
+
+              {!finance ? (
                 <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
-                    <span className="text-2xl">✅</span>
-                  </div>
-                  <p className="text-gray-500">{isRTL ? 'لا توجد مدفوعات معلقة' : 'No pending payments'}</p>
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center"><span className="text-2xl">📊</span></div>
+                  <p className="text-gray-500">{isRTL ? 'لا توجد بيانات مالية بعد' : 'No financial data yet'}</p>
                 </div>
               ) : (
                 <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
-                  {pendingPayments.slice(0, 5).map((payment) => (
-                    <motion.div
-                      key={payment._id}
-                      variants={tableRowVariants}
-                      className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center border border-amber-100">
-                          <span className="text-sm">👤</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{payment.user?.name}</p>
-                          <p className="text-sm text-gray-400">{payment.paymentReference || payment.tapChargeId || '—'}</p>
-                        </div>
-                      </div>
-                      <span className="text-lg font-semibold text-amber-600">{payment.amount} {payment.currency || 'SAR'}</span>
+                  {financeRows.map((row) => (
+                    <motion.div key={row.label} variants={tableRowVariants} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
+                      <span className="text-sm text-gray-600">{row.label}</span>
+                      <span className={`text-base font-semibold ${row.accent}`}>{row.value}</span>
                     </motion.div>
                   ))}
                 </motion.div>
               )}
             </motion.div>
 
-            <motion.div
-              variants={cardVariants}
-              className="card"
-            >
+            <motion.div variants={cardVariants} className="card">
               <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="icon-box icon-box-accent w-10 h-10 text-lg">
-                      <span>📋</span>
-                    </div>
-                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'اشتراكات قيد الانتظار' : 'Pending Subscriptions'}</h2>
+                <div className="flex items-center gap-3">
+                  <div className="icon-box icon-box-primary w-10 h-10 text-lg"><span>👥</span></div>
+                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'الأعضاء والنمو' : 'Members & Growth'}</h2>
                 </div>
-                <Link to="/admin/subscriptions" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
-                  {isRTL ? 'عرض الكل ←' : 'View All →'}
+                <Link to="/admin/users" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
+                  {isRTL ? 'إدارة الأعضاء ←' : 'Manage Members →'}
                 </Link>
               </div>
-              
-              {pendingSubscriptions.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
-                    <span className="text-2xl">✅</span>
-                  </div>
-                  <p className="text-gray-500">{isRTL ? 'لا توجد اشتراكات معلقة' : 'No pending subscriptions'}</p>
-                </div>
-              ) : (
-                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
-                  {pendingSubscriptions.slice(0, 5).map((sub) => (
-                    <motion.div
-                      key={sub._id}
-                      variants={tableRowVariants}
-                      className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center border border-cyan-100">
-                          <span className="text-sm">👤</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{sub.user?.name}</p>
-                          <p className="text-sm text-gray-400">{sub.package?.name}</p>
-                        </div>
-                      </div>
-                      <span className="tag tag-intermediate">{isRTL ? 'قيد الانتظار' : 'Pending'}</span>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
+
+              <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 gap-3">
+                {memberRows.map((row) => (
+                  <motion.div key={row.label} variants={tableRowVariants} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">{row.icon}</span>
+                      <span className="text-2xl font-bold text-gray-900">{row.value}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">{row.label}</p>
+                  </motion.div>
+                ))}
+              </motion.div>
             </motion.div>
           </motion.div>
 

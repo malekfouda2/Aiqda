@@ -51,6 +51,11 @@ const ConsultationDetail = lazy(() => import('./pages/ConsultationDetail'));
 const MyConsultations = lazy(() => import('./pages/MyConsultations'));
 const AdminConsultations = lazy(() => import('./pages/AdminConsultations'));
 const AdminConsultationBookings = lazy(() => import('./pages/AdminConsultationBookings'));
+const AdminFinance = lazy(() => import('./pages/AdminFinance'));
+const AdminFinanceInstructor = lazy(() => import('./pages/AdminFinanceInstructor'));
+const AdminFinanceEarnings = lazy(() => import('./pages/AdminFinanceEarnings'));
+const AdminFinancePayouts = lazy(() => import('./pages/AdminFinancePayouts'));
+const AdminFinanceAllocations = lazy(() => import('./pages/AdminFinanceAllocations'));
 
 function RouteLoadingFallback() {
   const { t } = useLocale();
@@ -196,6 +201,11 @@ function App() {
             <Route path="studio-applications" element={renderLazyPage(AdminStudioApplications)} />
             <Route path="consultations" element={renderLazyPage(AdminConsultations)} />
             <Route path="consultation-bookings" element={renderLazyPage(AdminConsultationBookings)} />
+            <Route path="finance" element={renderLazyPage(AdminFinance)} />
+            <Route path="finance/instructors/:id" element={renderLazyPage(AdminFinanceInstructor)} />
+            <Route path="finance/earnings" element={renderLazyPage(AdminFinanceEarnings)} />
+            <Route path="finance/payouts" element={renderLazyPage(AdminFinancePayouts)} />
+            <Route path="finance/allocations" element={renderLazyPage(AdminFinanceAllocations)} />
           </Route>
 
           <Route path="/creator" element={

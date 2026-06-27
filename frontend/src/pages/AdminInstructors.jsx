@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyticsAPI } from '../services/api';
+import { analyticsAPI, usersAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
+import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
+
+const REVIEW_BADGE = {
+  published: { label: 'Published', className: 'bg-green-50 text-green-600 border border-green-100' },
+  pending_review: { label: 'In Review', className: 'bg-amber-50 text-amber-600 border border-amber-100' },
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-500 border border-gray-200' },
+};
+
+const reviewBadge = (item) => {
+  const status = item?.isPublished ? 'published' : (item?.reviewStatus || 'draft');
+  return REVIEW_BADGE[status] || REVIEW_BADGE.draft;
+};
 
 function StatCard({ label, value, sub, color = 'gray' }) {
   const colors = {
@@ -24,15 +36,22 @@ function StatCard({ label, value, sub, color = 'gray' }) {
 }
 
 function AdminInstructors() {
+  const { showSuccess, showError } = useUIStore();
   const [instructors, setInstructors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInstructor, setSelectedInstructor] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [packages, setPackages] = useState([]);
+  const [tierSelection, setTierSelection] = useState([]);
+  const [savingTiers, setSavingTiers] = useState(false);
 
   useEffect(() => {
     fetchInstructors();
+    subscriptionsAPI.getPackages(false)
+      .then((response) => setPackages(response.data || []))
+      .catch((error) => console.error('Failed to fetch subscription tiers:', error));
   }, []);
 
   const fetchInstructors = async () => {
@@ -46,6 +65,19 @@ function AdminInstructors() {
     }
   };
 
+  const loadDetail = async (instructorId) => {
+    setDetailLoading(true);
+    try {
+      const response = await analyticsAPI.getAdminInstructorDetail(instructorId);
+      setDetail(response.data);
+      setTierSelection((response.data.instructor.assignedPackages || []).map((pkg) => pkg._id));
+    } catch (error) {
+      console.error('Failed to fetch instructor detail:', error);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const openDetail = async (instructorId) => {
     if (selectedInstructor === instructorId) {
       setSelectedInstructor(null);
@@ -53,14 +85,47 @@ function AdminInstructors() {
       return;
     }
     setSelectedInstructor(instructorId);
-    setDetailLoading(true);
+    await loadDetail(instructorId);
+  };
+
+  const toggleTier = (packageId) => {
+    setTierSelection((prev) => (
+      prev.includes(packageId) ? prev.filter((id) => id !== packageId) : [...prev, packageId]
+    ));
+  };
+
+  const handleSaveTiers = async (instructorId) => {
+    setSavingTiers(true);
     try {
-      const response = await analyticsAPI.getAdminInstructorDetail(instructorId);
-      setDetail(response.data);
+      await usersAPI.assignPackages(instructorId, tierSelection);
+      showSuccess('Subscription tiers updated for this creator');
+      await loadDetail(instructorId);
+      fetchInstructors();
     } catch (error) {
-      console.error('Failed to fetch instructor detail:', error);
+      showError(error.response?.data?.error || 'Failed to update tiers');
     } finally {
-      setDetailLoading(false);
+      setSavingTiers(false);
+    }
+  };
+
+  const handlePublishCourse = async (instructorId, courseId, isPublished) => {
+    try {
+      await coursesAPI.setPublish(courseId, isPublished);
+      showSuccess(isPublished ? 'Chapter published' : 'Chapter returned to draft');
+      await loadDetail(instructorId);
+      fetchInstructors();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update chapter');
+    }
+  };
+
+  const handlePublishLesson = async (instructorId, lessonId, isPublished) => {
+    try {
+      await lessonsAPI.setPublish(lessonId, isPublished);
+      showSuccess(isPublished ? 'Content published' : 'Content returned to draft');
+      await loadDetail(instructorId);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update content');
     }
   };
 
@@ -135,6 +200,15 @@ function AdminInstructors() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-400">{instructor.email} · Joined {new Date(instructor.joinedAt).toLocaleDateString()}</p>
+                    {(instructor.assignedPackages || []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {instructor.assignedPackages.map((pkg) => (
+                          <span key={pkg._id} className="inline-flex items-center rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-600">
+                            {pkg.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -191,6 +265,46 @@ function AdminInstructors() {
                             <StatCard label="Joined" value={new Date(detail.instructor.joinedAt).toLocaleDateString()} color="gray" />
                           </motion.div>
 
+                          <motion.div variants={cardVariants} className="bg-primary-50/40 rounded-xl p-4 border border-primary-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900">Subscription Tier Access</h4>
+                                <p className="text-xs text-gray-500">Creator content can only be assigned to the tiers selected here.</p>
+                              </div>
+                              <button
+                                onClick={() => handleSaveTiers(instructor._id)}
+                                disabled={savingTiers}
+                                className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
+                              >
+                                {savingTiers ? 'Saving...' : 'Save Tiers'}
+                              </button>
+                            </div>
+                            {packages.length === 0 ? (
+                              <p className="text-sm text-gray-400">No subscription tiers available.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {packages.map((pkg) => {
+                                  const selected = tierSelection.includes(pkg._id);
+                                  return (
+                                    <button
+                                      key={pkg._id}
+                                      type="button"
+                                      onClick={() => toggleTier(pkg._id)}
+                                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        selected
+                                          ? 'border-primary-300 bg-primary-100 text-primary-700'
+                                          : 'border-gray-200 bg-white text-gray-500 hover:border-primary-200'
+                                      }`}
+                                    >
+                                      {selected ? '✓ ' : ''}{pkg.name}
+                                      {pkg.isActive === false && ' (inactive)'}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </motion.div>
+
                           {detail.monthlyEnrollments.length > 0 && (
                             <motion.div variants={cardVariants}>
                               <h4 className="font-semibold text-gray-900 mb-3">Monthly Enrollments</h4>
@@ -229,11 +343,32 @@ function AdminInstructors() {
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
                                         <h5 className="font-semibold text-gray-900">{course.title}</h5>
-                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${course.isPublished ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                                          {course.isPublished ? 'Published' : 'Draft'}
+                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${reviewBadge(course).className}`}>
+                                          {reviewBadge(course).label}
                                         </span>
                                       </div>
                                       <p className="text-xs text-gray-400">{course.category} · {course.level}</p>
+                                    </div>
+                                    <div className="shrink-0">
+                                      {course.isPublished ? (
+                                        <button
+                                          onClick={() => handlePublishCourse(instructor._id, course._id, false)}
+                                          className="btn-secondary text-xs px-3 py-1.5"
+                                        >
+                                          Unpublish
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handlePublishCourse(instructor._id, course._id, true)}
+                                          className={`text-xs px-3 py-1.5 rounded-lg font-medium ${
+                                            course.reviewStatus === 'pending_review'
+                                              ? 'btn-primary'
+                                              : 'btn-secondary'
+                                          }`}
+                                        >
+                                          {course.reviewStatus === 'pending_review' ? 'Approve & Publish' : 'Publish'}
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -268,6 +403,9 @@ function AdminInstructors() {
                                             <div className="flex items-center gap-2">
                                               <span className="text-xs text-gray-400 w-5">{lesson.order}.</span>
                                               <span className="text-gray-900">{lesson.title}</span>
+                                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${reviewBadge(lesson).className}`}>
+                                                {reviewBadge(lesson).label}
+                                              </span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                               {lesson.vimeoVideoId ? (
@@ -277,6 +415,25 @@ function AdminInstructors() {
                                               )}
                                               {lesson.supportingFile && (
                                                 <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">📎</span>
+                                              )}
+                                              {lesson.isPublished ? (
+                                                <button
+                                                  onClick={() => handlePublishLesson(instructor._id, lesson._id, false)}
+                                                  className="text-xs px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
+                                                >
+                                                  Unpublish
+                                                </button>
+                                              ) : (
+                                                <button
+                                                  onClick={() => handlePublishLesson(instructor._id, lesson._id, true)}
+                                                  className={`text-xs px-2 py-0.5 rounded-full border ${
+                                                    lesson.reviewStatus === 'pending_review'
+                                                      ? 'border-primary-200 bg-primary-50 text-primary-600'
+                                                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                  }`}
+                                                >
+                                                  {lesson.reviewStatus === 'pending_review' ? 'Approve' : 'Publish'}
+                                                </button>
                                               )}
                                             </div>
                                           </div>

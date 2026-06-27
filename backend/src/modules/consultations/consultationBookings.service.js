@@ -11,6 +11,7 @@ import {
   buildConsultationBookingRejectedEmail,
   buildConsultationBookingCancelledEmail
 } from '../../utils/emailTemplates.js';
+import { notify } from '../notifications/notify.js';
 
 const attachLatestPayments = async (bookings) => {
   const bookingList = Array.isArray(bookings) ? bookings : bookings ? [bookings] : [];
@@ -84,6 +85,16 @@ export const create = async (data) => {
     console.error('Failed to send consultation booking admin notification email:', error.message);
   }
 
+  await notify.admins({
+    type: 'consultation.booking_created',
+    title: 'New consultation booking',
+    titleAr: 'حجز استشارة جديد',
+    message: `${populatedBooking.user.name} booked "${populatedBooking.consultation.title}".`,
+    messageAr: `${populatedBooking.user.name} حجز "${populatedBooking.consultation.title}".`,
+    link: '/admin/consultation-bookings',
+    metadata: { bookingId: populatedBooking._id },
+  });
+
   return populatedBooking;
 };
 
@@ -136,7 +147,17 @@ export const confirm = async (id, adminId) => {
   } catch (error) {
     console.error('Failed to send consultation confirmation email:', error.message);
   }
-  
+
+  await notify.user(booking.user._id, {
+    type: 'consultation.confirmed',
+    title: 'Your consultation was confirmed',
+    titleAr: 'تم تأكيد استشارتك',
+    message: `"${booking.consultation.title}" is confirmed. Check your booking for the meeting link.`,
+    messageAr: `تم تأكيد "${booking.consultation.title}". راجع حجزك للحصول على رابط الاجتماع.`,
+    link: '/dashboard/consultations',
+    metadata: { bookingId: booking._id },
+  });
+
   return booking;
 };
 
@@ -177,7 +198,21 @@ export const reject = async (id, adminId, reason) => {
   } catch (error) {
     console.error('Failed to send consultation rejection email:', error.message);
   }
-  
+
+  await notify.user(booking.user._id, {
+    type: 'consultation.rejected',
+    title: 'Update on your consultation booking',
+    titleAr: 'تحديث بخصوص حجز استشارتك',
+    message: reason
+      ? `"${booking.consultation.title}" was not approved: ${reason}`
+      : `"${booking.consultation.title}" was not approved.`,
+    messageAr: reason
+      ? `لم تتم الموافقة على "${booking.consultation.title}": ${reason}`
+      : `لم تتم الموافقة على "${booking.consultation.title}".`,
+    link: '/dashboard/consultations',
+    metadata: { bookingId: booking._id },
+  });
+
   return booking;
 };
 
@@ -222,6 +257,16 @@ export const cancelByUser = async (id, userId) => {
   } catch (error) {
     console.error('Failed to send consultation cancellation email:', error.message);
   }
+
+  await notify.admins({
+    type: 'consultation.cancelled_by_member',
+    title: 'Consultation booking cancelled',
+    titleAr: 'تم إلغاء حجز استشارة',
+    message: `${booking.user.name} cancelled "${booking.consultation.title}".`,
+    messageAr: `${booking.user.name} ألغى "${booking.consultation.title}".`,
+    link: '/admin/consultation-bookings',
+    metadata: { bookingId: booking._id },
+  });
 
   return booking;
 };

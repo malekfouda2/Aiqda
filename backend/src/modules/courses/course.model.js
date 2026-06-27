@@ -32,6 +32,11 @@ const courseSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  reviewStatus: {
+    type: String,
+    enum: ['draft', 'pending_review', 'published'],
+    default: 'draft'
+  },
   enrolledStudents: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

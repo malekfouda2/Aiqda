@@ -19,7 +19,7 @@ function MainLayout() {
       <Navbar />
       <Notification />
       <PlatformNoticeGate />
-      <main className="pt-24 sm:pt-28 xl:pt-32">
+      <main className="pt-24 lg:pt-28">
         <Outlet />
       </main>
       {!hideFooter && <Footer />}

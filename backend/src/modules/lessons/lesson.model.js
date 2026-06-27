@@ -48,6 +48,11 @@ const lessonSchema = new mongoose.Schema({
   isPublished: {
     type: Boolean,
     default: false
+  },
+  reviewStatus: {
+    type: String,
+    enum: ['draft', 'pending_review', 'published'],
+    default: 'draft'
   }
 }, {
   timestamps: true

@@ -46,6 +46,15 @@ export const updateUserRole = async (req, res) => {
   }
 };
 
+export const assignSubscriptionPackages = async (req, res) => {
+  try {
+    const user = await usersService.assignSubscriptionPackages(req.params.id, req.body.packageIds);
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const deleteUser = async (req, res) => {
   try {
     const result = await usersService.deleteUser(req.params.id, req.user);

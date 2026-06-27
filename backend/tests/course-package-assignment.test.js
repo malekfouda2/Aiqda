@@ -17,6 +17,10 @@ test('instructors can assign chapters to subscription packages and later update 
   const starterPackage = await createSubscriptionPackage({ name: 'Starter Package' });
   const proPackage = await createSubscriptionPackage({ name: 'Pro Package' });
 
+  // Creators may only assign content to tiers an admin has assigned to them.
+  instructor.user.assignedPackages = [starterPackage._id, proPackage._id];
+  await instructor.user.save();
+
   const createResponse = await request(suite.app)
     .post('/api/courses')
     .set(authHeader(instructor.token))
@@ -71,12 +75,16 @@ test('instructors can assign chapters to subscription packages and later update 
     true
   );
 
+  // Publishing is admin-only now; an admin reviews and publishes the chapter.
+  const admin = await createUser({ role: 'admin' });
   const publishResponse = await request(suite.app)
-    .put(`/api/courses/${createResponse.body._id}`)
-    .set(authHeader(instructor.token))
+    .patch(`/api/courses/${createResponse.body._id}/publish`)
+    .set(authHeader(admin.token))
     .send({ isPublished: true });
 
   assert.equal(publishResponse.status, 200);
+  assert.equal(publishResponse.body.isPublished, true);
+  assert.equal(publishResponse.body.reviewStatus, 'published');
   assert.deepEqual(
     publishResponse.body.assignedPackages.map((pkg) => pkg.name),
     ['Pro Package']

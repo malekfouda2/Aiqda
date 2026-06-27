@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyticsAPI, videoAPI } from '../services/api';
+import { analyticsAPI, videoAPI, coursesAPI, lessonsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 
 const DASHBOARD_REFRESH_MS = 15000;
 const LESSON_ANALYTICS_REFRESH_MS = 10000;
+
+const REVIEW_BADGE = {
+  published: { label: 'Published', className: 'border border-green-100 bg-green-50 text-green-600' },
+  pending_review: { label: 'In Review', className: 'border border-amber-100 bg-amber-50 text-amber-600' },
+  draft: { label: 'Draft', className: 'border border-gray-200 bg-gray-100 text-gray-500' },
+};
+
+const reviewBadge = (item) => {
+  const status = item?.isPublished ? 'published' : (item?.reviewStatus || 'draft');
+  return REVIEW_BADGE[status] || REVIEW_BADGE.draft;
+};
 
 function StatCard({ label, value, sub, color = 'gray' }) {
   const colors = {
@@ -492,6 +503,26 @@ function AdminCourses() {
     }
   }, []);
 
+  const handlePublishCourse = useCallback(async (courseId, isPublished) => {
+    try {
+      await coursesAPI.setPublish(courseId, isPublished);
+      showSuccess(isPublished ? 'Chapter published' : 'Chapter returned to draft');
+      fetchData({ silent: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update chapter');
+    }
+  }, [fetchData, showSuccess, showError]);
+
+  const handlePublishLesson = useCallback(async (lessonId, isPublished) => {
+    try {
+      await lessonsAPI.setPublish(lessonId, isPublished);
+      showSuccess(isPublished ? 'Content published' : 'Content returned to draft');
+      fetchData({ silent: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update content');
+    }
+  }, [fetchData, showSuccess, showError]);
+
   const fetchLessonAnalytics = useCallback(async (lessonId, { silent = false } = {}) => {
     if (!lessonId) {
       return;
@@ -741,9 +772,28 @@ function AdminCourses() {
                                 <div className="flex-1">
                                   <div className="mb-1 flex items-center gap-2">
                                     <h4 className="font-semibold text-gray-900">{course.title}</h4>
-                                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${course.isPublished ? 'border border-green-100 bg-green-50 text-green-600' : 'border border-gray-200 bg-gray-100 text-gray-500'}`}>
-                                      {course.isPublished ? 'Published' : 'Draft'}
+                                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${reviewBadge(course).className}`}>
+                                      {reviewBadge(course).label}
                                     </span>
+                                    {course.isPublished ? (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handlePublishCourse(course._id, false); }}
+                                        className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-50"
+                                      >
+                                        Unpublish
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handlePublishCourse(course._id, true); }}
+                                        className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                                          course.reviewStatus === 'pending_review'
+                                            ? 'border-primary-200 bg-primary-50 text-primary-600'
+                                            : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {course.reviewStatus === 'pending_review' ? 'Approve & Publish' : 'Publish'}
+                                      </button>
+                                    )}
                                   </div>
                                   <p className="mb-2 text-xs text-gray-400">
                                     {course.category} · {course.level} · Created {new Date(course.createdAt).toLocaleDateString()}
@@ -821,9 +871,31 @@ function AdminCourses() {
                                                       No video
                                                     </span>
                                                   )}
+                                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${reviewBadge(lesson).className}`}>
+                                                    {reviewBadge(lesson).label}
+                                                  </span>
                                                 </div>
 
-                                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                <div className="flex items-center gap-2 text-xs text-gray-400" onClick={(event) => event.stopPropagation()}>
+                                                  {lesson.isPublished ? (
+                                                    <button
+                                                      onClick={() => handlePublishLesson(lesson._id, false)}
+                                                      className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-50"
+                                                    >
+                                                      Unpublish
+                                                    </button>
+                                                  ) : (
+                                                    <button
+                                                      onClick={() => handlePublishLesson(lesson._id, true)}
+                                                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                                                        lesson.reviewStatus === 'pending_review'
+                                                          ? 'border-primary-200 bg-primary-50 text-primary-600'
+                                                          : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                      }`}
+                                                    >
+                                                      {lesson.reviewStatus === 'pending_review' ? 'Approve' : 'Publish'}
+                                                    </button>
+                                                  )}
                                                   <span>Min watch {lesson.minimumWatchPercentage}%</span>
                                                   <motion.span
                                                     animate={{ rotate: expandedLesson === lesson._id ? 180 : 0 }}

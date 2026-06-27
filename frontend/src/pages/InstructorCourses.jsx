@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
+import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -15,8 +16,23 @@ const INITIAL_LESSON_FORM = {
   passingScore: 1,
 };
 
+// Derives the display label/style for a course or lesson based on its review state.
+const getReviewState = (item) => {
+  const status = item?.reviewStatus || (item?.isPublished ? 'published' : 'draft');
+  if (item?.isPublished || status === 'published') {
+    return { label: 'Published', className: 'bg-green-50 text-green-600 border border-green-100' };
+  }
+  if (status === 'pending_review') {
+    return { label: 'In Review', className: 'bg-amber-50 text-amber-600 border border-amber-100' };
+  }
+  return { label: 'Draft', className: 'bg-gray-50 text-gray-500 border border-gray-200' };
+};
+
 function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === 'admin';
+  const assignedPackageIds = new Set((user?.assignedPackages || []).map((pkg) => pkg._id || pkg));
   const [courses, setCourses] = useState([]);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -208,24 +224,24 @@ function InstructorCourses() {
     }
   };
 
-  const handleTogglePublish = async (courseId, isPublished) => {
+  const handleSubmitCourseForReview = async (courseId) => {
     try {
-      await coursesAPI.update(courseId, { isPublished: !isPublished });
-      showSuccess(`Chapter ${isPublished ? 'unpublished' : 'published'}`);
+      await coursesAPI.submitForReview(courseId);
+      showSuccess('Chapter submitted for review. An admin will publish it once approved.');
       fetchCourses();
     } catch (error) {
-      showError('Failed to update chapter');
+      showError(error.response?.data?.error || 'Failed to submit chapter for review');
     }
   };
 
-  const handleToggleLessonPublish = async (courseId, lessonId, isPublished) => {
+  const handleSubmitLessonForReview = async (courseId, lessonId) => {
     try {
-      await lessonsAPI.update(lessonId, { isPublished: !isPublished });
-      showSuccess(`Content ${isPublished ? 'unpublished' : 'published'}`);
+      await lessonsAPI.submitForReview(lessonId);
+      showSuccess('Content submitted for review. An admin will publish it once approved.');
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to update content');
+      showError(error.response?.data?.error || 'Failed to submit content for review');
     }
   };
 
@@ -431,14 +447,24 @@ function InstructorCourses() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">Subscription Packages</label>
-                  <p className="text-xs text-gray-400 mb-3">Select the packages that should include this chapter.</p>
-                  {packages.length === 0 ? (
+                  <p className="text-xs text-gray-400 mb-3">
+                    {isAdmin
+                      ? 'Select the packages that should include this chapter.'
+                      : 'Select from the subscription tiers an admin has assigned to you.'}
+                  </p>
+                  {(() => {
+                    const selectablePackages = isAdmin
+                      ? packages
+                      : packages.filter((pkg) => assignedPackageIds.has(pkg._id));
+                    return selectablePackages.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                      No active subscription packages are available yet.
+                      {isAdmin
+                        ? 'No active subscription packages are available yet.'
+                        : 'You have not been assigned to any subscription tier yet. Contact an admin to get assigned.'}
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {packages.map((pkg) => {
+                      {selectablePackages.map((pkg) => {
                         const isSelected = courseForm.packageIds.includes(pkg._id);
                         return (
                           <button
@@ -456,7 +482,8 @@ function InstructorCourses() {
                         );
                       })}
                     </div>
-                  )}
+                  );
+                  })()}
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
@@ -495,8 +522,8 @@ function InstructorCourses() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${course.isPublished ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
-                        {course.isPublished ? 'Published' : 'Draft'}
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getReviewState(course).className}`}>
+                        {getReviewState(course).label}
                       </span>
                     </div>
                     <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category} · {course.level}</p>
@@ -523,9 +550,15 @@ function InstructorCourses() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); handleTogglePublish(course._id, course.isPublished); }} className="btn-secondary text-xs px-3 py-1.5">
-                    {course.isPublished ? 'Unpublish' : 'Publish'}
-                  </button>
+                  {course.isPublished ? (
+                    <span className="text-xs px-3 py-1.5 text-green-600 font-medium">Live</span>
+                  ) : course.reviewStatus === 'pending_review' ? (
+                    <span className="text-xs px-3 py-1.5 text-amber-600 font-medium">Awaiting Review</span>
+                  ) : (
+                    <button onClick={(e) => { e.stopPropagation(); handleSubmitCourseForReview(course._id); }} className="btn-secondary text-xs px-3 py-1.5">
+                      Submit for Review
+                    </button>
+                  )}
                   <span className={`text-gray-400 transition-transform duration-200 ${expandedCourse === course._id ? 'rotate-180' : ''}`}>▼</span>
                 </div>
               </div>
@@ -677,8 +710,8 @@ function InstructorCourses() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <h5 className="font-medium text-gray-900">{lesson.title}</h5>
-                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${lesson.isPublished ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
-                                        {lesson.isPublished ? 'Published' : 'Draft'}
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getReviewState(lesson).className}`}>
+                                        {getReviewState(lesson).label}
                                       </span>
                                     </div>
                                     {lesson.description && <p className="text-sm text-gray-400 mt-1">{lesson.description}</p>}
@@ -697,13 +730,19 @@ function InstructorCourses() {
                                   </div>
                                 </div>
                                 <div className="flex gap-1 shrink-0">
-                                  <button
-                                    onClick={() => handleToggleLessonPublish(course._id, lesson._id, lesson.isPublished)}
-                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                    title={lesson.isPublished ? 'Unpublish content' : 'Publish content'}
-                                  >
-                                    {lesson.isPublished ? '🙈' : '🚀'}
-                                  </button>
+                                  {lesson.isPublished ? (
+                                    <span className="p-2 text-green-600 text-sm" title="Published by an admin">✅</span>
+                                  ) : lesson.reviewStatus === 'pending_review' ? (
+                                    <span className="p-2 text-amber-600 text-sm" title="Awaiting admin review">⏳</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleSubmitLessonForReview(course._id, lesson._id)}
+                                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                      title="Submit content for review"
+                                    >
+                                      🚀
+                                    </button>
+                                  )}
                                   <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>

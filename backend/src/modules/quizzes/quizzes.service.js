@@ -2,6 +2,7 @@ import Quiz from './quiz.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { LessonProgress, CourseProgress } from '../analytics/progress.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
+import { onCourseProgressChanged } from '../finance/financeHooks.js';
 
 const QUIZ_UPDATABLE_FIELDS = ['questions', 'passingScore'];
 
@@ -273,6 +274,8 @@ export const submitQuiz = async (lessonId, userId, answers, userRole = null) => 
 
         await courseProgress.save();
       }
+
+      await onCourseProgressChanged(userId, courseId);
     }
   }
 

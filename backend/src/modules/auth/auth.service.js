@@ -132,7 +132,8 @@ export const login = async ({ email, password, deviceContext }) => {
 };
 
 export const getProfile = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId)
+    .populate('assignedPackages', 'name nameAr isActive');
   if (!user) {
     throw new Error('User not found');
   }
