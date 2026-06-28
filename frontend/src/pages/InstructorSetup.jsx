@@ -58,7 +58,7 @@ function InstructorSetup() {
       >
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-8">
-            <img src="/logo.png" alt={brandName} className="h-16 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-32 sm:h-40 w-auto mx-auto" />
           </Link>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">{isRTL ? 'قم بتعيين كلمة المرور' : 'Set Your Password'}</h1>
           <p className="text-gray-500 text-lg">{isRTL ? 'أكمل تفعيل حساب صانع المحتوى الخاص بك' : 'Finish activating your instructor account'}</p>

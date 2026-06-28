@@ -690,7 +690,7 @@ function InstructorApplication() {
       <div className="relative max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <Link to="/" className="inline-block mb-6">
-            <img src="/logo.png" alt={brandName} className="h-16 sm:h-20 w-auto mx-auto" />
+            <img src="/logo.png" alt={brandName} className="h-32 sm:h-40 w-auto mx-auto" />
           </Link>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3">Creator Application</h1>
           <p className="text-base text-gray-500 sm:text-lg">Join our team of expert animation creators</p>

@@ -87,6 +87,25 @@ function Home() {
     },
   ];
 
+  // Sections use content-visibility:auto, so their height is a placeholder
+  // estimate until rendered. A single smooth scroll lands at the wrong spot
+  // (especially on mobile). Re-target across frames until position settles.
+  const scrollToCreators = () => {
+    const start = Date.now();
+    let lastTop = null;
+    const step = () => {
+      const el = document.getElementById('home-creators');
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const top = Math.round(el.getBoundingClientRect().top);
+      if ((lastTop === null || top !== lastTop) && Date.now() - start < 1500) {
+        lastTop = top;
+        setTimeout(step, 150);
+      }
+    };
+    step();
+  };
+
   const displayPackages = packages.filter((pkg) => (
     pkg.publicVisibility === "coming_soon"
     || (pkg.publicVisibility !== "hidden" && pkg.isActive !== false)
@@ -177,6 +196,10 @@ function Home() {
                   </Link>
                   <a
                     href="#home-creators"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToCreators();
+                    }}
                     className="btn-secondary text-lg px-10 py-4"
                   >
                     {isRTL ? "انضم إلى صنّاع المحتوى لدينا" : "Join Our Creators"}
