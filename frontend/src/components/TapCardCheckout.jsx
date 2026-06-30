@@ -289,12 +289,56 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
         );
       }
 
+      // Drop any stale pending tokenization so a previous attempt can never
+      // leave this one unresolved.
+      if (tokenizePromiseRef.current) {
+        tokenizePromiseRef.current.reject(
+          new Error(locale === 'ar' ? 'تمت مقاطعة إدخال الدفع.' : 'Payment entry was interrupted.')
+        );
+        tokenizePromiseRef.current = null;
+      }
+
       return new Promise((resolve, reject) => {
-        tokenizePromiseRef.current = { resolve, reject };
+        let settled = false;
+        // Tap fires onSuccess/onError, but if the SDK stays silent the promise
+        // would hang forever and freeze the checkout modal. Guard with a timeout.
+        const timer = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          tokenizePromiseRef.current = null;
+          reject(
+            new Error(
+              locale === 'ar'
+                ? 'انتهت مهلة تجهيز الدفع. يرجى المحاولة مرة أخرى.'
+                : 'Payment processing timed out. Please try again.'
+            )
+          );
+        }, 45000);
+
+        tokenizePromiseRef.current = {
+          resolve: (value) => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          },
+          reject: (error) => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            reject(error);
+          },
+        };
         window.CardSDK.tokenize();
       });
     },
-  }), []);
+  }), [locale]);
 
   return (
     <div className="space-y-3">

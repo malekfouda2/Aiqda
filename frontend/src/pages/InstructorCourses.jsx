@@ -45,6 +45,9 @@ function InstructorCourses() {
     packageIds: [],
   });
   const [expandedCourse, setExpandedCourse] = useState(null);
+  const [editingCourseId, setEditingCourseId] = useState(null);
+  const [editCourseForm, setEditCourseForm] = useState({ title: '', description: '' });
+  const [savingCourseEdit, setSavingCourseEdit] = useState(false);
   const [courseLessons, setCourseLessons] = useState({});
   const [showLessonForm, setShowLessonForm] = useState(null);
   const [lessonStep, setLessonStep] = useState(1);
@@ -121,6 +124,38 @@ function InstructorCourses() {
       fetchCourses();
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to create chapter');
+    }
+  };
+
+  const openEditCourse = (course) => {
+    setEditingCourseId(course._id);
+    setEditCourseForm({ title: course.title || '', description: course.description || '' });
+  };
+
+  const closeEditCourse = () => {
+    setEditingCourseId(null);
+    setEditCourseForm({ title: '', description: '' });
+  };
+
+  const handleUpdateCourse = async (e) => {
+    e.preventDefault();
+    if (!editCourseForm.title.trim()) {
+      showError('Chapter title is required');
+      return;
+    }
+    setSavingCourseEdit(true);
+    try {
+      await coursesAPI.update(editingCourseId, {
+        title: editCourseForm.title.trim(),
+        description: editCourseForm.description.trim(),
+      });
+      showSuccess('Chapter updated successfully');
+      closeEditCourse();
+      fetchCourses();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update chapter');
+    } finally {
+      setSavingCourseEdit(false);
     }
   };
 
@@ -550,6 +585,12 @@ function InstructorCourses() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); editingCourseId === course._id ? closeEditCourse() : openEditCourse(course); }}
+                    className="btn-secondary text-xs px-3 py-1.5"
+                  >
+                    {editingCourseId === course._id ? 'Cancel' : 'Edit'}
+                  </button>
                   {course.isPublished ? (
                     <span className="text-xs px-3 py-1.5 text-green-600 font-medium">Live</span>
                   ) : course.reviewStatus === 'pending_review' ? (
@@ -562,6 +603,45 @@ function InstructorCourses() {
                   <span className={`text-gray-400 transition-transform duration-200 ${expandedCourse === course._id ? 'rotate-180' : ''}`}>▼</span>
                 </div>
               </div>
+
+              <AnimatePresence>
+                {editingCourseId === course._id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <form onSubmit={handleUpdateCourse} onClick={(e) => e.stopPropagation()} className="mt-4 space-y-4 rounded-xl border-2 border-primary-100 bg-white p-5 shadow-sm">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Chapter Title <span className="text-red-400">*</span></label>
+                        <input
+                          type="text"
+                          value={editCourseForm.title}
+                          onChange={(e) => setEditCourseForm(f => ({ ...f, title: e.target.value }))}
+                          className="input-field"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
+                        <textarea
+                          value={editCourseForm.description}
+                          onChange={(e) => setEditCourseForm(f => ({ ...f, description: e.target.value }))}
+                          className="input-field"
+                          rows={3}
+                        />
+                      </div>
+                      {(course.isPublished || course.reviewStatus === 'pending_review') && (
+                        <p className="text-xs text-amber-600">
+                          Editing returns this chapter to draft and requires re-submitting for review.
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button type="submit" disabled={savingCourseEdit} className="btn-primary text-sm disabled:opacity-60">
+                          {savingCourseEdit ? 'Saving…' : 'Save Changes'}
+                        </button>
+                        <button type="button" onClick={closeEditCourse} className="btn-secondary text-sm">Cancel</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <AnimatePresence>
                 {expandedCourse === course._id && (

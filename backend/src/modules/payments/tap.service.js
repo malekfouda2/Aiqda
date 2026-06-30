@@ -5,6 +5,11 @@ const DEFAULT_TAP_APPLE_PAY_CSS_URL = 'https://tap-sdks.b-cdn.net/apple-pay/buil
 
 const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'JOD', 'KWD', 'OMR']);
 
+// Tap API calls must never hang the checkout request indefinitely. Without a
+// timeout a stalled Tap response leaves the payment stuck and freezes the
+// client checkout modal that is awaiting our reply.
+const TAP_REQUEST_TIMEOUT_MS = Number(process.env.TAP_REQUEST_TIMEOUT_MS) || 30000;
+
 export const normalizeCurrency = (value) => (
   typeof value === 'string' && value.trim()
     ? value.trim().toUpperCase()
@@ -62,11 +67,25 @@ const extractTapErrorMessage = (payload, fallbackMessage) => {
 };
 
 const tapRequest = async (path, { method = 'GET', body } = {}) => {
-  const response = await fetch(`${TAP_API_BASE_URL}${path}`, {
-    method,
-    headers: buildTapHeaders(body !== undefined),
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TAP_REQUEST_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(`${TAP_API_BASE_URL}${path}`, {
+      method,
+      headers: buildTapHeaders(body !== undefined),
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Tap request timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const rawText = await response.text();
   const payload = rawText ? JSON.parse(rawText) : {};
