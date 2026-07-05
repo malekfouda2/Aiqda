@@ -307,8 +307,8 @@ export const submitCourseForReview = async (courseId, userId, userRole) => {
     titleAr: 'تم إرسال فصل للمراجعة',
     message: `"${course.title}" was submitted and is awaiting your review.`,
     messageAr: `تم إرسال "${course.title}" وهو بانتظار مراجعتك.`,
-    link: '/admin/chapters',
-    metadata: { courseId: course._id },
+    link: `/admin/chapters?instructorId=${course.instructor?._id || course.instructor}&courseId=${course._id}`,
+    metadata: { courseId: course._id, instructorId: course.instructor?._id || course.instructor },
   });
 
   return attachAssignedPackages(populatedCourse);
@@ -337,7 +337,7 @@ export const setCoursePublishState = async (courseId, isPublished) => {
     messageAr: isPublished
       ? `"${course.title}" أصبح منشورًا ومرئيًا للأعضاء.`
       : `تمت إعادة "${course.title}" إلى المسودة. عدّله وأعد إرساله للمراجعة.`,
-    link: '/creator/chapters',
+    link: `/creator/chapters?courseId=${course._id}`,
     metadata: { courseId: course._id },
   });
 
@@ -413,7 +413,7 @@ export const enrollStudent = async (courseId, studentId, userRole = null) => {
     titleAr: 'انضمّ عضو جديد',
     message: `A new member just enrolled in "${course.title}".`,
     messageAr: `انضمّ عضو جديد إلى "${course.title}".`,
-    link: '/creator/chapters',
+    link: `/creator/chapters?courseId=${course._id}`,
     metadata: { courseId: course._id },
   });
 

@@ -40,7 +40,7 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className={`flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 ${isRTL ? 'lg:flex-row-reverse text-right' : ''}`}>
           <div className="space-y-3 max-w-sm">
-            <img src="/logo.png" alt={brandName} className="h-16 sm:h-20 xl:h-24 w-auto" />
+            <img src="/logo.png" alt={brandName} className="h-24 sm:h-32 xl:h-40 w-auto" />
             <p className="text-sm text-gray-500 leading-relaxed">
               {t('footer.about')}
             </p>

@@ -182,6 +182,14 @@ const ensureExtensionMatchesAllowedKinds = (file, allowedKinds, errorMessage) =>
   }
 };
 
+const ensureExtensionIsAllowed = (file, allowedExtensions, errorMessage) => {
+  const extension = path.extname(file.originalname || '').toLowerCase();
+
+  if (!allowedExtensions.includes(extension)) {
+    throw new Error(errorMessage);
+  }
+};
+
 const ensureFileSignatureMatches = async (file, allowedKinds, errorMessage) => {
   const extension = path.extname(file.originalname || '').toLowerCase();
   const sample = await readFileSample(file.path);
@@ -221,7 +229,7 @@ const buildInvalidTypeMessage = (allowedKinds) => (
   `Invalid file type. Uploaded content must be a valid ${allowedKinds.map((kind) => FILE_KIND_MESSAGES[kind]).join(', ')} file.`
 );
 
-const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) => {
+const createValidatedUpload = ({ storage, limits, allowedKinds, allowedExtensions, mode, fields }) => {
   const multerInstance = multer({ storage, limits });
   let uploadMiddleware;
 
@@ -233,7 +241,14 @@ const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) 
     throw new Error(`Unsupported upload mode: ${mode}`);
   }
 
-  const errorMessage = buildInvalidTypeMessage(allowedKinds);
+  // Extension-allowlist mode: validate by extension only. Used for uploads that
+  // accept a broad set of binary formats with no reliable magic-byte signature
+  // (creative/3D/media source files). Kind-based uploaders still enforce that the
+  // file's actual content signature matches its extension.
+  const useExtensionAllowlist = Array.isArray(allowedExtensions) && allowedExtensions.length > 0;
+  const errorMessage = useExtensionAllowlist
+    ? 'Invalid file type. This file format is not supported for uploads.'
+    : buildInvalidTypeMessage(allowedKinds);
 
   return (req, res, next) => {
     uploadMiddleware(req, res, async (error) => {
@@ -244,6 +259,10 @@ const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) 
       const files = collectUploadedFiles(req);
       try {
         await Promise.all(files.map(async (file) => {
+          if (useExtensionAllowlist) {
+            ensureExtensionIsAllowed(file, allowedExtensions, errorMessage);
+            return;
+          }
           ensureExtensionMatchesAllowedKinds(file, allowedKinds, errorMessage);
           await ensureFileSignatureMatches(file, allowedKinds, errorMessage);
         }));
@@ -256,10 +275,28 @@ const createValidatedUpload = ({ storage, limits, allowedKinds, mode, fields }) 
   };
 };
 
+// Creators upload lesson source assets in many creative/3D/media/document formats.
+// These are validated by extension allowlist (see extension-allowlist mode above).
+export const LESSON_ALLOWED_EXTENSIONS = [
+  '.ma', '.mb', '.max', '.blend', '.c4d', '.hip', '.hiplc', '.hipnc', '.ztl', '.zpr',
+  '.mud', '.spp', '.sbs', '.sbsar', '.psd', '.psb', '.ai', '.indd', '.aep', '.aepx',
+  '.prproj', '.fla', '.xfl', '.sesx', '.lrcat', '.drp', '.dra', '.nk', '.comp', '.xstage',
+  '.sbpz', '.sboard', '.tvpp', '.moho', '.anme', '.uproject', '.uasset', '.unity', '.zprj',
+  '.ccproject', '.iproject', '.tbscene', '.rizomuv', '.mix', '.fbx', '.obj', '.abc', '.usd',
+  '.usda', '.usdc', '.usdz', '.gltf', '.glb', '.dae', '.3ds', '.stl', '.ply', '.x3d', '.wrl',
+  '.lwo', '.lws', '.step', '.stp', '.iges', '.igs', '.sat', '.dwg', '.dxf', '.svg', '.eps',
+  '.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.tga', '.bmp', '.gif', '.webp', '.heic',
+  '.ico', '.dds', '.ktx', '.exr', '.hdr', '.raw', '.cr2', '.cr3', '.nef', '.arw', '.orf',
+  '.rw2', '.mp4', '.mov', '.avi', '.mxf', '.mkv', '.webm', '.wmv', '.flv', '.m4v', '.mpg',
+  '.mpeg', '.3gp', '.wav', '.mp3', '.aiff', '.flac', '.ogg', '.aac', '.m4a', '.mid', '.midi',
+  '.xml', '.json', '.csv', '.yaml', '.yml', '.txt', '.rtf', '.doc', '.docx', '.xls', '.xlsx',
+  '.ppt', '.pptx', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.iso',
+];
+
 export const uploadLessonFile = createValidatedUpload({
   storage: lessonStorage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  allowedKinds: ['pdf', 'doc', 'docx', 'txt'],
+  limits: { fileSize: 25 * 1024 * 1024 },
+  allowedExtensions: LESSON_ALLOWED_EXTENSIONS,
   mode: 'single',
   fields: [{ name: 'file' }],
 });

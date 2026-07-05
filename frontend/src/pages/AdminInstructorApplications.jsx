@@ -159,6 +159,7 @@ function AdminInstructorApplications() {
         { key: 'courseMaterialsUploaded', label: 'Chapter Materials File Uploaded' },
         { key: 'preferredSchedule', label: 'Preferred Schedule' },
         { key: 'earliestStartDate', label: 'Earliest Start Date' },
+        { key: 'hearAboutUs', label: 'How They Heard About Us' },
         { key: 'additionalComments', label: 'Additional Comments' },
         { key: 'creatorTermsVersion', label: 'Creator Terms Version' },
         { key: 'creatorTermsAcceptedAt', label: 'Creator Terms Accepted At' },
@@ -193,6 +194,7 @@ function AdminInstructorApplications() {
         courseMaterialsUploaded: formatCsvBoolean(Boolean(app.courseMaterialsFile)),
         preferredSchedule: app.preferredSchedule,
         earliestStartDate: formatCsvDate(app.earliestStartDate),
+        hearAboutUs: app.hearAboutUs,
         additionalComments: app.additionalComments,
         creatorTermsVersion: app.creatorTermsVersion,
         creatorTermsAcceptedAt: formatCsvDate(app.creatorTermsAcceptedAt),
@@ -519,6 +521,7 @@ function AdminInstructorApplications() {
                         <InfoRow label="Preferred Schedule" value={selectedApp.preferredSchedule} />
                         <InfoRow label="Earliest Start Date" value={selectedApp.earliestStartDate ? new Date(selectedApp.earliestStartDate).toLocaleDateString() : null} />
                       </div>
+                      <InfoRow label="How They Heard About Us" value={selectedApp.hearAboutUs} />
                       <InfoRow label="Additional Comments" value={selectedApp.additionalComments} />
                     </div>
 

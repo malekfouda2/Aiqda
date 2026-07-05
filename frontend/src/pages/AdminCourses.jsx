@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analyticsAPI, videoAPI, coursesAPI, lessonsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
@@ -473,6 +474,7 @@ function LessonAnalyticsPanel({ analytics, loading, error }) {
 
 function AdminCourses() {
   const { showSuccess, showError, addNotification } = useUIStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedInstructor, setExpandedInstructor] = useState(null);
@@ -577,6 +579,31 @@ function AdminCourses() {
 
     return () => clearInterval(intervalId);
   }, [fetchData]);
+
+  // Deep-link from a notification: ?instructorId=&courseId= expands the target
+  // creator + chapter and scrolls to it, then clears the params so refreshes/
+  // polling don't keep re-triggering it.
+  useEffect(() => {
+    const courseId = searchParams.get('courseId');
+    if (!courseId || data.length === 0) {
+      return;
+    }
+    const instructorId = searchParams.get('instructorId');
+    const group = data.find((item) => (
+      instructorId
+        ? String(item.instructor._id) === instructorId
+        : item.courses.some((course) => String(course._id) === courseId)
+    ));
+    if (!group) {
+      return;
+    }
+    setExpandedInstructor(group.instructor._id);
+    setExpandedCourse(courseId);
+    setSearchParams({}, { replace: true });
+    requestAnimationFrame(() => {
+      document.getElementById(`admin-course-${courseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [data, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!expandedLesson) {
@@ -760,7 +787,7 @@ function AdminCourses() {
 
                       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
                         {item.courses.map((course) => (
-                          <motion.div key={course._id} variants={cardVariants} className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                          <motion.div key={course._id} id={`admin-course-${course._id}`} variants={cardVariants} className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
                             <div
                               className="cursor-pointer p-4"
                               onClick={() => {

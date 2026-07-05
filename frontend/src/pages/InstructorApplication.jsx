@@ -82,6 +82,7 @@ function InstructorApplication() {
     courseMaterialsFile: null,
     preferredSchedule: '',
     earliestStartDate: '',
+    hearAboutUs: '',
     additionalComments: '',
   });
 
@@ -190,6 +191,7 @@ function InstructorApplication() {
     if (step === 5) {
       if (!formState.preferredSchedule.trim()) newErrors.preferredSchedule = 'Preferred schedule is required';
       if (!formState.earliestStartDate) newErrors.earliestStartDate = 'Earliest start date is required';
+      if (!formState.hearAboutUs.trim()) newErrors.hearAboutUs = 'Please tell us how you heard about us';
     }
 
     setErrors(newErrors);
@@ -233,6 +235,7 @@ function InstructorApplication() {
       data.append('existingCourseMaterials', formState.existingCourseMaterials);
       data.append('preferredSchedule', formState.preferredSchedule);
       data.append('earliestStartDate', formState.earliestStartDate);
+      data.append('hearAboutUs', formState.hearAboutUs);
       data.append('additionalComments', formState.additionalComments);
       data.append('creatorAgreementAccepted', 'true');
       if (formState.cvFile) data.append('cvFile', formState.cvFile);
@@ -624,6 +627,27 @@ function InstructorApplication() {
           className="input-field"
         />
         {renderError('earliestStartDate')}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">How did you hear about us? *</label>
+        <select
+          value={formState.hearAboutUs}
+          onChange={(e) => updateField('hearAboutUs', e.target.value)}
+          className="input-field"
+        >
+          <option value="">Select an option</option>
+          <option value="Instagram">Instagram</option>
+          <option value="TikTok">TikTok</option>
+          <option value="YouTube">YouTube</option>
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="X (Twitter)">X (Twitter)</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Search Engine (Google)">Search Engine (Google)</option>
+          <option value="Friend or Colleague">Friend or Colleague</option>
+          <option value="Event or Workshop">Event or Workshop</option>
+          <option value="Other">Other</option>
+        </select>
+        {renderError('hearAboutUs')}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Additional Comments or Questions</label>

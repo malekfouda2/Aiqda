@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
@@ -16,6 +17,26 @@ const INITIAL_LESSON_FORM = {
   passingScore: 1,
 };
 
+// Creative/3D/media/document formats accepted for lesson uploads. Must stay in
+// sync with LESSON_ALLOWED_EXTENSIONS in backend upload.middleware.js.
+const LESSON_FILE_ACCEPT = [
+  '.ma', '.mb', '.max', '.blend', '.c4d', '.hip', '.hiplc', '.hipnc', '.ztl', '.zpr',
+  '.mud', '.spp', '.sbs', '.sbsar', '.psd', '.psb', '.ai', '.indd', '.aep', '.aepx',
+  '.prproj', '.fla', '.xfl', '.sesx', '.lrcat', '.drp', '.dra', '.nk', '.comp', '.xstage',
+  '.sbpz', '.sboard', '.tvpp', '.moho', '.anme', '.uproject', '.uasset', '.unity', '.zprj',
+  '.ccproject', '.iproject', '.tbscene', '.rizomuv', '.mix', '.fbx', '.obj', '.abc', '.usd',
+  '.usda', '.usdc', '.usdz', '.gltf', '.glb', '.dae', '.3ds', '.stl', '.ply', '.x3d', '.wrl',
+  '.lwo', '.lws', '.step', '.stp', '.iges', '.igs', '.sat', '.dwg', '.dxf', '.svg', '.eps',
+  '.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.tga', '.bmp', '.gif', '.webp', '.heic',
+  '.ico', '.dds', '.ktx', '.exr', '.hdr', '.raw', '.cr2', '.cr3', '.nef', '.arw', '.orf',
+  '.rw2', '.mp4', '.mov', '.avi', '.mxf', '.mkv', '.webm', '.wmv', '.flv', '.m4v', '.mpg',
+  '.mpeg', '.3gp', '.wav', '.mp3', '.aiff', '.flac', '.ogg', '.aac', '.m4a', '.mid', '.midi',
+  '.xml', '.json', '.csv', '.yaml', '.yml', '.txt', '.rtf', '.doc', '.docx', '.xls', '.xlsx',
+  '.ppt', '.pptx', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.iso',
+].join(',');
+
+const LESSON_FILE_MAX_BYTES = 25 * 1024 * 1024;
+
 // Derives the display label/style for a course or lesson based on its review state.
 const getReviewState = (item) => {
   const status = item?.reviewStatus || (item?.isPublished ? 'published' : 'draft');
@@ -32,6 +53,7 @@ function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
   const assignedPackageIds = new Set((user?.assignedPackages || []).map((pkg) => pkg._id || pkg));
   const [courses, setCourses] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -41,7 +63,6 @@ function InstructorCourses() {
     title: '',
     description: '',
     category: 'General',
-    level: 'beginner',
     packageIds: [],
   });
   const [expandedCourse, setExpandedCourse] = useState(null);
@@ -53,6 +74,10 @@ function InstructorCourses() {
   const [lessonStep, setLessonStep] = useState(1);
   const [lessonForm, setLessonForm] = useState({ ...INITIAL_LESSON_FORM });
   const [submittingLesson, setSubmittingLesson] = useState(false);
+  const [editingLessonId, setEditingLessonId] = useState(null);
+  const [editLessonForm, setEditLessonForm] = useState({ title: '', description: '', file: null });
+  const [savingLessonEdit, setSavingLessonEdit] = useState(false);
+  const editLessonFileRef = useRef(null);
   const [showQuizEditor, setShowQuizEditor] = useState(null);
   const [quizData, setQuizData] = useState(null);
   const fileInputRef = useRef(null);
@@ -63,6 +88,26 @@ function InstructorCourses() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Deep-link from a notification (?courseId=): expand that chapter and scroll to
+  // it, then clear the param so it doesn't re-trigger on later renders.
+  useEffect(() => {
+    const courseId = searchParams.get('courseId');
+    if (!courseId || courses.length === 0) {
+      return;
+    }
+    if (!courses.some((course) => String(course._id) === courseId)) {
+      return;
+    }
+    setExpandedCourse(courseId);
+    if (!courseLessons[courseId]) {
+      fetchLessons(courseId);
+    }
+    setSearchParams({}, { replace: true });
+    requestAnimationFrame(() => {
+      document.getElementById(`creator-course-${courseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [courses, searchParams, setSearchParams]);
 
   const fetchData = async () => {
     try {
@@ -117,7 +162,6 @@ function InstructorCourses() {
         title: '',
         description: '',
         category: 'General',
-        level: 'beginner',
         packageIds: [],
       });
       setShowCourseForm(false);
@@ -277,6 +321,49 @@ function InstructorCourses() {
       fetchCourses();
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to submit content for review');
+    }
+  };
+
+  const openEditLesson = (lesson) => {
+    setShowLessonForm(null);
+    setEditingLessonId(lesson._id);
+    setEditLessonForm({ title: lesson.title || '', description: lesson.description || '', file: null });
+    if (editLessonFileRef.current) {
+      editLessonFileRef.current.value = '';
+    }
+  };
+
+  const closeEditLesson = () => {
+    setEditingLessonId(null);
+    setEditLessonForm({ title: '', description: '', file: null });
+    if (editLessonFileRef.current) {
+      editLessonFileRef.current.value = '';
+    }
+  };
+
+  const handleUpdateLesson = async (e, courseId) => {
+    e.preventDefault();
+    if (!editLessonForm.title.trim()) {
+      showError('Content title is required');
+      return;
+    }
+    setSavingLessonEdit(true);
+    try {
+      await lessonsAPI.update(editingLessonId, {
+        title: editLessonForm.title.trim(),
+        description: editLessonForm.description.trim(),
+      });
+      if (editLessonForm.file) {
+        await lessonsAPI.uploadFile(editingLessonId, editLessonForm.file);
+      }
+      showSuccess('Content updated');
+      closeEditLesson();
+      fetchLessons(courseId);
+      fetchCourses();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update content');
+    } finally {
+      setSavingLessonEdit(false);
     }
   };
 
@@ -466,41 +553,38 @@ function InstructorCourses() {
             <div className="card mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Chapter</h2>
               <form onSubmit={handleCreateCourse} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Title</label>
-                    <input type="text" value={courseForm.title} onChange={(e) => setCourseForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Level</label>
-                    <select value={courseForm.level} onChange={(e) => setCourseForm(f => ({ ...f, level: e.target.value }))} className="input-field">
-                      <option value="beginner">Beginner</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Title</label>
+                  <input type="text" value={courseForm.title} onChange={(e) => setCourseForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Subscription Packages</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Tiers</label>
                   <p className="text-xs text-gray-400 mb-3">
                     {isAdmin
-                      ? 'Select the packages that should include this chapter.'
-                      : 'Select from the subscription tiers an admin has assigned to you.'}
+                      ? 'Select the tiers that should include this chapter.'
+                      : 'Select from the subscription tiers an admin has assigned to you. Locked tiers are not available to you.'}
                   </p>
-                  {(() => {
-                    const selectablePackages = isAdmin
-                      ? packages
-                      : packages.filter((pkg) => assignedPackageIds.has(pkg._id));
-                    return selectablePackages.length === 0 ? (
+                  {packages.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                      {isAdmin
-                        ? 'No active subscription packages are available yet.'
-                        : 'You have not been assigned to any subscription tier yet. Contact an admin to get assigned.'}
+                      No active subscription tiers are available yet.
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {selectablePackages.map((pkg) => {
+                      {packages.map((pkg) => {
                         const isSelected = courseForm.packageIds.includes(pkg._id);
+                        const isAssignable = isAdmin || assignedPackageIds.has(pkg._id);
+                        if (!isAssignable) {
+                          return (
+                            <span
+                              key={pkg._id}
+                              title="You are not assigned to this tier"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed select-none"
+                            >
+                              <span aria-hidden="true">🔒</span>
+                              {pkg.name}
+                            </span>
+                          );
+                        }
                         return (
                           <button
                             key={pkg._id}
@@ -517,8 +601,7 @@ function InstructorCourses() {
                         );
                       })}
                     </div>
-                  );
-                  })()}
+                  )}
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
@@ -548,7 +631,7 @@ function InstructorCourses() {
       ) : (
         <div className="space-y-4">
           {courses.map((course) => (
-            <div key={course._id} className="card">
+            <div key={course._id} id={`creator-course-${course._id}`} className="card">
               <div className="flex items-center justify-between cursor-pointer" onClick={() => handleExpandCourse(course._id)}>
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
@@ -561,7 +644,7 @@ function InstructorCourses() {
                         {getReviewState(course).label}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category} · {course.level}</p>
+                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(course.assignedPackages || []).length > 0 ? (
                         course.assignedPackages.map((pkg) => (
@@ -711,11 +794,15 @@ function InstructorCourses() {
                                       ref={lessonFileRef}
                                       type="file"
                                       className="hidden"
-                                      accept=".pdf,.doc,.docx,.txt"
+                                      accept={LESSON_FILE_ACCEPT}
                                       onChange={(e) => {
                                         const file = e.target.files[0];
                                         if (file) {
-                                          setLessonForm(f => ({ ...f, file, fileName: file.name }));
+                                          if (file.size > LESSON_FILE_MAX_BYTES) {
+                                            showError('File exceeds the 25MB upload limit');
+                                          } else {
+                                            setLessonForm(f => ({ ...f, file, fileName: file.name }));
+                                          }
                                         }
                                         e.target.value = '';
                                       }}
@@ -823,6 +910,15 @@ function InstructorCourses() {
                                       🚀
                                     </button>
                                   )}
+                                  {!lesson.isPublished && (
+                                    <button
+                                      onClick={() => (editingLessonId === lesson._id ? closeEditLesson() : openEditLesson(lesson))}
+                                      className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                                      title="Edit content"
+                                    >
+                                      ✏️
+                                    </button>
+                                  )}
                                   <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>
@@ -831,6 +927,67 @@ function InstructorCourses() {
                                   </button>
                                 </div>
                               </div>
+                              <AnimatePresence>
+                                {editingLessonId === lesson._id && !lesson.isPublished && (
+                                  <motion.form
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    onSubmit={(e) => handleUpdateLesson(e, course._id)}
+                                    className="overflow-hidden mt-4 space-y-3 border-t border-gray-100 pt-4"
+                                  >
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                                      <input
+                                        type="text"
+                                        value={editLessonForm.title}
+                                        onChange={(e) => setEditLessonForm((f) => ({ ...f, title: e.target.value }))}
+                                        className="input-field"
+                                        required
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                                      <textarea
+                                        value={editLessonForm.description}
+                                        onChange={(e) => setEditLessonForm((f) => ({ ...f, description: e.target.value }))}
+                                        className="input-field"
+                                        rows={3}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Replace supporting document (optional)</label>
+                                      <input
+                                        ref={editLessonFileRef}
+                                        type="file"
+                                        accept={LESSON_FILE_ACCEPT}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0] || null;
+                                          if (file && file.size > LESSON_FILE_MAX_BYTES) {
+                                            showError('File exceeds the 25MB upload limit');
+                                            e.target.value = '';
+                                            return;
+                                          }
+                                          setEditLessonForm((f) => ({ ...f, file }));
+                                        }}
+                                        className="input-field"
+                                      />
+                                      {lesson.supportingFileName && !editLessonForm.file && (
+                                        <p className="text-xs text-gray-400 mt-1">Current: {lesson.supportingFileName}. Leave empty to keep it.</p>
+                                      )}
+                                    </div>
+                                    {lesson.reviewStatus === 'pending_review' && (
+                                      <p className="text-xs text-amber-600">Editing returns this content to draft and requires re-submitting for review.</p>
+                                    )}
+                                    <div className="flex gap-2">
+                                      <button type="submit" disabled={savingLessonEdit} className="btn-primary text-sm disabled:opacity-60">
+                                        {savingLessonEdit ? 'Saving…' : 'Save Changes'}
+                                      </button>
+                                      <button type="button" onClick={closeEditLesson} className="btn-secondary text-sm">Cancel</button>
+                                    </div>
+                                  </motion.form>
+                                )}
+                              </AnimatePresence>
                             </div>
                           ))}
                         </div>

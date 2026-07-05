@@ -95,6 +95,10 @@ const instructorApplicationSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  hearAboutUs: {
+    type: String,
+    required: true
+  },
   additionalComments: {
     type: String
   },

@@ -155,6 +155,8 @@ export const searchAPI = {
 
 export const financeAPI = {
   getOverview: (params) => api.get('/finance/overview', { params }),
+  getSettings: () => api.get('/finance/settings'),
+  updateSettings: (data) => api.put('/finance/settings', data),
   getInstructorProfile: (id) => api.get(`/finance/instructors/${id}/profile`),
   getEarnings: (params) => api.get('/finance/earnings', { params }),
   bulkEarnings: (payload) => api.patch('/finance/earnings/bulk', payload),

@@ -27,8 +27,6 @@ const validateEmailList = (value) => {
   return emails.length > 0 && emails.every((email) => emailRegex.test(email));
 };
 
-const isValidEmail = (value) => validateEmailList(value);
-
 export const validateRuntimeConfig = (env = process.env) => {
   const errors = [];
   const socialProviders = [
@@ -115,18 +113,6 @@ export const validateRuntimeConfig = (env = process.env) => {
 
   if (env.CONTACT_NOTIFICATION_TO && !validateEmailList(env.CONTACT_NOTIFICATION_TO)) {
     errors.push('CONTACT_NOTIFICATION_TO must contain one or more valid comma-separated email addresses.');
-  }
-
-  if (env.EBAA_REVIEWER_EMAIL && !isValidEmail(env.EBAA_REVIEWER_EMAIL)) {
-    errors.push('EBAA_REVIEWER_EMAIL must be a valid email address.');
-  }
-
-  if (env.EBAA_REVIEWER_PASSWORD && env.EBAA_REVIEWER_PASSWORD.length < 8) {
-    errors.push('EBAA_REVIEWER_PASSWORD must be at least 8 characters.');
-  }
-
-  if (isProduction(env) && !env.EBAA_REVIEWER_PASSWORD) {
-    errors.push('EBAA_REVIEWER_PASSWORD is required in production to seed the limited reviewer account.');
   }
 
   for (const provider of socialProviders) {

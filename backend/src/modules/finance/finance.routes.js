@@ -15,6 +15,9 @@ const requireFinance = (action) => (req, res, next) => {
 router.use(authenticate);
 
 router.get('/overview', requireFinance(FINANCE_ACTIONS.VIEW_DASHBOARD), controller.getOverview);
+
+router.get('/settings', requireFinance(FINANCE_ACTIONS.VIEW_DASHBOARD), controller.getSettings);
+router.put('/settings', requireFinance(FINANCE_ACTIONS.MANAGE_ALLOCATION_SETTINGS), controller.updateSettings);
 router.get('/instructors/:id/profile', requireFinance(FINANCE_ACTIONS.VIEW_INSTRUCTOR_FINANCIALS), controller.getInstructorProfile);
 
 router.get('/earnings', requireFinance(FINANCE_ACTIONS.VIEW_EARNINGS), controller.getEarnings);

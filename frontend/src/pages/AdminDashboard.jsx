@@ -61,6 +61,9 @@ function AdminDashboard() {
 
   const financeRows = [
     { label: isRTL ? 'إجمالي المدفوعات' : 'Gross payments', value: sar(finance?.grossPaid), accent: 'text-gray-900' },
+    { label: isRTL ? 'رسوم بوابة الدفع' : 'Gateway fees', value: sar(finance?.gatewayFees), accent: 'text-rose-600' },
+    { label: isRTL ? 'رسوم بنكية' : 'Bank fees', value: sar(finance?.bankFees), accent: 'text-rose-600' },
+    { label: isRTL ? 'رسوم أخرى' : 'Other fees', value: sar(finance?.otherFees), accent: 'text-rose-600' },
     { label: isRTL ? 'صافي النقد بعد الرسوم' : 'Net cash after fees', value: sar(finance?.netCashAfterFees), accent: 'text-emerald-600' },
     { label: isRTL ? 'التزام المبدعين المستحق' : 'Eligible creator liability', value: sar(finance?.eligibleInstructorLiability), accent: 'text-amber-600' },
     { label: isRTL ? 'المدفوع للمبدعين' : 'Paid to creators', value: sar(finance?.actualInstructorPayouts), accent: 'text-sky-600' },

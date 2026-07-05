@@ -11,6 +11,8 @@ const sar = (n) => `${Number(n || 0).toLocaleString(undefined, { minimumFraction
 const FIGURES = [
   ['grossPaid', 'Gross learner payments'],
   ['gatewayFees', 'Tap gateway fees'],
+  ['bankFees', 'Bank fees'],
+  ['otherFees', 'Other fees'],
   ['maxInstructorExposure', 'Max instructor pool (30%)'],
   ['pendingInstructorPotential', 'Pending potential (not earned)'],
   ['eligibleInstructorLiability', 'Eligible liability (unpaid)'],
@@ -26,22 +28,48 @@ const FIGURES = [
 ];
 
 function AdminFinance() {
-  const { showError } = useUIStore();
+  const { showError, showSuccess } = useUIStore();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [byInstructor, setByInstructor] = useState([]);
   const [range, setRange] = useState({ from: '', to: '' });
+  const [feeForm, setFeeForm] = useState({ bankFee: '', otherFee: '' });
+  const [savingFees, setSavingFees] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await financeAPI.getOverview({ from: range.from || undefined, to: range.to || undefined });
-      setSummary(data.summary);
-      setByInstructor(data.byInstructor || []);
+      const [overview, settings] = await Promise.all([
+        financeAPI.getOverview({ from: range.from || undefined, to: range.to || undefined }),
+        financeAPI.getSettings(),
+      ]);
+      setSummary(overview.data.summary);
+      setByInstructor(overview.data.byInstructor || []);
+      setFeeForm({
+        bankFee: String(settings.data.bankFee ?? ''),
+        otherFee: String(settings.data.otherFee ?? ''),
+      });
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to load financial overview');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveFees = async (e) => {
+    e.preventDefault();
+    setSavingFees(true);
+    try {
+      await financeAPI.updateSettings({
+        bankFee: Number(feeForm.bankFee) || 0,
+        otherFee: Number(feeForm.otherFee) || 0,
+      });
+      showSuccess('Fees updated');
+      await load();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update fees');
+    } finally {
+      setSavingFees(false);
     }
   };
 
@@ -72,6 +100,38 @@ function AdminFinance() {
           </div>
         ))}
       </div>
+
+      <form onSubmit={saveFees} className="rounded-2xl border border-gray-100 bg-white p-4">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-semibold text-gray-900">Platform fees</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">Fixed bank and other fees (SAR). Deducted from net cash after fees and platform cash figures above.</p>
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="text-xs text-gray-500">Bank fees (SAR)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={feeForm.bankFee}
+              onChange={(e) => setFeeForm((f) => ({ ...f, bankFee: e.target.value }))}
+              className="block border rounded-lg px-2 py-1 text-sm w-40 mt-1"
+            />
+          </label>
+          <label className="text-xs text-gray-500">Other fees (SAR)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={feeForm.otherFee}
+              onChange={(e) => setFeeForm((f) => ({ ...f, otherFee: e.target.value }))}
+              className="block border rounded-lg px-2 py-1 text-sm w-40 mt-1"
+            />
+          </label>
+          <button type="submit" disabled={savingFees} className="btn-primary text-sm disabled:opacity-60">
+            {savingFees ? 'Saving…' : 'Save fees'}
+          </button>
+        </div>
+      </form>
 
       <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
         <div className="px-4 py-3 border-b font-semibold text-gray-900">Revenue by creator</div>

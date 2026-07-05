@@ -3,6 +3,7 @@ import * as allocation from './allocation.service.js';
 import * as payout from './payout.service.js';
 import * as recovery from './recovery.service.js';
 import { getAuditLog } from './audit.service.js';
+import * as financeSettings from './financeSettings.service.js';
 import InstructorEarning from './instructorEarning.model.js';
 import { fromMinor } from './finance.money.js';
 
@@ -20,6 +21,19 @@ export const getOverview = handle(async (req, res) => {
     report.getRevenueByInstructor(),
   ]);
   res.json({ summary, byInstructor });
+});
+
+export const getSettings = handle(async (req, res) => {
+  res.json(await financeSettings.getSettings());
+});
+
+export const updateSettings = handle(async (req, res) => {
+  const updated = await financeSettings.updateSettings({
+    bankFee: req.body.bankFee,
+    otherFee: req.body.otherFee,
+    actorId: req.user?._id || null,
+  });
+  res.json(updated);
 });
 
 export const getInstructorProfile = handle(async (req, res) => {

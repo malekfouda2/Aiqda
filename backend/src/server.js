@@ -5,7 +5,6 @@ import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
 import { backfillContentReviewState } from './startup/contentReviewStateBackfill.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
-import { ensureSystemUsers } from './startup/ensureSystemUsers.js';
 import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
 
@@ -39,12 +38,6 @@ mongoose.connect(MONGODB_URI)
     if (reviewStateResult.coursesReset > 0 || reviewStateResult.lessonsReset > 0) {
       console.log(
         `Reset ${reviewStateResult.coursesReset} chapters and ${reviewStateResult.lessonsReset} content items to draft for the review workflow.`
-      );
-    }
-    const systemUserResult = await ensureSystemUsers();
-    if (systemUserResult.reviewer.created || systemUserResult.reviewer.updated) {
-      console.log(
-        `Ensured application reviewer account ${systemUserResult.reviewer.email} with role ${systemUserResult.reviewer.role}.`
       );
     }
     const renewalWorker = startSubscriptionRenewalWorker();
