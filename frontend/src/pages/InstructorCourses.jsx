@@ -922,9 +922,11 @@ function InstructorCourses() {
                                   <button onClick={() => openQuizEditor(lesson)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Edit quiz">
                                     📝
                                   </button>
-                                  <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete content">
-                                    🗑
-                                  </button>
+                                  {!lesson.isPublished && lesson.reviewStatus === 'draft' && (
+                                    <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete content">
+                                      🗑
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                               <AnimatePresence>

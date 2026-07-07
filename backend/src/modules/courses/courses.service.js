@@ -358,6 +358,10 @@ export const deleteCourse = async (courseId, userId, userRole) => {
     throw new Error('Not authorized to delete this course');
   }
 
+  if (course.isPublished || course.reviewStatus !== 'draft') {
+    throw new Error('Only draft chapters can be deleted. Return it to draft first.');
+  }
+
   await Lesson.deleteMany({ course: courseId });
   await SubscriptionPackage.updateMany(
     { courses: courseId },

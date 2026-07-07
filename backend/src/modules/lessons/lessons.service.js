@@ -259,6 +259,10 @@ export const deleteLesson = async (lessonId, userId = null, userRole = null) => 
     throw new Error('Not authorized to delete this lesson');
   }
 
+  if (lesson.isPublished || lesson.reviewStatus !== 'draft') {
+    throw new Error('Only draft content can be deleted. Return it to draft first.');
+  }
+
   const courseId = lesson.course._id || lesson.course;
   await Lesson.findByIdAndDelete(lessonId);
   await updateLessonCount(courseId);

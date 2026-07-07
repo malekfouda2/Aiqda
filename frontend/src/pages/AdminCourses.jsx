@@ -525,6 +525,29 @@ function AdminCourses() {
     }
   }, [fetchData, showSuccess, showError]);
 
+  // Deletion is restricted to draft items (enforced on the backend too).
+  const handleDeleteCourse = useCallback(async (courseId) => {
+    if (!confirm('Delete this draft chapter and all its content? This cannot be undone.')) return;
+    try {
+      await coursesAPI.delete(courseId);
+      showSuccess('Chapter deleted');
+      fetchData({ silent: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete chapter');
+    }
+  }, [fetchData, showSuccess, showError]);
+
+  const handleDeleteLesson = useCallback(async (lessonId) => {
+    if (!confirm('Delete this draft content? This cannot be undone.')) return;
+    try {
+      await lessonsAPI.delete(lessonId);
+      showSuccess('Content deleted');
+      fetchData({ silent: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete content');
+    }
+  }, [fetchData, showSuccess, showError]);
+
   const fetchLessonAnalytics = useCallback(async (lessonId, { silent = false } = {}) => {
     if (!lessonId) {
       return;
@@ -821,6 +844,15 @@ function AdminCourses() {
                                         {course.reviewStatus === 'pending_review' ? 'Approve & Publish' : 'Publish'}
                                       </button>
                                     )}
+                                    {!course.isPublished && course.reviewStatus === 'draft' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course._id); }}
+                                        className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                                        title="Delete draft chapter"
+                                      >
+                                        Delete
+                                      </button>
+                                    )}
                                   </div>
                                   <p className="mb-2 text-xs text-gray-400">
                                     {course.category} · {course.level} · Created {new Date(course.createdAt).toLocaleDateString()}
@@ -921,6 +953,15 @@ function AdminCourses() {
                                                       }`}
                                                     >
                                                       {lesson.reviewStatus === 'pending_review' ? 'Approve' : 'Publish'}
+                                                    </button>
+                                                  )}
+                                                  {!lesson.isPublished && lesson.reviewStatus === 'draft' && (
+                                                    <button
+                                                      onClick={() => handleDeleteLesson(lesson._id)}
+                                                      className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                                                      title="Delete draft content"
+                                                    >
+                                                      Delete
                                                     </button>
                                                   )}
                                                   <span>Min watch {lesson.minimumWatchPercentage}%</span>
