@@ -63,7 +63,9 @@ function AdminDashboard() {
     { label: isRTL ? 'إجمالي المدفوعات' : 'Gross payments', value: sar(finance?.grossPaid), accent: 'text-gray-900' },
     { label: isRTL ? 'رسوم بوابة الدفع' : 'Gateway fees', value: sar(finance?.gatewayFees), accent: 'text-rose-600' },
     { label: isRTL ? 'رسوم بنكية' : 'Bank fees', value: sar(finance?.bankFees), accent: 'text-rose-600' },
-    { label: isRTL ? 'رسوم أخرى' : 'Other fees', value: sar(finance?.otherFees), accent: 'text-rose-600' },
+    ...(finance?.expenses || []).map((expense) => (
+      { label: expense.label, value: sar(expense.amount), accent: 'text-rose-600' }
+    )),
     { label: isRTL ? 'صافي النقد بعد الرسوم' : 'Net cash after fees', value: sar(finance?.netCashAfterFees), accent: 'text-emerald-600' },
     { label: isRTL ? 'التزام المبدعين المستحق' : 'Eligible creator liability', value: sar(finance?.eligibleInstructorLiability), accent: 'text-amber-600' },
     { label: isRTL ? 'المدفوع للمبدعين' : 'Paid to creators', value: sar(finance?.actualInstructorPayouts), accent: 'text-sky-600' },
@@ -158,8 +160,8 @@ function AdminDashboard() {
                 </div>
               ) : (
                 <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
-                  {financeRows.map((row) => (
-                    <motion.div key={row.label} variants={tableRowVariants} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
+                  {financeRows.map((row, idx) => (
+                    <motion.div key={`${row.label}-${idx}`} variants={tableRowVariants} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
                       <span className="text-sm text-gray-600">{row.label}</span>
                       <span className={`text-base font-semibold ${row.accent}`}>{row.value}</span>
                     </motion.div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI } from '../services/api';
+import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI, usersAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import InfoTooltip from '../components/InfoTooltip';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
@@ -13,6 +14,7 @@ const INITIAL_LESSON_FORM = {
   description: '',
   file: null,
   fileName: '',
+  includeQuiz: false,
   questions: [{ question: '', options: ['', '', ''], correctAnswer: 0 }],
   passingScore: 1,
 };
@@ -37,6 +39,11 @@ const LESSON_FILE_ACCEPT = [
 
 const LESSON_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
+// Human-readable sequence codes: chapters are CH-01, lessons are CH-01-L-03.
+const pad2 = (n) => String(Number(n) || 0).padStart(2, '0');
+const chapterCode = (course) => `CH-${pad2(course?.order)}`;
+const lessonCode = (course, lesson) => `${chapterCode(course)}-L-${pad2(lesson?.order)}`;
+
 // Derives the display label/style for a course or lesson based on its review state.
 const getReviewState = (item) => {
   const status = item?.reviewStatus || (item?.isPublished ? 'published' : 'draft');
@@ -52,7 +59,10 @@ const getReviewState = (item) => {
 function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
   const user = useAuthStore((state) => state.user);
+  const refreshProfile = useAuthStore((state) => state.refreshProfile);
   const isAdmin = user?.role === 'admin';
+  const [teaserUploading, setTeaserUploading] = useState(false);
+  const teaserFileRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const assignedPackageIds = new Set((user?.assignedPackages || []).map((pkg) => pkg._id || pkg));
   const [courses, setCourses] = useState([]);
@@ -64,10 +74,15 @@ function InstructorCourses() {
     description: '',
     category: 'General',
     packageIds: [],
+    software: [],
   });
+  const [softwareInput, setSoftwareInput] = useState('');
+  const [dragCourseIdx, setDragCourseIdx] = useState(null);
+  const [dragLesson, setDragLesson] = useState(null);
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [editingCourseId, setEditingCourseId] = useState(null);
-  const [editCourseForm, setEditCourseForm] = useState({ title: '', description: '' });
+  const [editCourseForm, setEditCourseForm] = useState({ title: '', description: '', software: [] });
+  const [editSoftwareInput, setEditSoftwareInput] = useState('');
   const [savingCourseEdit, setSavingCourseEdit] = useState(false);
   const [courseLessons, setCourseLessons] = useState({});
   const [showLessonForm, setShowLessonForm] = useState(null);
@@ -153,17 +168,113 @@ function InstructorCourses() {
     }
   };
 
+  const handleCourseDrop = async (targetIdx) => {
+    const from = dragCourseIdx;
+    setDragCourseIdx(null);
+    if (from === null || from === targetIdx) return;
+    const reordered = [...courses];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(targetIdx, 0, moved);
+    const withOrder = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    setCourses(withOrder);
+    try {
+      await coursesAPI.reorder(withOrder.map((c) => ({ courseId: c._id, order: c.order })));
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to reorder chapters');
+      fetchCourses();
+    }
+  };
+
+  const handleLessonDrop = async (courseId, targetIdx) => {
+    const drag = dragLesson;
+    setDragLesson(null);
+    if (!drag || drag.courseId !== courseId || drag.idx === targetIdx) return;
+    const list = [...(courseLessons[courseId] || [])];
+    const [moved] = list.splice(drag.idx, 1);
+    list.splice(targetIdx, 0, moved);
+    const withOrder = list.map((l, i) => ({ ...l, order: i + 1 }));
+    setCourseLessons((prev) => ({ ...prev, [courseId]: withOrder }));
+    try {
+      await lessonsAPI.reorder(courseId, withOrder.map((l) => ({ lessonId: l._id, order: l.order })));
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to reorder lesson');
+      fetchLessons(courseId);
+    }
+  };
+
+  const addSoftwareTag = (raw) => {
+    const tag = String(raw || '').trim();
+    if (!tag) return;
+    setCourseForm((f) => (
+      f.software.some((s) => s.toLowerCase() === tag.toLowerCase())
+        ? f
+        : { ...f, software: [...f.software, tag] }
+    ));
+    setSoftwareInput('');
+  };
+
+  const removeSoftwareTag = (tag) => {
+    setCourseForm((f) => ({ ...f, software: f.software.filter((s) => s !== tag) }));
+  };
+
+  const handleSoftwareKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addSoftwareTag(softwareInput);
+    } else if (e.key === 'Backspace' && !softwareInput && courseForm.software.length > 0) {
+      removeSoftwareTag(courseForm.software[courseForm.software.length - 1]);
+    }
+  };
+
+  const TEASER_MAX_BYTES = 100 * 1024 * 1024;
+
+  const handleTeaserUpload = async (file) => {
+    if (!file) return;
+    if (file.size > TEASER_MAX_BYTES) {
+      showError('Video exceeds the 100MB limit');
+      return;
+    }
+    setTeaserUploading(true);
+    try {
+      await usersAPI.uploadTeaser(file);
+      await refreshProfile();
+      showSuccess('Teaser video saved');
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to upload teaser');
+    } finally {
+      setTeaserUploading(false);
+      if (teaserFileRef.current) teaserFileRef.current.value = '';
+    }
+  };
+
+  const handleRemoveTeaser = async () => {
+    if (!confirm('Remove your teaser video?')) return;
+    try {
+      await usersAPI.deleteTeaser();
+      await refreshProfile();
+      showSuccess('Teaser video removed');
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to remove teaser');
+    }
+  };
+
   const handleCreateCourse = async (e) => {
     e.preventDefault();
     try {
-      await coursesAPI.create(courseForm);
+      const payload = { ...courseForm };
+      if (softwareInput.trim() && !payload.software.some((s) => s.toLowerCase() === softwareInput.trim().toLowerCase())) {
+        payload.software = [...payload.software, softwareInput.trim()];
+      }
+      await coursesAPI.create(payload);
       showSuccess('Chapter created successfully');
       setCourseForm({
         title: '',
         description: '',
         category: 'General',
         packageIds: [],
+        software: [],
       });
+      setSoftwareInput('');
       setShowCourseForm(false);
       fetchCourses();
     } catch (error) {
@@ -173,12 +284,38 @@ function InstructorCourses() {
 
   const openEditCourse = (course) => {
     setEditingCourseId(course._id);
-    setEditCourseForm({ title: course.title || '', description: course.description || '' });
+    setEditCourseForm({ title: course.title || '', description: course.description || '', software: [...(course.software || [])] });
+    setEditSoftwareInput('');
   };
 
   const closeEditCourse = () => {
     setEditingCourseId(null);
-    setEditCourseForm({ title: '', description: '' });
+    setEditCourseForm({ title: '', description: '', software: [] });
+    setEditSoftwareInput('');
+  };
+
+  const addEditSoftwareTag = (raw) => {
+    const tag = String(raw || '').trim();
+    if (!tag) return;
+    setEditCourseForm((f) => (
+      (f.software || []).some((s) => s.toLowerCase() === tag.toLowerCase())
+        ? f
+        : { ...f, software: [...(f.software || []), tag] }
+    ));
+    setEditSoftwareInput('');
+  };
+
+  const removeEditSoftwareTag = (tag) => {
+    setEditCourseForm((f) => ({ ...f, software: (f.software || []).filter((s) => s !== tag) }));
+  };
+
+  const handleEditSoftwareKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addEditSoftwareTag(editSoftwareInput);
+    } else if (e.key === 'Backspace' && !editSoftwareInput && (editCourseForm.software || []).length > 0) {
+      removeEditSoftwareTag(editCourseForm.software[editCourseForm.software.length - 1]);
+    }
   };
 
   const handleUpdateCourse = async (e) => {
@@ -189,9 +326,14 @@ function InstructorCourses() {
     }
     setSavingCourseEdit(true);
     try {
+      const software = [...(editCourseForm.software || [])];
+      if (editSoftwareInput.trim() && !software.some((s) => s.toLowerCase() === editSoftwareInput.trim().toLowerCase())) {
+        software.push(editSoftwareInput.trim());
+      }
       await coursesAPI.update(editingCourseId, {
         title: editCourseForm.title.trim(),
         description: editCourseForm.description.trim(),
+        software,
       });
       showSuccess('Chapter updated successfully');
       closeEditCourse();
@@ -224,82 +366,101 @@ function InstructorCourses() {
     setLessonForm({ ...INITIAL_LESSON_FORM });
   };
 
-  const validateStep1 = () => {
-    if (!lessonForm.title.trim()) {
-      showError('Content title is required');
-      return false;
-    }
-    return true;
+  // Pulls a human-readable reason out of any error (API message, network, or generic).
+  const errorReason = (error, fallback) => {
+    if (error?.response?.data?.error) return error.response.data.error;
+    if (error?.message === 'Network Error') return 'network problem — check your connection';
+    return error?.message || fallback;
   };
 
-  const validateStep2 = () => {
-    if (!lessonForm.file) {
-      showError('A supporting document is required');
-      return false;
+  // Returns an error string if the quiz is invalid, or null if it's fine.
+  const validateQuiz = () => {
+    const questions = lessonForm.questions;
+    if (questions.length === 0) {
+      return 'Add at least one question, or turn the quiz off.';
     }
-    return true;
-  };
-
-  const validateStep3 = () => {
-    for (const q of lessonForm.questions) {
-      if (!q.question.trim()) {
-        showError('All questions must have text');
-        return false;
-      }
-      if (q.options.some(o => !o.trim())) {
-        showError('All options must have text');
-        return false;
-      }
+    for (let i = 0; i < questions.length; i += 1) {
+      const q = questions[i];
+      if (!q.question.trim()) return `Question ${i + 1} needs some text.`;
+      if (q.options.some((o) => !o.trim())) return `Question ${i + 1}: fill in all 3 answer options.`;
     }
-    return true;
-  };
-
-  const goToStep = (step) => {
-    if (step === 2 && !validateStep1()) return;
-    if (step === 3 && !validateStep2()) return;
-    setLessonStep(step);
+    return null;
   };
 
   const handleSubmitLesson = async (courseId) => {
-    if (!validateStep1() || !validateStep2() || !validateStep3()) return;
+    // Only the title is required. File and quiz are optional.
+    if (!lessonForm.title.trim()) {
+      showError('Please enter a lesson title to continue.');
+      return;
+    }
+    if (lessonForm.includeQuiz) {
+      const quizError = validateQuiz();
+      if (quizError) {
+        showError(quizError);
+        return;
+      }
+    }
 
     setSubmittingLesson(true);
+
+    // Step 1: create the lesson itself. If this fails, nothing was created — safe to retry.
+    let lessonId;
     try {
       const lessonRes = await lessonsAPI.create({
-        title: lessonForm.title,
-        description: lessonForm.description,
+        title: lessonForm.title.trim(),
+        description: lessonForm.description.trim(),
         course: courseId,
       });
-      const lessonId = lessonRes.data._id;
-
-      await lessonsAPI.uploadFile(lessonId, lessonForm.file);
-
-      await quizzesAPI.create({
-        lesson: lessonId,
-        questions: lessonForm.questions,
-        passingScore: lessonForm.passingScore,
-      });
-
-      showSuccess('Content created with document and quiz');
-      closeLessonForm();
-      fetchLessons(courseId);
-      fetchCourses();
+      lessonId = lessonRes.data._id;
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to create content');
-    } finally {
       setSubmittingLesson(false);
+      showError(`Couldn't create the lesson: ${errorReason(error, 'please try again')}.`);
+      return;
+    }
+
+    // Steps 2 & 3 are optional add-ons. If one fails, the lesson still exists — we tell
+    // the creator exactly what to fix (via Edit) instead of failing the whole thing.
+    const warnings = [];
+    if (lessonForm.file) {
+      try {
+        await lessonsAPI.uploadFile(lessonId, lessonForm.file);
+      } catch (error) {
+        warnings.push(`the file wasn't attached (${errorReason(error, 'upload failed')})`);
+      }
+    }
+    if (lessonForm.includeQuiz) {
+      try {
+        await quizzesAPI.create({
+          lesson: lessonId,
+          questions: lessonForm.questions,
+          passingScore: lessonForm.passingScore,
+        });
+      } catch (error) {
+        warnings.push(`the quiz wasn't saved (${errorReason(error, 'please try again')})`);
+      }
+    }
+
+    setSubmittingLesson(false);
+    closeLessonForm();
+    fetchLessons(courseId);
+    fetchCourses();
+
+    if (warnings.length > 0) {
+      showError(`Lesson created, but ${warnings.join(' and ')}. Open the lesson's Edit button to fix it.`);
+    } else {
+      showSuccess('Lesson created.');
     }
   };
 
   const handleDeleteLesson = async (lessonId, courseId) => {
-    if (!confirm('Are you sure you want to delete this content?')) return;
+    if (!confirm('Are you sure you want to delete this lesson?')) return;
     try {
       await lessonsAPI.delete(lessonId);
-      showSuccess('Content deleted');
+      showSuccess('Lesson deleted');
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to delete content');
+      showError(error.response?.data?.error || 'Failed to delete lesson');
     }
   };
 
@@ -316,11 +477,11 @@ function InstructorCourses() {
   const handleSubmitLessonForReview = async (courseId, lessonId) => {
     try {
       await lessonsAPI.submitForReview(lessonId);
-      showSuccess('Content submitted for review. An admin will publish it once approved.');
+      showSuccess('Lesson submitted for review. An admin will publish it once approved.');
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to submit content for review');
+      showError(error.response?.data?.error || 'Failed to submit lesson for review');
     }
   };
 
@@ -344,7 +505,7 @@ function InstructorCourses() {
   const handleUpdateLesson = async (e, courseId) => {
     e.preventDefault();
     if (!editLessonForm.title.trim()) {
-      showError('Content title is required');
+      showError('Lesson title is required');
       return;
     }
     setSavingLessonEdit(true);
@@ -356,12 +517,12 @@ function InstructorCourses() {
       if (editLessonForm.file) {
         await lessonsAPI.uploadFile(editingLessonId, editLessonForm.file);
       }
-      showSuccess('Content updated');
+      showSuccess('Lesson updated');
       closeEditLesson();
       fetchLessons(courseId);
       fetchCourses();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to update content');
+      showError(error.response?.data?.error || 'Failed to update lesson');
     } finally {
       setSavingLessonEdit(false);
     }
@@ -482,27 +643,6 @@ function InstructorCourses() {
     );
   }
 
-  const stepIndicator = (
-    <div className="flex items-center gap-2 mb-6">
-      {[
-        { num: 1, label: 'Details' },
-        { num: 2, label: 'Document' },
-        { num: 3, label: 'Quiz' },
-      ].map((s, idx) => (
-        <div key={s.num} className="flex items-center gap-2">
-          {idx > 0 && <div className={`w-8 h-0.5 ${lessonStep >= s.num ? 'bg-primary-400' : 'bg-gray-200'}`} />}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            lessonStep === s.num ? 'bg-primary-50 text-primary-600 border border-primary-200' :
-            lessonStep > s.num ? 'bg-green-50 text-green-600 border border-green-200' :
-            'bg-gray-50 text-gray-400 border border-gray-200'
-          }`}>
-            {lessonStep > s.num ? '✓' : s.num} {s.label}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   const renderQuestionEditor = (questions, addFn, removeFn, updateQFn, updateOFn, contextLabel) => (
     <div className="space-y-4">
       {questions.map((q, qIdx) => (
@@ -539,12 +679,56 @@ function InstructorCourses() {
     <motion.div variants={pageVariants} initial="hidden" animate="visible">
       <motion.div variants={fadeInUp} className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Chapters</h1>
-          <p className="text-gray-500">Create and manage your chapters, contents, and quizzes</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+            My Chapters
+            <InfoTooltip text="A chapter is your course. Add lessons (content + quiz) inside it, then submit for review so an admin can publish it to members." />
+          </h1>
+          <p className="text-gray-500">Create and manage your chapters, lessons, and quizzes</p>
         </div>
-        <button onClick={() => setShowCourseForm(!showCourseForm)} className="btn-primary">
-          {showCourseForm ? 'Cancel' : 'New Chapter'}
-        </button>
+        {(isAdmin || courses.length === 0 || showCourseForm) && (
+          <button onClick={() => setShowCourseForm(!showCourseForm)} className="btn-primary">
+            {showCourseForm ? 'Cancel' : 'New Chapter'}
+          </button>
+        )}
+      </motion.div>
+
+      <motion.div variants={fadeInUp} className="card mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              Your teaser video
+              <InfoTooltip text="A short intro video about yourself. It appears before your chapters on your public creator page. Max 100MB (MP4, WebM, MOV)." />
+            </h2>
+            <p className="text-sm text-gray-500">A short intro about yourself, shown to members before your chapters.</p>
+          </div>
+        </div>
+        {user?.teaserVideo ? (
+          <div className="space-y-3">
+            <video src={user.teaserVideo} controls className="w-full max-w-2xl rounded-xl border border-gray-100 bg-black" />
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => teaserFileRef.current?.click()} disabled={teaserUploading} className="btn-secondary text-sm disabled:opacity-60">
+                {teaserUploading ? 'Uploading…' : 'Replace video'}
+              </button>
+              <button onClick={handleRemoveTeaser} className="text-sm text-red-500 hover:text-red-600 px-3">Remove</button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => teaserFileRef.current?.click()}
+            disabled={teaserUploading}
+            className="w-full py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-colors flex flex-col items-center gap-2 disabled:opacity-60"
+          >
+            <span className="text-3xl">🎥</span>
+            <span className="text-sm font-medium">{teaserUploading ? 'Uploading…' : 'Upload a teaser video (MP4, WebM, MOV · max 100MB)'}</span>
+          </button>
+        )}
+        <input
+          ref={teaserFileRef}
+          type="file"
+          accept=".mp4,.webm,.ogg,.mov,.m4v"
+          className="hidden"
+          onChange={(e) => { handleTeaserUpload(e.target.files?.[0]); }}
+        />
       </motion.div>
 
       <AnimatePresence>
@@ -554,11 +738,15 @@ function InstructorCourses() {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Chapter</h2>
               <form onSubmit={handleCreateCourse} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Title</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Title
+                    <InfoTooltip text="The name of your chapter as members will see it. Keep it clear and descriptive." />
+                  </label>
                   <input type="text" value={courseForm.title} onChange={(e) => setCourseForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Tiers</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Tiers
+                    <InfoTooltip text="Subscription tiers that will include this chapter. You can only pick tiers an admin assigned to you; locked tiers aren't available." />
+                  </label>
                   <p className="text-xs text-gray-400 mb-3">
                     {isAdmin
                       ? 'Select the tiers that should include this chapter.'
@@ -605,13 +793,42 @@ function InstructorCourses() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Category
+                      <InfoTooltip text="A topic label to group your chapter (e.g. 3D, Animation, Design). Helps members find related content." />
+                    </label>
                     <input type="text" value={courseForm.category} onChange={(e) => setCourseForm(f => ({ ...f, category: e.target.value }))} className="input-field" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Description
+                      <InfoTooltip text="A short summary of what members will learn in this chapter. Shown on the chapter page." />
+                    </label>
                     <textarea value={courseForm.description} onChange={(e) => setCourseForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={3} required />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Software used
+                    <InfoTooltip text="Tag the tools used in this chapter (e.g. Blender, Maya, Photoshop). These tags show on the chapter everywhere. Press Enter or comma to add." />
+                  </label>
+                  <p className="text-xs text-gray-400 mb-2">Tag the software/tools used in this chapter (e.g. Blender, Maya, Photoshop). Press Enter or comma to add.</p>
+                  {courseForm.software.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {courseForm.software.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-600">
+                          {tag}
+                          <button type="button" onClick={() => removeSoftwareTag(tag)} className="text-primary-400 hover:text-primary-600" aria-label={`Remove ${tag}`}>✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={softwareInput}
+                    onChange={(e) => setSoftwareInput(e.target.value)}
+                    onKeyDown={handleSoftwareKeyDown}
+                    onBlur={() => addSoftwareTag(softwareInput)}
+                    className="input-field"
+                    placeholder="Type a software name and press Enter"
+                  />
                 </div>
                 <button type="submit" className="btn-primary">Create Chapter</button>
               </form>
@@ -630,21 +847,48 @@ function InstructorCourses() {
         </div>
       ) : (
         <div className="space-y-4">
-          {courses.map((course) => (
-            <div key={course._id} id={`creator-course-${course._id}`} className="card">
+          {courses.map((course, courseIdx) => (
+            <div
+              key={course._id}
+              id={`creator-course-${course._id}`}
+              className={`card ${dragCourseIdx === courseIdx ? 'opacity-50' : ''}`}
+              onDragOver={(e) => { if (dragCourseIdx !== null) e.preventDefault(); }}
+              onDrop={() => handleCourseDrop(courseIdx)}
+            >
               <div className="flex items-center justify-between cursor-pointer" onClick={() => handleExpandCourse(course._id)}>
                 <div className="flex items-center gap-4">
+                  <span
+                    draggable
+                    onDragStart={() => setDragCourseIdx(courseIdx)}
+                    onDragEnd={() => setDragCourseIdx(null)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 select-none px-1"
+                    title="Drag to reorder chapter"
+                  >
+                    ⠿
+                  </span>
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center border border-primary-100">
                     <span className="text-xl">📚</span>
                   </div>
                   <div>
                     <div className="flex items-center gap-3">
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-gray-500">{chapterCode(course)}</span>
                       <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${getReviewState(course).className}`}>
                         {getReviewState(course).label}
                       </span>
+                      <InfoTooltip text="CH-01 is this chapter's sequence code (lessons are CH-01-L-01). The badge shows its status: Draft (editable), In Review (waiting for an admin), or Published (live to members). Drag the ⠿ handle to reorder chapters." />
                     </div>
-                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} contents · {course.enrolledStudents?.length || 0} members · {course.category}</p>
+                    <p className="text-sm text-gray-400">{course.lessonsCount || 0} lessons · {course.enrolledStudents?.length || 0} members · {course.category}</p>
+                    {(course.software || []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {course.software.map((tag) => (
+                          <span key={tag} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                            🛠 {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(course.assignedPackages || []).length > 0 ? (
                         course.assignedPackages.map((pkg) => (
@@ -710,6 +954,28 @@ function InstructorCourses() {
                           rows={3}
                         />
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Software used</label>
+                        {(editCourseForm.software || []).length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {editCourseForm.software.map((tag) => (
+                              <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-600">
+                                {tag}
+                                <button type="button" onClick={() => removeEditSoftwareTag(tag)} className="text-primary-400 hover:text-primary-600" aria-label={`Remove ${tag}`}>✕</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          value={editSoftwareInput}
+                          onChange={(e) => setEditSoftwareInput(e.target.value)}
+                          onKeyDown={handleEditSoftwareKeyDown}
+                          onBlur={() => addEditSoftwareTag(editSoftwareInput)}
+                          className="input-field"
+                          placeholder="Type a software name and press Enter"
+                        />
+                      </div>
                       {(course.isPublished || course.reviewStatus === 'pending_review') && (
                         <p className="text-xs text-amber-600">
                           Editing returns this chapter to draft and requires re-submitting for review.
@@ -731,10 +997,12 @@ function InstructorCourses() {
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                     <div className="mt-6 pt-6 border-t border-gray-100">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-semibold text-gray-900">Contents</h4>
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">Lessons
+                          <InfoTooltip text="Lessons hold your teaching content. Only a title is required — a supporting file and a quiz are optional, and the video is assigned by an admin. Drag the number badge to reorder. Submit each lesson for review to get it published." />
+                        </h4>
                         {showLessonForm !== course._id && (
                           <button onClick={() => openLessonForm(course._id)} className="text-sm text-primary-500 hover:text-primary-600 font-medium">
-                            + Add Content
+                            + Add Lesson
                           </button>
                         )}
                       </div>
@@ -744,120 +1012,114 @@ function InstructorCourses() {
                           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                             <div className="bg-white rounded-xl p-5 mb-4 border-2 border-primary-100 shadow-sm">
                               <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-lg font-semibold text-gray-900">New Content</h4>
+                                <h4 className="text-lg font-semibold text-gray-900">New Lesson</h4>
                                 <button onClick={closeLessonForm} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
                               </div>
 
-                              {stepIndicator}
+                              <p className="text-sm text-gray-500 mb-5">Fill in the title, then optionally attach a file and add a quiz. Only the title is required — you can add or change everything later by editing the lesson.</p>
 
-                              {lessonStep === 1 && (
-                                <div className="space-y-4">
+                              <div className="space-y-6">
+                                {/* 1. Details */}
+                                <div className="space-y-3">
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Content Title <span className="text-red-400">*</span></label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Lesson title <span className="text-red-400">*</span></label>
                                     <input type="text" placeholder="e.g. Introduction to Variables" value={lessonForm.title} onChange={(e) => setLessonForm(f => ({ ...f, title: e.target.value }))} className="input-field" />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
-                                    <textarea placeholder="How will this content support member development?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
-                                  </div>
-                                  <div className="flex justify-end">
-                                    <button type="button" onClick={() => goToStep(2)} className="btn-primary text-sm">Next: Upload Document</button>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Description <span className="text-gray-400 font-normal">(optional)</span></label>
+                                    <textarea placeholder="What will members learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
                                 </div>
-                              )}
 
-                              {lessonStep === 2 && (
-                                <div className="space-y-4">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Supporting Document <span className="text-red-400">*</span></label>
-                                    <p className="text-xs text-gray-400 mb-3">Upload a file for members (PDF, DOC, DOCX, or TXT). Max 50MB.</p>
-                                    {lessonForm.file ? (
-                                      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
-                                        <span className="text-2xl">📄</span>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-gray-900 truncate">{lessonForm.fileName}</p>
-                                          <p className="text-xs text-gray-400">{(lessonForm.file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                        </div>
-                                        <button type="button" onClick={() => setLessonForm(f => ({ ...f, file: null, fileName: '' }))} className="text-sm text-red-400 hover:text-red-600 font-medium">Remove</button>
+                                {/* 2. Supporting file (optional) */}
+                                <div className="space-y-2 border-t border-gray-100 pt-5">
+                                  <label className="block text-sm font-medium text-gray-600">Supporting file <span className="text-gray-400 font-normal">(optional)</span></label>
+                                  <p className="text-xs text-gray-400 mb-1">A downloadable resource for members. Up to 25MB. The lesson video is added separately by an admin.</p>
+                                  {lessonForm.file ? (
+                                    <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                                      <span className="text-2xl">📄</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900 truncate">{lessonForm.fileName}</p>
+                                        <p className="text-xs text-gray-400">{(lessonForm.file.size / 1024 / 1024).toFixed(2)} MB</p>
                                       </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => lessonFileRef.current?.click()}
-                                        className="w-full py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-colors flex flex-col items-center gap-2"
-                                      >
-                                        <span className="text-3xl">📎</span>
-                                        <span className="text-sm font-medium">Click to select a file</span>
-                                      </button>
-                                    )}
-                                    <input
-                                      ref={lessonFileRef}
-                                      type="file"
-                                      className="hidden"
-                                      accept={LESSON_FILE_ACCEPT}
-                                      onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                          if (file.size > LESSON_FILE_MAX_BYTES) {
-                                            showError('File exceeds the 25MB upload limit');
-                                          } else {
-                                            setLessonForm(f => ({ ...f, file, fileName: file.name }));
-                                          }
-                                        }
-                                        e.target.value = '';
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <button type="button" onClick={() => setLessonStep(1)} className="btn-secondary text-sm">Back</button>
-                                    <button type="button" onClick={() => goToStep(3)} className="btn-primary text-sm">Next: Create Quiz</button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {lessonStep === 3 && (
-                                <div className="space-y-4">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Quiz Questions <span className="text-red-400">*</span></label>
-                                    <p className="text-xs text-gray-400 mb-3">Add 1-8 questions with 3 options each. Mark the correct answer for each question.</p>
-                                  </div>
-
-                                  {renderQuestionEditor(
-                                    lessonForm.questions,
-                                    addQuestion,
-                                    removeQuestion,
-                                    updateQuestion,
-                                    updateOption,
-                                    'create'
-                                  )}
-
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Passing Score (out of {lessonForm.questions.length})</label>
-                                    <input type="number" value={lessonForm.passingScore} onChange={(e) => setLessonForm(prev => ({ ...prev, passingScore: Math.max(1, Math.min(prev.questions.length, parseInt(e.target.value) || 1)) }))} className="input-field w-32" min={1} max={lessonForm.questions.length} />
-                                  </div>
-
-                                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Summary</h5>
-                                    <ul className="text-sm text-gray-500 space-y-1">
-                                      <li>Title: <span className="text-gray-900 font-medium">{lessonForm.title}</span></li>
-                                      <li>Document: <span className="text-gray-900 font-medium">{lessonForm.fileName}</span></li>
-                                      <li>Quiz: <span className="text-gray-900 font-medium">{lessonForm.questions.length} question{lessonForm.questions.length > 1 ? 's' : ''}, pass {lessonForm.passingScore}/{lessonForm.questions.length}</span></li>
-                                    </ul>
-                                  </div>
-
-                                  <div className="flex justify-between">
-                                    <button type="button" onClick={() => setLessonStep(2)} className="btn-secondary text-sm">Back</button>
+                                      <button type="button" onClick={() => setLessonForm(f => ({ ...f, file: null, fileName: '' }))} className="text-sm text-red-400 hover:text-red-600 font-medium">Remove</button>
+                                    </div>
+                                  ) : (
                                     <button
                                       type="button"
-                                      onClick={() => handleSubmitLesson(course._id)}
-                                      disabled={submittingLesson}
-                                      className="btn-primary text-sm"
+                                      onClick={() => lessonFileRef.current?.click()}
+                                      className="w-full py-6 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-colors flex flex-col items-center gap-2"
                                     >
-                                      {submittingLesson ? 'Creating Content...' : 'Create Content'}
+                                      <span className="text-3xl">📎</span>
+                                      <span className="text-sm font-medium">Click to attach a file</span>
                                     </button>
-                                  </div>
+                                  )}
+                                  <input
+                                    ref={lessonFileRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept={LESSON_FILE_ACCEPT}
+                                    onChange={(e) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        if (file.size > LESSON_FILE_MAX_BYTES) {
+                                          showError('That file is over the 25MB limit. Please choose a smaller file.');
+                                        } else {
+                                          setLessonForm(f => ({ ...f, file, fileName: file.name }));
+                                        }
+                                      }
+                                      e.target.value = '';
+                                    }}
+                                  />
                                 </div>
-                              )}
+
+                                {/* 3. Quiz (optional) */}
+                                <div className="border-t border-gray-100 pt-5">
+                                  <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={lessonForm.includeQuiz}
+                                      onChange={(e) => setLessonForm(f => ({ ...f, includeQuiz: e.target.checked }))}
+                                      className="mt-1"
+                                    />
+                                    <span>
+                                      <span className="block text-sm font-medium text-gray-700">Add a quiz to this lesson <span className="text-gray-400 font-normal">(optional)</span></span>
+                                      <span className="block text-xs text-gray-400">Members answer it after the lesson. You can add one later instead.</span>
+                                    </span>
+                                  </label>
+
+                                  {lessonForm.includeQuiz && (
+                                    <div className="space-y-4 mt-4">
+                                      <p className="text-xs text-gray-400">Add 1–8 questions, each with 3 options. Tap the circle to mark the correct answer.</p>
+                                      {renderQuestionEditor(
+                                        lessonForm.questions,
+                                        addQuestion,
+                                        removeQuestion,
+                                        updateQuestion,
+                                        updateOption,
+                                        'create'
+                                      )}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">Passing score (out of {lessonForm.questions.length})</label>
+                                        <input type="number" value={lessonForm.passingScore} onChange={(e) => setLessonForm(prev => ({ ...prev, passingScore: Math.max(1, Math.min(prev.questions.length, parseInt(e.target.value) || 1)) }))} className="input-field w-32" min={1} max={lessonForm.questions.length} />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+                                  <button type="button" onClick={closeLessonForm} className="btn-secondary text-sm">Cancel</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSubmitLesson(course._id)}
+                                    disabled={submittingLesson}
+                                    className="btn-primary text-sm disabled:opacity-60"
+                                  >
+                                    {submittingLesson ? 'Creating lesson…' : 'Create lesson'}
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -866,16 +1128,30 @@ function InstructorCourses() {
                       {!courseLessons[course._id] ? (
                         <div className="py-4 text-center"><LoadingSpinner size="sm" /></div>
                       ) : courseLessons[course._id].length === 0 ? (
-                        <p className="text-gray-400 text-sm text-center py-6">No contents yet. Add your first content above.</p>
+                        <p className="text-gray-400 text-sm text-center py-6">No lessons yet. Add your first lesson above.</p>
                       ) : (
                         <div className="space-y-3">
-                          {courseLessons[course._id].map((lesson) => (
-                            <div key={lesson._id} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          {courseLessons[course._id].map((lesson, lessonIdx) => (
+                            <div
+                              key={lesson._id}
+                              className={`bg-gray-50 rounded-xl p-4 border border-gray-100 ${dragLesson?.courseId === course._id && dragLesson?.idx === lessonIdx ? 'opacity-50' : ''}`}
+                              onDragOver={(e) => { if (dragLesson?.courseId === course._id) e.preventDefault(); }}
+                              onDrop={() => handleLessonDrop(course._id, lessonIdx)}
+                            >
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex items-start gap-3 flex-1">
-                                  <span className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500 shrink-0">{lesson.order}</span>
+                                  <span
+                                    draggable
+                                    onDragStart={() => setDragLesson({ courseId: course._id, idx: lessonIdx })}
+                                    onDragEnd={() => setDragLesson(null)}
+                                    className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500 shrink-0 cursor-grab active:cursor-grabbing select-none"
+                                    title="Drag to reorder lesson"
+                                  >
+                                    {lesson.order}
+                                  </span>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-gray-500">{lessonCode(course, lesson)}</span>
                                       <h5 className="font-medium text-gray-900">{lesson.title}</h5>
                                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${getReviewState(lesson).className}`}>
                                         {getReviewState(lesson).label}
@@ -905,7 +1181,7 @@ function InstructorCourses() {
                                     <button
                                       onClick={() => handleSubmitLessonForReview(course._id, lesson._id)}
                                       className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                      title="Submit content for review"
+                                      title="Submit lesson for review"
                                     >
                                       🚀
                                     </button>
@@ -914,7 +1190,7 @@ function InstructorCourses() {
                                     <button
                                       onClick={() => (editingLessonId === lesson._id ? closeEditLesson() : openEditLesson(lesson))}
                                       className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
-                                      title="Edit content"
+                                      title="Edit lesson"
                                     >
                                       ✏️
                                     </button>
@@ -923,7 +1199,7 @@ function InstructorCourses() {
                                     📝
                                   </button>
                                   {!lesson.isPublished && lesson.reviewStatus === 'draft' && (
-                                    <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete content">
+                                    <button onClick={() => handleDeleteLesson(lesson._id, course._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete lesson">
                                       🗑
                                     </button>
                                   )}
@@ -979,7 +1255,7 @@ function InstructorCourses() {
                                       )}
                                     </div>
                                     {lesson.reviewStatus === 'pending_review' && (
-                                      <p className="text-xs text-amber-600">Editing returns this content to draft and requires re-submitting for review.</p>
+                                      <p className="text-xs text-amber-600">Editing returns this lesson to draft and requires re-submitting for review.</p>
                                     )}
                                     <div className="flex gap-2">
                                       <button type="submit" disabled={savingLessonEdit} className="btn-primary text-sm disabled:opacity-60">

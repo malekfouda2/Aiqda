@@ -156,6 +156,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Creator self-introduction video shown before their chapters (public path under /uploads/teasers).
+  teaserVideo: {
+    type: String,
+    default: null
+  },
+  teaserVideoName: {
+    type: String,
+    default: null
+  },
   phone: {
     type: phoneSchema,
     default: () => ({

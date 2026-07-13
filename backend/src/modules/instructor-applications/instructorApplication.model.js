@@ -95,9 +95,11 @@ const instructorApplicationSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  // Collected by the application form (which requires it); kept optional at the DB
+  // level so the API stays backward-compatible with clients that omit it.
   hearAboutUs: {
     type: String,
-    required: true
+    default: ''
   },
   additionalComments: {
     type: String

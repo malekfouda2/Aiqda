@@ -2,7 +2,7 @@ import FinanceTransaction from './financeTransaction.model.js';
 import InstructorEarning from './instructorEarning.model.js';
 import User from '../users/user.model.js';
 import { fromMinor, applyBps, INSTRUCTOR_POOL_BPS, PLATFORM_BPS } from './finance.money.js';
-import { getSettingsDoc } from './financeSettings.service.js';
+import { getSettingsDoc, getExpensesTotalMinor } from './financeSettings.service.js';
 
 const dateMatch = (from, to, field = 'createdAt') => {
   const clause = {};
@@ -44,18 +44,20 @@ export const getOverview = async ({ from = null, to = null } = {}) => {
   const recoveryMinor = sumField(earnings, 'recoveryMinor');
   const platformGrossMinor = applyBps(grossMinor, PLATFORM_BPS);
 
-  // Admin-entered platform fees (bank transfer + misc), deducted from net/platform cash.
+  // Admin-entered platform costs (bank transfer fee + itemized expenses), deducted
+  // from net/platform cash.
   const settings = await getSettingsDoc();
   const bankFeeMinor = settings.bankFeeMinor || 0;
-  const otherFeeMinor = settings.otherFeeMinor || 0;
-  const manualFeeMinor = bankFeeMinor + otherFeeMinor;
+  const expensesTotalMinor = getExpensesTotalMinor(settings);
+  const manualFeeMinor = bankFeeMinor + expensesTotalMinor;
 
   return {
     grossPaid: fromMinor(grossMinor),
     discounts: fromMinor(discountMinor),
     gatewayFees: fromMinor(gatewayFeeMinor),
     bankFees: fromMinor(bankFeeMinor),
-    otherFees: fromMinor(otherFeeMinor),
+    expenses: (settings.expenses || []).map((e) => ({ label: e.label, amount: fromMinor(e.amountMinor) })),
+    expensesTotal: fromMinor(expensesTotalMinor),
     refunds: fromMinor(refundedMinor),
     chargebacks: fromMinor(chargebackMinor),
     netCashAfterFees: fromMinor(grossMinor - gatewayFeeMinor - manualFeeMinor - refundedMinor - chargebackMinor),

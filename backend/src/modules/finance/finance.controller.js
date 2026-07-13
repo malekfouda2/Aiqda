@@ -30,7 +30,7 @@ export const getSettings = handle(async (req, res) => {
 export const updateSettings = handle(async (req, res) => {
   const updated = await financeSettings.updateSettings({
     bankFee: req.body.bankFee,
-    otherFee: req.body.otherFee,
+    expenses: req.body.expenses,
     actorId: req.user?._id || null,
   });
   res.json(updated);

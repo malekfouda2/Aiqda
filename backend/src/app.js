@@ -24,6 +24,7 @@ import consultationBookingRoutes from './modules/consultations/consultationBooki
 import contactMessageRoutes from './modules/contact-messages/contactMessages.routes.js';
 import teamMemberRoutes from './modules/team-members/teamMembers.routes.js';
 import partnerRoutes from './modules/partners/partners.routes.js';
+import authenticationRoutes from './modules/authentication/authentication.routes.js';
 import whatsappSettingsRoutes from './modules/whatsapp-settings/whatsappSettings.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import searchRoutes from './modules/search/search.routes.js';
@@ -126,7 +127,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.use('/uploads/partners', express.static('uploads/partners', publicUploadsStaticOptions));
+app.use('/uploads/authentication', express.static('uploads/authentication', publicUploadsStaticOptions));
 app.use('/uploads/team-members', express.static('uploads/team-members', publicUploadsStaticOptions));
+app.use('/uploads/teasers', express.static('uploads/teasers', publicUploadsStaticOptions));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -144,6 +147,7 @@ app.use('/api/consultation-bookings', consultationBookingRoutes);
 app.use('/api/contact-messages', contactMessageRoutes);
 app.use('/api/team-members', teamMemberRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/authentication', authenticationRoutes);
 app.use('/api/whatsapp-settings', whatsappSettingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);

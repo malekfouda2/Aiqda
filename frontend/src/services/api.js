@@ -56,7 +56,16 @@ export const usersAPI = {
   updateRole: (id, role) => api.patch(`/users/${id}/role`, { role }),
   assignPackages: (id, packageIds) => api.patch(`/users/${id}/assigned-packages`, { packageIds }),
   remove: (id) => api.delete(`/users/${id}`),
-  acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement')
+  acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement'),
+  getCreatorPublic: (id) => api.get(`/users/creators/${id}/public`),
+  uploadTeaser: (file) => {
+    const formData = new FormData();
+    formData.append('video', file);
+    return api.post('/users/me/teaser', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deleteTeaser: () => api.delete('/users/me/teaser')
 };
 
 export const subscriptionsAPI = {
@@ -95,6 +104,7 @@ export const coursesAPI = {
   submitForReview: (id) => api.post(`/courses/${id}/submit-review`),
   setPublish: (id, isPublished) => api.patch(`/courses/${id}/publish`, { isPublished }),
   delete: (id) => api.delete(`/courses/${id}`),
+  reorder: (courseOrders) => api.put('/courses/reorder', { courseOrders }),
   enroll: (id) => api.post(`/courses/${id}/enroll`),
   getEnrolled: () => api.get('/courses/my/enrolled'),
   getTeaching: () => api.get('/courses/my/teaching')
@@ -107,6 +117,7 @@ export const lessonsAPI = {
   update: (id, data) => api.put(`/lessons/${id}`, data),
   submitForReview: (id) => api.post(`/lessons/${id}/submit-review`),
   setPublish: (id, isPublished) => api.patch(`/lessons/${id}/publish`, { isPublished }),
+  reorder: (courseId, lessonOrders) => api.put(`/lessons/course/${courseId}/reorder`, { lessonOrders }),
   delete: (id) => api.delete(`/lessons/${id}`),
   uploadFile: (id, file) => {
     const formData = new FormData();
@@ -202,6 +213,19 @@ export const partnersAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   remove: (id) => api.delete(`/partners/${id}`)
+};
+
+export const authenticationAPI = {
+  getPublic: () => api.get('/authentication'),
+  getAll: () => api.get('/authentication/admin'),
+  getById: (id) => api.get(`/authentication/admin/${id}`),
+  create: (formData) => api.post('/authentication', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, formData) => api.put(`/authentication/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  remove: (id) => api.delete(`/authentication/${id}`)
 };
 
 export const whatsappSettingsAPI = {

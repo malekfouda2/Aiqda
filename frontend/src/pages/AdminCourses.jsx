@@ -821,6 +821,7 @@ function AdminCourses() {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                   <div className="mb-1 flex items-center gap-2">
+                                    <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-gray-500">CH-{String(course.order || 0).padStart(2, '0')}</span>
                                     <h4 className="font-semibold text-gray-900">{course.title}</h4>
                                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${reviewBadge(course).className}`}>
                                       {reviewBadge(course).label}
@@ -857,6 +858,15 @@ function AdminCourses() {
                                   <p className="mb-2 text-xs text-gray-400">
                                     {course.category} · {course.level} · Created {new Date(course.createdAt).toLocaleDateString()}
                                   </p>
+                                  {(course.software || []).length > 0 && (
+                                    <div className="mb-2 flex flex-wrap gap-1.5">
+                                      {course.software.map((tag) => (
+                                        <span key={tag} className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-600">
+                                          🛠 {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                     <div className="rounded-lg border border-gray-100 bg-white p-2 text-center">
                                       <p className="text-sm font-bold text-gray-900">{course.enrolledStudents}</p>
@@ -920,6 +930,7 @@ function AdminCourses() {
                                                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-semibold text-gray-500">
                                                     {lesson.order}
                                                   </span>
+                                                  <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-gray-500">CH-{String(course.order || 0).padStart(2, '0')}-L-{String(lesson.order || 0).padStart(2, '0')}</span>
                                                   <span className="truncate text-sm font-medium text-gray-900">{lesson.title}</span>
                                                   {lesson.hasVideo ? (
                                                     <span className="shrink-0 rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-xs text-green-600">

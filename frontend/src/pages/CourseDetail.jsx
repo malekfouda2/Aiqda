@@ -194,14 +194,36 @@ function CourseDetail() {
                 
                 <h1 className="text-4xl font-bold text-gray-900 mb-4">{getLocalizedField(course, 'title', locale)}</h1>
                 <p className="text-gray-600 text-lg leading-relaxed mb-6">{getLocalizedField(course, 'description', locale)}</p>
-                
-                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
-                      <span className="text-xs">👤</span>
+
+                {(course.software || []).length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">{isRTL ? 'البرامج المستخدمة' : 'Software used'}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {course.software.map((tag) => (
+                        <span key={tag} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-600">
+                          🛠 {tag}
+                        </span>
+                      ))}
                     </div>
-                    <span>{getLocalizedField(course.instructor, 'name', locale) || (isRTL ? 'صانع المحتوى' : 'Creator')}</span>
                   </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
+                  {course.instructor?._id ? (
+                    <Link to={`/creators/${course.instructor._id}`} className="flex items-center gap-2 hover:text-primary-600 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
+                        <span className="text-xs">👤</span>
+                      </div>
+                      <span>{getLocalizedField(course.instructor, 'name', locale) || (isRTL ? 'صانع المحتوى' : 'Creator')}</span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-50 to-cyan-50 flex items-center justify-center">
+                        <span className="text-xs">👤</span>
+                      </div>
+                      <span>{getLocalizedField(course.instructor, 'name', locale) || (isRTL ? 'صانع المحتوى' : 'Creator')}</span>
+                    </div>
+                  )}
                   <span className="w-1 h-1 rounded-full bg-gray-300" />
                   <span className="flex items-center gap-1.5">
                     <span>📹</span> {lessons.length} {isRTL ? 'محتوى' : 'contents'}

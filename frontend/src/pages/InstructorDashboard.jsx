@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { analyticsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import InfoTooltip from '../components/InfoTooltip';
 import {
   pageVariants,
   fadeInUp,
@@ -31,7 +32,7 @@ function SectionHeader({ eyebrow, title, description, align = 'start' }) {
   );
 }
 
-function OverviewCard({ icon, value, label, accent, sublabel }) {
+function OverviewCard({ icon, value, label, accent, sublabel, info }) {
   return (
     <motion.div
       variants={cardVariants}
@@ -40,7 +41,10 @@ function OverviewCard({ icon, value, label, accent, sublabel }) {
       <div className={`absolute inset-x-6 top-0 h-1 rounded-full bg-gradient-to-r ${accent}`} />
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            {label}
+            {info ? <InfoTooltip text={info} side="bottom" /> : null}
+          </p>
           <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{value}</p>
           {sublabel ? <p className="mt-2 text-xs text-slate-400">{sublabel}</p> : null}
         </div>
@@ -376,7 +380,7 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-slate-500">
-                      {formatNumber(item.enrolledCount)} {isRTL ? 'عضو' : 'members'} • {formatNumber(item.lessonsCount)} {isRTL ? 'محتوى' : 'contents'}
+                      {formatNumber(item.enrolledCount)} {isRTL ? 'عضو' : 'members'} • {formatNumber(item.lessonsCount)} {isRTL ? 'محتوى' : 'lessons'}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-primary-50 px-3 py-2 text-right">
@@ -489,6 +493,7 @@ function InstructorDashboard() {
       value: formatNumber(analytics?.totalCourses || 0),
       label: isRTL ? 'الفصول' : 'Chapters',
       sublabel: `${formatNumber(analytics?.publishedCourses || 0)} ${isRTL ? 'منشور' : 'published'}`,
+      info: isRTL ? 'إجمالي فصولك، وعدد المنشور منها للأعضاء.' : 'Total chapters you have, and how many are published to members.',
     },
     {
       icon: '👥',
@@ -496,13 +501,15 @@ function InstructorDashboard() {
       value: formatNumber(analytics?.totalStudents || 0),
       label: isRTL ? 'الأعضاء' : 'Members',
       sublabel: `${formatNumber(analytics?.totalQualifiedViews || 0)} ${isRTL ? 'مشاهدة مؤهلة' : 'qualified views'}`,
+      info: isRTL ? 'الأعضاء المسجّلون في فصولك. المشاهدة المؤهلة تعني إكمال جزء كافٍ من المحتوى.' : 'Members enrolled in your chapters. A qualified view means enough of the content was watched.',
     },
     {
       icon: '🎬',
       accent: 'from-amber-400/25 to-pink-400/25',
       value: formatNumber(analytics?.totalLessons || 0),
-      label: isRTL ? 'المحتويات' : 'Contents',
+      label: isRTL ? 'المحتويات' : 'Lessons',
       sublabel: `${formatNumber(analytics?.videosAssigned || 0)} ${isRTL ? 'فيديو جاهز' : 'video-ready'}`,
+      info: isRTL ? 'إجمالي الدروس في فصولك، وعدد ما تم تعيين فيديو له من قبل المدير.' : 'Total lessons across your chapters, and how many have a video assigned by an admin.',
     },
     {
       icon: '💰',
@@ -510,6 +517,7 @@ function InstructorDashboard() {
       value: formatCurrency(analytics?.totalRevenue || 0, formatNumber, isRTL),
       label: isRTL ? 'الإيراد' : 'Revenue',
       sublabel: isRTL ? 'مقدر من الاشتراكات المعتمدة' : 'Estimated from approved subscriptions',
+      info: isRTL ? 'تقدير لحصتك من إيراد الاشتراكات بناءً على مشاهدات فصولك المعتمدة.' : 'An estimate of your share of subscription revenue, based on approved views of your chapters.',
     },
   ]), [analytics, formatNumber, isRTL]);
 
@@ -593,7 +601,7 @@ function InstructorDashboard() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'باقات الاشتراك المخصصة' : 'Assigned Subscription Tiers'}</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">{isRTL ? 'الباقات التي يمكنك النشر فيها' : 'Tiers you can publish content to'}</h3>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">{isRTL ? 'الباقات التي يمكنك النشر فيها' : 'Tiers you can publish lesson to'}</h3>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -615,7 +623,7 @@ function InstructorDashboard() {
             <p className="text-sm text-slate-400">
               {isRTL
                 ? 'لم يتم تعيينك إلى أي باقة بعد. تواصل مع الإدارة لتعيين الباقات قبل نشر المحتوى.'
-                : 'You have not been assigned to any tier yet. Contact an admin to get assigned before publishing content.'}
+                : 'You have not been assigned to any tier yet. Contact an admin to get assigned before publishing lesson.'}
             </p>
           )}
         </div>

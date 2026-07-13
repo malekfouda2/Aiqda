@@ -92,6 +92,19 @@ export const deleteCourse = async (req, res) => {
   }
 };
 
+export const reorderCourses = async (req, res) => {
+  try {
+    const result = await coursesService.reorderCourses(
+      req.body.courseOrders,
+      req.user.id,
+      req.user.role
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const enrollStudent = async (req, res) => {
   try {
     const course = await coursesService.enrollStudent(req.params.id, req.user.id, req.user.role);

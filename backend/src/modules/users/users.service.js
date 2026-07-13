@@ -43,6 +43,69 @@ export const getUserById = async (userId) => {
   return user;
 };
 
+// Stores/replaces a creator's teaser video. `file` is the multer upload.
+export const setCreatorTeaser = async (userId, file) => {
+  if (!file?.filename) {
+    throw new Error('A video file is required');
+  }
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const previous = user.teaserVideo;
+  user.teaserVideo = `/uploads/teasers/${file.filename}`;
+  user.teaserVideoName = file.originalname || null;
+  await user.save();
+
+  if (previous && previous !== user.teaserVideo) {
+    await deleteUploadPathIfExists(previous);
+  }
+
+  return { teaserVideo: user.teaserVideo, teaserVideoName: user.teaserVideoName };
+};
+
+export const deleteCreatorTeaser = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  const previous = user.teaserVideo;
+  user.teaserVideo = null;
+  user.teaserVideoName = null;
+  await user.save();
+
+  if (previous) {
+    await deleteUploadPathIfExists(previous);
+  }
+
+  return { teaserVideo: null };
+};
+
+// Public creator page payload: profile + teaser + published chapters.
+export const getPublicCreatorProfile = async (creatorId) => {
+  const creator = await User.findById(creatorId).select('name avatar role teaserVideo teaserVideoName isActive');
+  if (!creator || creator.role !== 'instructor' || creator.isActive === false) {
+    throw new Error('Creator not found');
+  }
+
+  const chapters = await Course.find({ instructor: creatorId, isPublished: true })
+    .select('title description category level software order thumbnail lessonsCount')
+    .sort({ order: 1, createdAt: 1 })
+    .lean();
+
+  return {
+    creator: {
+      _id: creator._id,
+      name: creator.name,
+      avatar: creator.avatar,
+      teaserVideo: creator.teaserVideo,
+      teaserVideoName: creator.teaserVideoName,
+    },
+    chapters,
+  };
+};
+
 export const updateUser = async (userId, updates, requester) => {
   const isSelfUpdate = requester.id === userId;
   const allowedFields = isAdminRole(requester.role) && !isSelfUpdate
@@ -63,6 +126,22 @@ export const updateUser = async (userId, updates, requester) => {
   if (!user) {
     throw new Error('User not found');
   }
+
+  // Notify the user when an admin (not the user themselves) changes their account.
+  // isActive toggles flow through toggleUserStatus, which sends its own notice.
+  const adminEditedFields = Object.keys(sanitizedUpdates).filter((field) => field !== 'isActive');
+  if (isAdminRole(requester.role) && !isSelfUpdate && adminEditedFields.length > 0) {
+    await notify.user(user._id, {
+      type: 'account.updated_by_admin',
+      title: 'Your account details were updated',
+      titleAr: 'تم تحديث بيانات حسابك',
+      message: 'An admin updated your account details.',
+      messageAr: 'قام المدير بتحديث بيانات حسابك.',
+      link: '/dashboard',
+      metadata: { fields: adminEditedFields },
+    });
+  }
+
   return user;
 };
 
@@ -71,9 +150,24 @@ export const toggleUserStatus = async (userId) => {
   if (!user) {
     throw new Error('User not found');
   }
-  
+
   user.isActive = !user.isActive;
   await user.save();
+
+  await notify.user(user._id, {
+    type: user.isActive ? 'account.activated' : 'account.deactivated',
+    title: user.isActive ? 'Your account was activated' : 'Your account was deactivated',
+    titleAr: user.isActive ? 'تم تفعيل حسابك' : 'تم إيقاف حسابك',
+    message: user.isActive
+      ? 'An admin activated your account. You can now sign in and use the platform.'
+      : 'An admin deactivated your account. Contact support if you think this is a mistake.',
+    messageAr: user.isActive
+      ? 'قام المدير بتفعيل حسابك. يمكنك الآن تسجيل الدخول واستخدام المنصة.'
+      : 'قام المدير بإيقاف حسابك. تواصل مع الدعم إذا كنت تعتقد أن هذا خطأ.',
+    link: '/dashboard',
+    metadata: { isActive: user.isActive },
+  });
+
   return user;
 };
 

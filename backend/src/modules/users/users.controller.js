@@ -72,3 +72,30 @@ export const acknowledgePlatformNotice = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const uploadCreatorTeaser = async (req, res) => {
+  try {
+    const result = await usersService.setCreatorTeaser(req.user.id, req.file);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const deleteCreatorTeaser = async (req, res) => {
+  try {
+    const result = await usersService.deleteCreatorTeaser(req.user.id);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getPublicCreatorProfile = async (req, res) => {
+  try {
+    const result = await usersService.getPublicCreatorProfile(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+};

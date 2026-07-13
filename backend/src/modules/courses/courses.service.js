@@ -39,8 +39,28 @@ const COURSE_UPDATABLE_FIELDS = [
   'description',
   'thumbnail',
   'category',
-  'level'
+  'level',
+  'software'
 ];
+
+// Trim, drop empties, dedupe (case-insensitive), and cap the software tag list.
+const normalizeSoftware = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const result = [];
+  for (const raw of value) {
+    const tag = String(raw || '').trim();
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(tag);
+    if (result.length >= 20) break;
+  }
+  return result;
+};
 
 const canAccessCourse = (course, userId = null, userRole = null) => {
   if (course.isPublished) {
@@ -60,9 +80,13 @@ const canAccessCourse = (course, userId = null, userRole = null) => {
 };
 
 const sanitizeCourseUpdates = (updates = {}) => {
-  return Object.fromEntries(
+  const sanitized = Object.fromEntries(
     Object.entries(updates).filter(([key]) => COURSE_UPDATABLE_FIELDS.includes(key))
   );
+  if ('software' in sanitized) {
+    sanitized.software = normalizeSoftware(sanitized.software);
+  }
+  return sanitized;
 };
 
 const normalizePackageIds = (value) => {
@@ -183,10 +207,22 @@ export const createCourse = async (courseData, instructorId, userRole = 'instruc
   await ensurePackageAssignmentsExist(packageIds);
   await ensureInstructorCanAssignPackages(instructorId, userRole, packageIds);
 
+  // Creators are limited to a single chapter. Admins are exempt.
+  if (userRole !== 'admin') {
+    const existingCount = await Course.countDocuments({ instructor: instructorId });
+    if (existingCount > 0) {
+      throw new Error('You can only create one chapter.');
+    }
+  }
+
   const sanitizedCourseData = sanitizeCourseUpdates(courseData);
+  // Append to the end of this instructor's chapter sequence.
+  const lastCourse = await Course.findOne({ instructor: instructorId }).sort({ order: -1 }).select('order');
+  const nextOrder = lastCourse && lastCourse.order ? lastCourse.order + 1 : 1;
   const course = new Course({
     ...sanitizedCourseData,
-    instructor: instructorId
+    instructor: instructorId,
+    order: nextOrder
   });
   await course.save();
   await syncCoursePackageAssignments(course._id, packageIds);
@@ -348,6 +384,55 @@ export const setCoursePublishState = async (courseId, isPublished) => {
   return attachAssignedPackages(populatedCourse);
 };
 
+// Reorders an instructor's chapters. courseOrders: [{ courseId, order }]. Admins may
+// reorder any instructor's chapters; instructors only their own. All chapters in the
+// batch must belong to the same instructor.
+export const reorderCourses = async (courseOrders, userId = null, userRole = null) => {
+  if (!Array.isArray(courseOrders) || courseOrders.length === 0) {
+    throw new Error('Chapter order updates are required');
+  }
+
+  const courseIds = courseOrders.map(({ courseId }) => courseId);
+  const courses = await Course.find({ _id: { $in: courseIds } }).select('_id instructor');
+
+  if (courses.length !== courseIds.length) {
+    throw new Error('One or more chapters were not found');
+  }
+
+  const instructorIds = new Set(courses.map((c) => c.instructor.toString()));
+  if (instructorIds.size !== 1) {
+    throw new Error('All chapters in a reorder must belong to the same creator');
+  }
+
+  const ownerId = [...instructorIds][0];
+  if (userRole !== 'admin' && ownerId !== userId?.toString()) {
+    throw new Error('Not authorized to reorder these chapters');
+  }
+
+  const seenOrders = new Set();
+  for (const { courseId, order } of courseOrders) {
+    const normalizedOrder = Number(order);
+    if (!courseId) {
+      throw new Error('Each chapter order update must include a courseId');
+    }
+    if (!Number.isInteger(normalizedOrder) || normalizedOrder < 1) {
+      throw new Error('Chapter order must be a positive integer');
+    }
+    if (seenOrders.has(normalizedOrder)) {
+      throw new Error('Chapter order values must be unique');
+    }
+    seenOrders.add(normalizedOrder);
+  }
+
+  await Promise.all(
+    courseOrders.map(({ courseId, order }) => (
+      Course.findByIdAndUpdate(courseId, { order: Number(order) })
+    ))
+  );
+
+  return { message: 'Chapters reordered successfully' };
+};
+
 export const deleteCourse = async (courseId, userId, userRole) => {
   const course = await Course.findById(courseId);
   if (!course) {
@@ -435,7 +520,7 @@ export const getEnrolledCourses = async (studentId) => {
 export const getInstructorCourses = async (instructorId) => {
   const courses = await Course.find({ instructor: instructorId })
     .populate('instructor', 'name email')
-    .sort({ createdAt: -1 });
+    .sort({ order: 1, createdAt: 1 });
 
   return attachAssignedPackages(courses);
 };

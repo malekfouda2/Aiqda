@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import useAuthStore from "../store/authStore";
 import PartnersSection from "../components/PartnersSection";
+import AuthenticationSection from "../components/AuthenticationSection";
 import { subscriptionsAPI } from "../services/api";
 import { getLocalizedField } from "../i18n/translations";
 import { useLocale } from "../i18n/useLocale";
@@ -869,6 +870,8 @@ function Home() {
       </section>
 
       <PartnersSection />
+
+      <AuthenticationSection />
     </div>
   );
 }

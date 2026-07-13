@@ -12,7 +12,7 @@ const FIGURES = [
   ['grossPaid', 'Gross learner payments'],
   ['gatewayFees', 'Tap gateway fees'],
   ['bankFees', 'Bank fees'],
-  ['otherFees', 'Other fees'],
+  ['expensesTotal', 'Expenses total'],
   ['maxInstructorExposure', 'Max instructor pool (30%)'],
   ['pendingInstructorPotential', 'Pending potential (not earned)'],
   ['eligibleInstructorLiability', 'Eligible liability (unpaid)'],
@@ -33,7 +33,7 @@ function AdminFinance() {
   const [summary, setSummary] = useState(null);
   const [byInstructor, setByInstructor] = useState([]);
   const [range, setRange] = useState({ from: '', to: '' });
-  const [feeForm, setFeeForm] = useState({ bankFee: '', otherFee: '' });
+  const [feeForm, setFeeForm] = useState({ bankFee: '', expenses: [] });
   const [savingFees, setSavingFees] = useState(false);
 
   const load = async () => {
@@ -47,7 +47,7 @@ function AdminFinance() {
       setByInstructor(overview.data.byInstructor || []);
       setFeeForm({
         bankFee: String(settings.data.bankFee ?? ''),
-        otherFee: String(settings.data.otherFee ?? ''),
+        expenses: (settings.data.expenses || []).map((e) => ({ label: e.label, amount: String(e.amount ?? '') })),
       });
     } catch (error) {
       showError(error.response?.data?.error || 'Failed to load financial overview');
@@ -56,18 +56,27 @@ function AdminFinance() {
     }
   };
 
+  const addExpense = () => setFeeForm((f) => ({ ...f, expenses: [...f.expenses, { label: '', amount: '' }] }));
+  const removeExpense = (idx) => setFeeForm((f) => ({ ...f, expenses: f.expenses.filter((_, i) => i !== idx) }));
+  const updateExpense = (idx, field, value) => setFeeForm((f) => ({
+    ...f,
+    expenses: f.expenses.map((e, i) => (i === idx ? { ...e, [field]: value } : e)),
+  }));
+
   const saveFees = async (e) => {
     e.preventDefault();
     setSavingFees(true);
     try {
       await financeAPI.updateSettings({
         bankFee: Number(feeForm.bankFee) || 0,
-        otherFee: Number(feeForm.otherFee) || 0,
+        expenses: feeForm.expenses
+          .filter((row) => row.label.trim() || row.amount)
+          .map((row) => ({ label: row.label.trim(), amount: Number(row.amount) || 0 })),
       });
-      showSuccess('Fees updated');
+      showSuccess('Expenses updated');
       await load();
     } catch (error) {
-      showError(error.response?.data?.error || 'Failed to update fees');
+      showError(error.response?.data?.error || 'Failed to update expenses');
     } finally {
       setSavingFees(false);
     }
@@ -103,32 +112,53 @@ function AdminFinance() {
 
       <form onSubmit={saveFees} className="rounded-2xl border border-gray-100 bg-white p-4">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="font-semibold text-gray-900">Platform fees</h2>
+          <h2 className="font-semibold text-gray-900">Platform costs</h2>
         </div>
-        <p className="text-xs text-gray-500 mb-4">Fixed bank and other fees (SAR). Deducted from net cash after fees and platform cash figures above.</p>
-        <div className="flex flex-wrap items-end gap-4">
-          <label className="text-xs text-gray-500">Bank fees (SAR)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={feeForm.bankFee}
-              onChange={(e) => setFeeForm((f) => ({ ...f, bankFee: e.target.value }))}
-              className="block border rounded-lg px-2 py-1 text-sm w-40 mt-1"
-            />
-          </label>
-          <label className="text-xs text-gray-500">Other fees (SAR)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={feeForm.otherFee}
-              onChange={(e) => setFeeForm((f) => ({ ...f, otherFee: e.target.value }))}
-              className="block border rounded-lg px-2 py-1 text-sm w-40 mt-1"
-            />
-          </label>
+        <p className="text-xs text-gray-500 mb-4">Bank fee and itemized expenses (SAR). Deducted from net cash after fees and platform cash figures above.</p>
+
+        <label className="text-xs text-gray-500 block mb-4">Bank fees (SAR)
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={feeForm.bankFee}
+            onChange={(e) => setFeeForm((f) => ({ ...f, bankFee: e.target.value }))}
+            className="block border rounded-lg px-2 py-1 text-sm w-40 mt-1"
+          />
+        </label>
+
+        <p className="text-xs font-medium text-gray-600 mb-2">Expenses</p>
+        <div className="space-y-2 mb-3">
+          {feeForm.expenses.length === 0 && (
+            <p className="text-xs text-gray-400">No expenses added yet.</p>
+          )}
+          {feeForm.expenses.map((row, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Expense name (e.g. Office rent)"
+                value={row.label}
+                onChange={(e) => updateExpense(idx, 'label', e.target.value)}
+                className="border rounded-lg px-2 py-1 text-sm flex-1 min-w-0"
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Amount"
+                value={row.amount}
+                onChange={(e) => updateExpense(idx, 'amount', e.target.value)}
+                className="border rounded-lg px-2 py-1 text-sm w-32"
+              />
+              <span className="text-xs text-gray-400">SAR</span>
+              <button type="button" onClick={() => removeExpense(idx)} className="text-gray-300 hover:text-red-500 px-1" aria-label="Remove expense">✕</button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={addExpense} className="text-sm text-primary-600 hover:text-primary-700">+ Add expense</button>
           <button type="submit" disabled={savingFees} className="btn-primary text-sm disabled:opacity-60">
-            {savingFees ? 'Saving…' : 'Save fees'}
+            {savingFees ? 'Saving…' : 'Save costs'}
           </button>
         </div>
       </form>

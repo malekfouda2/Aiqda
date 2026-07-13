@@ -26,6 +26,7 @@ const SocialAuthCallback = lazy(() => import('./pages/SocialAuthCallback'));
 const InstructorSetup = lazy(() => import('./pages/InstructorSetup'));
 const Courses = lazy(() => import('./pages/Courses'));
 const CourseDetail = lazy(() => import('./pages/CourseDetail'));
+const CreatorProfile = lazy(() => import('./pages/CreatorProfile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const Payments = lazy(() => import('./pages/Payments'));
@@ -35,6 +36,7 @@ const AdminContactMessages = lazy(() => import('./pages/AdminContactMessages'));
 const AdminWhatsAppSettings = lazy(() => import('./pages/AdminWhatsAppSettings'));
 const AdminTeamMembers = lazy(() => import('./pages/AdminTeamMembers'));
 const AdminPartners = lazy(() => import('./pages/AdminPartners'));
+const AdminAuthentication = lazy(() => import('./pages/AdminAuthentication'));
 const AdminPayments = lazy(() => import('./pages/AdminPayments'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
@@ -165,6 +167,7 @@ function App() {
           <Route path="/consultations/:id" element={renderLazyPage(ConsultationDetail)} />
           <Route path="/chapters" element={renderLazyPage(Courses)} />
           <Route path="/chapters/:id" element={renderLazyPage(CourseDetail)} />
+          <Route path="/creators/:id" element={renderLazyPage(CreatorProfile)} />
           <Route path="/development/:id" element={
             <ProtectedRoute>
               {renderLazyPage(LessonView)}
@@ -192,6 +195,7 @@ function App() {
             <Route path="whatsapp-settings" element={renderLazyPage(AdminWhatsAppSettings)} />
             <Route path="team-members" element={renderLazyPage(AdminTeamMembers)} />
             <Route path="partners" element={renderLazyPage(AdminPartners)} />
+            <Route path="authentication" element={renderLazyPage(AdminAuthentication)} />
             <Route path="payments" element={renderLazyPage(AdminPayments)} />
             <Route path="users" element={renderLazyPage(AdminUsers)} />
             <Route path="chapters" element={renderLazyPage(AdminCourses)} />

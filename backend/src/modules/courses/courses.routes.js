@@ -15,6 +15,7 @@ router.post('/', isInstructor, coursesController.createCourse);
 router.get('/my/enrolled', coursesController.getEnrolledCourses);
 router.get('/my/teaching', isInstructor, coursesController.getInstructorCourses);
 
+router.put('/reorder', isInstructor, coursesController.reorderCourses);
 router.put('/:id', isInstructor, coursesController.updateCourse);
 router.post('/:id/submit-review', isInstructor, coursesController.submitCourseForReview);
 router.patch('/:id/publish', isAdmin, coursesController.setCoursePublishState);

@@ -583,7 +583,8 @@ const getInstructorCourseDataset = async ({ activeOnly = false } = {}) => {
   const instructorIds = instructors.map((instructor) => instructor._id);
   const courses = instructorIds.length > 0
     ? await Course.find({ instructor: { $in: instructorIds } })
-      .select('instructor title category level isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+      .select('instructor title category level software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+      .sort({ order: 1, createdAt: 1 })
       .lean()
     : [];
 
@@ -722,7 +723,7 @@ export const getCourseProgress = async (userId, courseId) => {
 export const getInstructorAnalytics = async (instructorId) => {
   const [courses, instructor] = await Promise.all([
     Course.find({ instructor: instructorId })
-      .select('title enrolledStudents isPublished reviewStatus')
+      .select('title software enrolledStudents isPublished reviewStatus')
       .lean(),
     User.findById(instructorId)
       .select('assignedPackages')
@@ -737,6 +738,7 @@ export const getInstructorAnalytics = async (instructorId) => {
     return {
       courseId: course._id,
       title: course.title,
+      software: course.software || [],
       isPublished: Boolean(course.isPublished),
       reviewStatus: course.reviewStatus || 'draft',
       enrolledCount: course.enrolledStudents?.length || 0,
@@ -878,6 +880,8 @@ export const getAdminCoursesByInstructor = async () => {
         title: course.title,
         category: course.category,
         level: course.level,
+        software: course.software || [],
+        order: course.order || 0,
         isPublished: course.isPublished,
         reviewStatus: course.reviewStatus || 'draft',
         createdAt: course.createdAt,
@@ -933,7 +937,8 @@ export const getAdminInstructorDetail = async (instructorId) => {
   }
 
   const courses = await Course.find({ instructor: instructorId })
-    .select('title category level isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+    .select('title category level software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+    .sort({ order: 1, createdAt: 1 })
     .lean();
 
   const courseIds = courses.map((course) => course._id);
@@ -965,6 +970,8 @@ export const getAdminInstructorDetail = async (instructorId) => {
       title: course.title,
       category: course.category,
       level: course.level,
+      software: course.software || [],
+      order: course.order || 0,
       isPublished: course.isPublished,
       reviewStatus: course.reviewStatus || 'draft',
       createdAt: course.createdAt,

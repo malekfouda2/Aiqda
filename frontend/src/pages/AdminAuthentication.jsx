@@ -1,0 +1,441 @@
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+
+import LoadingSpinner from '../components/LoadingSpinner';
+import useUIStore from '../store/uiStore';
+import { authenticationAPI } from '../services/api';
+import { buildUploadUrl } from '../utils/uploads';
+import { getSafeExternalHref } from '../utils/url';
+import { pageVariants, fadeInUp, cardVariants } from '../utils/animations';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+
+const buildInitialFormState = () => ({
+  _id: null,
+  name: '',
+  website: '',
+  order: 0,
+  isActive: true,
+  removeImage: false,
+  image: null,
+  existingImage: null,
+});
+
+function AdminAuthentication() {
+  const { showSuccess, showError } = useUIStore();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState(buildInitialFormState());
+  const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
+
+  useBodyScrollLock(modalOpen);
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = async () => {
+    setLoading(true);
+    try {
+      const response = await authenticationAPI.getAll();
+      setItems(response.data);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to load authentication items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+    if (!needle) {
+      return items;
+    }
+
+    return items.filter((item) => (
+      [item.name, item.website]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(needle)
+    ));
+  }, [items, searchTerm]);
+
+  useEffect(() => {
+    if (formData.image) {
+      const objectUrl = URL.createObjectURL(formData.image);
+      setImagePreviewUrl(objectUrl);
+
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    }
+
+    if (!formData.removeImage && formData.existingImage) {
+      setImagePreviewUrl(buildUploadUrl(formData.existingImage));
+      return undefined;
+    }
+
+    setImagePreviewUrl(null);
+    return undefined;
+  }, [formData.image, formData.existingImage, formData.removeImage]);
+
+  const openCreateModal = () => {
+    setFormData({
+      ...buildInitialFormState(),
+      order: items.length + 1,
+    });
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item) => {
+    setFormData({
+      _id: item._id,
+      name: item.name,
+      website: item.website || '',
+      order: item.order ?? 0,
+      isActive: item.isActive,
+      removeImage: false,
+      image: null,
+      existingImage: item.image || null,
+    });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (processing) {
+      return;
+    }
+
+    setModalOpen(false);
+    setFormData(buildInitialFormState());
+  };
+
+  const handleImageChange = (event) => {
+    const [file] = event.target.files || [];
+    setFormData((current) => ({
+      ...current,
+      image: file || null,
+      removeImage: false,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setProcessing(true);
+
+    try {
+      const payload = new FormData();
+      payload.append('name', formData.name);
+      payload.append('website', formData.website);
+      payload.append('order', String(formData.order));
+      payload.append('isActive', String(formData.isActive));
+      payload.append('removeImage', String(formData.removeImage));
+
+      if (formData.image) {
+        payload.append('image', formData.image);
+      }
+
+      if (formData._id) {
+        await authenticationAPI.update(formData._id, payload);
+        showSuccess('Authentication item updated successfully');
+      } else {
+        await authenticationAPI.create(payload);
+        showSuccess('Authentication item created successfully');
+      }
+
+      closeModal();
+      await fetchItems();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to save authentication item');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this authentication item?')) {
+      return;
+    }
+
+    try {
+      await authenticationAPI.remove(id);
+      showSuccess('Authentication item deleted successfully');
+      await fetchItems();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to delete authentication item');
+    }
+  };
+
+  const activeCount = items.filter((item) => item.isActive).length;
+  const inactiveCount = items.length - activeCount;
+
+  return (
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div variants={fadeInUp} className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Authentication</h1>
+          <p className="text-gray-500">Control the Authentication section on the Home page. The section is hidden until at least one active item exists.</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by name or website..."
+              className="input-field pl-10 w-full sm:w-80"
+            />
+            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <button onClick={openCreateModal} className="btn-primary whitespace-nowrap">
+            <span className="mr-2">+</span>Add Item
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="rounded-2xl border border-primary-100 bg-primary-50 p-4">
+          <p className="text-xs uppercase tracking-widest text-primary-600 font-semibold mb-2">Total</p>
+          <p className="text-2xl font-bold text-gray-900">{items.length}</p>
+        </div>
+        <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+          <p className="text-xs uppercase tracking-widest text-green-600 font-semibold mb-2">Active</p>
+          <p className="text-2xl font-bold text-gray-900">{activeCount}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-2">Inactive</p>
+          <p className="text-2xl font-bold text-gray-900">{inactiveCount}</p>
+        </div>
+      </motion.div>
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <LoadingSpinner size="lg" text="Loading authentication items..." />
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="card text-center py-16">
+          <div className="text-5xl mb-4">🛡️</div>
+          <p className="text-gray-500 text-lg">No authentication items found</p>
+          <p className="text-gray-400 text-sm mt-1">
+            {searchTerm ? `No results for "${searchTerm}"` : 'Add your first item to show the Authentication section on the Home page.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid xl:grid-cols-2 gap-5">
+          {filteredItems.map((item, index) => {
+            const imageUrl = buildUploadUrl(item.image);
+            const safeWebsiteHref = getSafeExternalHref(item.website);
+
+            return (
+              <motion.div
+                key={item._id}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ delay: index * 0.04 }}
+                className="card hover:border-primary-200 transition-all duration-300"
+              >
+                <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                  <div className="flex gap-4 min-w-0">
+                    {imageUrl ? (
+                      <div className="w-24 h-24 rounded-2xl bg-white border border-gray-200 shadow-sm shrink-0 p-3 flex items-center justify-center">
+                        <img src={imageUrl} alt={item.name} className="max-h-full w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-100 to-cyan-100 border border-primary-200 flex items-center justify-center text-primary-600 shrink-0">
+                        <span className="text-3xl">🛡️</span>
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${item.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                          {item.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className="text-xs text-gray-400">Order {item.order ?? 0}</span>
+                      </div>
+                      <h2 className="text-xl font-semibold text-gray-900 truncate">{item.name}</h2>
+                      {safeWebsiteHref ? (
+                        <a
+                          href={safeWebsiteHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary-500 hover:text-primary-600 break-all"
+                        >
+                          {safeWebsiteHref}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-gray-400 mt-1">No external website linked</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => openEditModal(item)} className="btn-secondary text-sm">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(item._id)} className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-5 rounded-xl transition-all text-sm">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {modalOpen ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="app-modal-shell z-[70] items-start sm:items-center overflow-y-auto px-3 py-3 sm:px-4 sm:py-6"
+          >
+            <div className="app-modal-backdrop" onClick={closeModal} />
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.99 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="app-modal-panel flex max-w-3xl flex-col overflow-hidden rounded-[2rem] w-full"
+            >
+              <div className="border-b border-gray-100 px-5 py-5 sm:px-8 sm:py-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {formData._id ? 'Edit Authentication Item' : 'Add Authentication Item'}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Update the logos shown in the Authentication section.
+                    </p>
+                  </div>
+                  <button type="button" onClick={closeModal} disabled={processing} className="btn-secondary text-sm">
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="app-modal-scroll overflow-y-auto px-5 py-6 sm:px-8 sm:py-8 space-y-6">
+                <div className="grid lg:grid-cols-[220px,1fr] gap-6">
+                  <div className="space-y-4">
+                    <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 mb-3">Logo Preview</p>
+                      <div className="aspect-square rounded-2xl border border-gray-200 bg-white flex items-center justify-center overflow-hidden p-4">
+                        {imagePreviewUrl ? (
+                          <img src={imagePreviewUrl} alt="Authentication preview" className="max-h-full w-full object-contain" />
+                        ) : (
+                          <span className="text-4xl">🛡️</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-gray-600">
+                        Upload Logo
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                          onChange={handleImageChange}
+                          className="input-field mt-2"
+                        />
+                      </label>
+
+                      {formData.existingImage && (
+                        <label className="inline-flex items-center gap-2 text-sm text-gray-500">
+                          <input
+                            type="checkbox"
+                            checked={formData.removeImage}
+                            onChange={(event) => setFormData((current) => ({
+                              ...current,
+                              removeImage: event.target.checked,
+                              image: event.target.checked ? null : current.image,
+                            }))}
+                          />
+                          Remove current image
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-2">Name *</label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
+                        className="input-field"
+                        placeholder="Enter name"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-2">Website</label>
+                      <input
+                        type="url"
+                        value={formData.website}
+                        onChange={(event) => setFormData((current) => ({ ...current, website: event.target.value }))}
+                        className="input-field"
+                        placeholder="https://example.com"
+                      />
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Display Order</label>
+                        <input
+                          type="number"
+                          value={formData.order}
+                          onChange={(event) => setFormData((current) => ({ ...current, order: Number(event.target.value) || 0 }))}
+                          className="input-field"
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Visible on site</p>
+                          <p className="text-xs text-gray-400 mt-1">Inactive items stay hidden from the Home page.</p>
+                        </div>
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.isActive}
+                            onChange={(event) => setFormData((current) => ({ ...current, isActive: event.target.checked }))}
+                            className="sr-only"
+                          />
+                          <span className={`relative inline-flex h-7 w-12 rounded-full transition-colors ${formData.isActive ? 'bg-primary-500' : 'bg-gray-300'}`}>
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition mt-1 ${formData.isActive ? 'translate-x-6 ml-0' : 'translate-x-1'}`} />
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                  <button type="button" onClick={closeModal} disabled={processing} className="btn-secondary">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={processing} className="btn-primary min-w-[180px] justify-center">
+                    {processing ? 'Saving...' : formData._id ? 'Save Changes' : 'Create Item'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+export default AdminAuthentication;

@@ -184,6 +184,16 @@ function Courses() {
                     {getLocalizedField(course, 'description', locale)}
                   </p>
 
+                  {(course.software || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {course.software.map((tag) => (
+                        <span key={tag} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                          🛠 {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="divider mb-4" />
 
                   <div className="flex items-center justify-between text-sm">

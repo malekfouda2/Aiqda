@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
 import { backfillContentReviewState } from './startup/contentReviewStateBackfill.js';
+import { backfillCourseOrder } from './startup/courseOrderBackfill.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
@@ -38,6 +39,12 @@ mongoose.connect(MONGODB_URI)
     if (reviewStateResult.coursesReset > 0 || reviewStateResult.lessonsReset > 0) {
       console.log(
         `Reset ${reviewStateResult.coursesReset} chapters and ${reviewStateResult.lessonsReset} content items to draft for the review workflow.`
+      );
+    }
+    const courseOrderResult = await backfillCourseOrder();
+    if (courseOrderResult.updatedCourses > 0) {
+      console.log(
+        `Backfilled chapter order for ${courseOrderResult.updatedCourses} chapters across ${courseOrderResult.updatedInstructors} creators.`
       );
     }
     const renewalWorker = startSubscriptionRenewalWorker();

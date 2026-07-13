@@ -11,8 +11,10 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 const lessonsDir = path.join(uploadsDir, 'lessons');
 const teamMembersDir = path.join(uploadsDir, 'team-members');
 const partnersDir = path.join(uploadsDir, 'partners');
+const authenticationDir = path.join(uploadsDir, 'authentication');
+const teasersDir = path.join(uploadsDir, 'teasers');
 
-[uploadsDir, lessonsDir, teamMembersDir, partnersDir].forEach((dir) => {
+[uploadsDir, lessonsDir, teamMembersDir, partnersDir, authenticationDir, teasersDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -32,6 +34,8 @@ const defaultStorage = createStorage(uploadsDir);
 const lessonStorage = createStorage(lessonsDir);
 const teamMemberStorage = createStorage(teamMembersDir);
 const partnerStorage = createStorage(partnersDir);
+const authenticationStorage = createStorage(authenticationDir);
+const teaserStorage = createStorage(teasersDir);
 
 const MAX_SIGNATURE_SAMPLE_BYTES = 256 * 1024;
 
@@ -301,6 +305,17 @@ export const uploadLessonFile = createValidatedUpload({
   fields: [{ name: 'file' }],
 });
 
+// Creator self-introduction ("teaser") video. Browser-playable formats only.
+export const TEASER_ALLOWED_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
+
+export const uploadCreatorTeaser = createValidatedUpload({
+  storage: teaserStorage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+  allowedExtensions: TEASER_ALLOWED_EXTENSIONS,
+  mode: 'single',
+  fields: [{ name: 'video' }],
+});
+
 export const uploadInstructorDocs = createValidatedUpload({
   storage: defaultStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -322,6 +337,14 @@ export const uploadTeamMemberPhoto = createValidatedUpload({
 
 export const uploadPartnerLogo = createValidatedUpload({
   storage: partnerStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  allowedKinds: ['jpeg', 'png', 'gif', 'webp', 'svg'],
+  mode: 'single',
+  fields: [{ name: 'image' }],
+});
+
+export const uploadAuthenticationLogo = createValidatedUpload({
+  storage: authenticationStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   allowedKinds: ['jpeg', 'png', 'gif', 'webp', 'svg'],
   mode: 'single',
