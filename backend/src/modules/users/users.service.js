@@ -13,6 +13,7 @@ import InstructorApplication from '../instructor-applications/instructorApplicat
 import StudioApplication from '../studio-applications/studioApplication.model.js';
 import ContactMessage from '../contact-messages/contactMessage.model.js';
 import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
+import { prepareVimeoVideoForEmbed } from '../video/video.service.js';
 import { notify } from '../notifications/notify.js';
 
 const SELF_UPDATE_FIELDS = new Set(['name', 'avatar', 'password']);
@@ -43,48 +44,67 @@ export const getUserById = async (userId) => {
   return user;
 };
 
-// Stores/replaces a creator's teaser video. `file` is the multer upload.
-export const setCreatorTeaser = async (userId, file) => {
-  if (!file?.filename) {
-    throw new Error('A video file is required');
+// Admin-only: sets/replaces a creator's teaser video by Vimeo video ID. The video
+// is verified and secured on Vimeo exactly like a lesson video (no watermark).
+export const setCreatorTeaser = async (creatorId, vimeoVideoId) => {
+  if (!String(vimeoVideoId || '').replace(/[^0-9]/g, '')) {
+    throw new Error('A Vimeo video ID is required');
   }
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new Error('User not found');
+  const user = await User.findById(creatorId);
+  if (!user || user.role !== 'instructor') {
+    throw new Error('Creator not found');
   }
 
-  const previous = user.teaserVideo;
-  user.teaserVideo = `/uploads/teasers/${file.filename}`;
-  user.teaserVideoName = file.originalname || null;
+  const { vimeoVideoId: cleanId, vimeoEmbedUrl } = await prepareVimeoVideoForEmbed(vimeoVideoId);
+  user.teaserVimeoVideoId = cleanId;
+  user.teaserVimeoEmbedUrl = vimeoEmbedUrl;
   await user.save();
 
-  if (previous && previous !== user.teaserVideo) {
-    await deleteUploadPathIfExists(previous);
-  }
-
-  return { teaserVideo: user.teaserVideo, teaserVideoName: user.teaserVideoName };
+  return { teaserVimeoVideoId: cleanId, teaserVimeoEmbedUrl: vimeoEmbedUrl };
 };
 
-export const deleteCreatorTeaser = async (userId) => {
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new Error('User not found');
+export const deleteCreatorTeaser = async (creatorId) => {
+  const user = await User.findById(creatorId);
+  if (!user || user.role !== 'instructor') {
+    throw new Error('Creator not found');
   }
-  const previous = user.teaserVideo;
-  user.teaserVideo = null;
-  user.teaserVideoName = null;
+  user.teaserVimeoVideoId = null;
+  user.teaserVimeoEmbedUrl = null;
   await user.save();
 
-  if (previous) {
-    await deleteUploadPathIfExists(previous);
-  }
+  return { teaserVimeoVideoId: null, teaserVimeoEmbedUrl: null };
+};
 
-  return { teaserVideo: null };
+// Admin-only: sets how many chapters a creator may create (1 by default).
+export const setCreatorChapterLimit = async (creatorId, limit) => {
+  const parsed = Number(limit);
+  const isProvided = limit !== null && limit !== undefined && limit !== '' && typeof limit !== 'boolean';
+  if (!isProvided || !Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('Chapter limit must be a non-negative whole number');
+  }
+  const user = await User.findById(creatorId);
+  if (!user || user.role !== 'instructor') {
+    throw new Error('Creator not found');
+  }
+  user.chapterLimit = parsed;
+  await user.save();
+
+  await notify.user(user._id, {
+    type: 'creator.chapter_limit_updated',
+    title: 'Your chapter limit was updated',
+    titleAr: 'تم تحديث حد الفصول الخاص بك',
+    message: `You can now create up to ${parsed} chapter${parsed === 1 ? '' : 's'}.`,
+    messageAr: `يمكنك الآن إنشاء ما يصل إلى ${parsed} فصل.`,
+    link: '/creator',
+    metadata: { chapterLimit: parsed },
+  });
+
+  return { chapterLimit: user.chapterLimit };
 };
 
 // Public creator page payload: profile + teaser + published chapters.
 export const getPublicCreatorProfile = async (creatorId) => {
-  const creator = await User.findById(creatorId).select('name avatar role teaserVideo teaserVideoName isActive');
+  const creator = await User.findById(creatorId).select('name avatar role teaserVimeoVideoId teaserVimeoEmbedUrl isActive');
   if (!creator || creator.role !== 'instructor' || creator.isActive === false) {
     throw new Error('Creator not found');
   }
@@ -99,8 +119,8 @@ export const getPublicCreatorProfile = async (creatorId) => {
       _id: creator._id,
       name: creator.name,
       avatar: creator.avatar,
-      teaserVideo: creator.teaserVideo,
-      teaserVideoName: creator.teaserVideoName,
+      teaserVimeoVideoId: creator.teaserVimeoVideoId,
+      teaserVimeoEmbedUrl: creator.teaserVimeoEmbedUrl,
     },
     chapters,
   };

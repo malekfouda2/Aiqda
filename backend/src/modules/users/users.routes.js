@@ -1,8 +1,7 @@
 import express from 'express';
 import * as usersController from './users.controller.js';
-import { authenticate, isAdmin, isInstructor } from '../../middlewares/auth.middleware.js';
+import { authenticate, isAdmin } from '../../middlewares/auth.middleware.js';
 import { isAdminRole } from '../../utils/roles.js';
-import { uploadCreatorTeaser } from '../../middlewares/upload.middleware.js';
 
 const router = express.Router();
 
@@ -11,8 +10,12 @@ router.get('/creators/:id/public', usersController.getPublicCreatorProfile);
 
 router.use(authenticate);
 
-router.post('/me/teaser', isInstructor, uploadCreatorTeaser, usersController.uploadCreatorTeaser);
-router.delete('/me/teaser', isInstructor, usersController.deleteCreatorTeaser);
+// Admin-only: manage a creator's teaser video (Vimeo ID).
+router.post('/:id/teaser', isAdmin, usersController.setCreatorTeaser);
+router.delete('/:id/teaser', isAdmin, usersController.deleteCreatorTeaser);
+
+// Admin-only: configure how many chapters a creator may create.
+router.patch('/:id/chapter-limit', isAdmin, usersController.setCreatorChapterLimit);
 
 router.get('/', isAdmin, usersController.getAllUsers);
 router.patch('/:id/toggle-status', isAdmin, usersController.toggleUserStatus);

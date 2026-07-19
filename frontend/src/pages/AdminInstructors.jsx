@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { analyticsAPI, usersAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import VimeoPlayer from '../components/VimeoPlayer';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
 
 const REVIEW_BADGE = {
@@ -46,6 +47,10 @@ function AdminInstructors() {
   const [packages, setPackages] = useState([]);
   const [tierSelection, setTierSelection] = useState([]);
   const [savingTiers, setSavingTiers] = useState(false);
+  const [teaserInput, setTeaserInput] = useState('');
+  const [savingTeaser, setSavingTeaser] = useState(false);
+  const [chapterLimitInput, setChapterLimitInput] = useState('1');
+  const [savingChapterLimit, setSavingChapterLimit] = useState(false);
 
   useEffect(() => {
     fetchInstructors();
@@ -71,6 +76,8 @@ function AdminInstructors() {
       const response = await analyticsAPI.getAdminInstructorDetail(instructorId);
       setDetail(response.data);
       setTierSelection((response.data.instructor.assignedPackages || []).map((pkg) => pkg._id));
+      setTeaserInput(response.data.instructor.teaserVimeoVideoId || '');
+      setChapterLimitInput(String(response.data.instructor.chapterLimit ?? 1));
     } catch (error) {
       console.error('Failed to fetch instructor detail:', error);
     } finally {
@@ -105,6 +112,56 @@ function AdminInstructors() {
       showError(error.response?.data?.error || 'Failed to update tiers');
     } finally {
       setSavingTiers(false);
+    }
+  };
+
+  const handleSaveTeaser = async (instructorId) => {
+    const videoId = teaserInput.trim();
+    if (!videoId) {
+      showError('Enter a Vimeo video ID');
+      return;
+    }
+    setSavingTeaser(true);
+    try {
+      await usersAPI.setCreatorTeaser(instructorId, videoId);
+      showSuccess('Teaser video saved for this creator');
+      await loadDetail(instructorId);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to save teaser video');
+    } finally {
+      setSavingTeaser(false);
+    }
+  };
+
+  const handleRemoveTeaser = async (instructorId) => {
+    if (!confirm('Remove this creator\'s teaser video?')) return;
+    setSavingTeaser(true);
+    try {
+      await usersAPI.deleteCreatorTeaser(instructorId);
+      showSuccess('Teaser video removed');
+      await loadDetail(instructorId);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to remove teaser video');
+    } finally {
+      setSavingTeaser(false);
+    }
+  };
+
+  const handleSaveChapterLimit = async (instructorId) => {
+    const limit = Number(chapterLimitInput);
+    if (!Number.isInteger(limit) || limit < 0) {
+      showError('Chapter limit must be a non-negative whole number');
+      return;
+    }
+    setSavingChapterLimit(true);
+    try {
+      await usersAPI.setChapterLimit(instructorId, limit);
+      showSuccess('Chapter limit updated for this creator');
+      await loadDetail(instructorId);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update chapter limit');
+    } finally {
+      setSavingChapterLimit(false);
     }
   };
 
@@ -301,6 +358,77 @@ function AdminInstructors() {
                                     </button>
                                   );
                                 })}
+                              </div>
+                            )}
+                          </motion.div>
+
+                          <motion.div variants={cardVariants} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <div className="flex items-center justify-between mb-3 gap-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900">Chapter Limit</h4>
+                                <p className="text-xs text-gray-500">Max chapters this creator can create. Defaults to 1.</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={chapterLimitInput}
+                                onChange={(e) => setChapterLimitInput(e.target.value)}
+                                className="input-field w-full sm:w-40"
+                              />
+                              <button
+                                onClick={() => handleSaveChapterLimit(instructor._id)}
+                                disabled={savingChapterLimit}
+                                className="btn-primary text-sm px-4 disabled:opacity-50"
+                              >
+                                {savingChapterLimit ? 'Saving...' : 'Save Limit'}
+                              </button>
+                              <span className="text-xs text-gray-400">
+                                {detail.summary.totalCourses} of {detail.instructor.chapterLimit ?? 1} used
+                              </span>
+                            </div>
+                          </motion.div>
+
+                          <motion.div variants={cardVariants} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <div className="flex items-center justify-between mb-3 gap-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900">Teaser Video</h4>
+                                <p className="text-xs text-gray-500">A short creator intro streamed from Vimeo, shown to members on this creator's chapters.</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                value={teaserInput}
+                                onChange={(e) => setTeaserInput(e.target.value)}
+                                placeholder="Vimeo video ID (e.g. 123456789)"
+                                className="input-field flex-1"
+                              />
+                              <button
+                                onClick={() => handleSaveTeaser(instructor._id)}
+                                disabled={savingTeaser}
+                                className="btn-primary text-sm px-4 disabled:opacity-50"
+                              >
+                                {savingTeaser ? 'Saving...' : 'Save Teaser'}
+                              </button>
+                              {detail.instructor.teaserVimeoVideoId && (
+                                <button
+                                  onClick={() => handleRemoveTeaser(instructor._id)}
+                                  disabled={savingTeaser}
+                                  className="text-sm text-red-500 hover:text-red-600 px-3 disabled:opacity-50"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            {detail.instructor.teaserVimeoVideoId && (
+                              <div className="mt-4 max-w-2xl">
+                                <VimeoPlayer
+                                  vimeoVideoId={detail.instructor.teaserVimeoVideoId}
+                                  embedUrl={detail.instructor.teaserVimeoEmbedUrl}
+                                />
                               </div>
                             )}
                           </motion.div>

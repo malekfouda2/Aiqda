@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { usersAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import VimeoPlayer from '../components/VimeoPlayer';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
@@ -68,12 +69,10 @@ function CreatorProfile() {
           </div>
         </div>
 
-        {creator.teaserVideo && (
-          <video
-            src={creator.teaserVideo}
-            controls
-            playsInline
-            className="w-full rounded-xl border border-gray-100 bg-black"
+        {creator.teaserVimeoVideoId && (
+          <VimeoPlayer
+            vimeoVideoId={creator.teaserVimeoVideoId}
+            embedUrl={creator.teaserVimeoEmbedUrl}
           />
         )}
       </motion.div>

@@ -12,9 +12,8 @@ const lessonsDir = path.join(uploadsDir, 'lessons');
 const teamMembersDir = path.join(uploadsDir, 'team-members');
 const partnersDir = path.join(uploadsDir, 'partners');
 const authenticationDir = path.join(uploadsDir, 'authentication');
-const teasersDir = path.join(uploadsDir, 'teasers');
 
-[uploadsDir, lessonsDir, teamMembersDir, partnersDir, authenticationDir, teasersDir].forEach((dir) => {
+[uploadsDir, lessonsDir, teamMembersDir, partnersDir, authenticationDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -35,7 +34,6 @@ const lessonStorage = createStorage(lessonsDir);
 const teamMemberStorage = createStorage(teamMembersDir);
 const partnerStorage = createStorage(partnersDir);
 const authenticationStorage = createStorage(authenticationDir);
-const teaserStorage = createStorage(teasersDir);
 
 const MAX_SIGNATURE_SAMPLE_BYTES = 256 * 1024;
 
@@ -303,17 +301,6 @@ export const uploadLessonFile = createValidatedUpload({
   allowedExtensions: LESSON_ALLOWED_EXTENSIONS,
   mode: 'single',
   fields: [{ name: 'file' }],
-});
-
-// Creator self-introduction ("teaser") video. Browser-playable formats only.
-export const TEASER_ALLOWED_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
-
-export const uploadCreatorTeaser = createValidatedUpload({
-  storage: teaserStorage,
-  limits: { fileSize: 100 * 1024 * 1024 },
-  allowedExtensions: TEASER_ALLOWED_EXTENSIONS,
-  mode: 'single',
-  fields: [{ name: 'video' }],
 });
 
 export const uploadInstructorDocs = createValidatedUpload({

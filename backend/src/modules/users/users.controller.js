@@ -73,9 +73,9 @@ export const acknowledgePlatformNotice = async (req, res) => {
   }
 };
 
-export const uploadCreatorTeaser = async (req, res) => {
+export const setCreatorTeaser = async (req, res) => {
   try {
-    const result = await usersService.setCreatorTeaser(req.user.id, req.file);
+    const result = await usersService.setCreatorTeaser(req.params.id, req.body.vimeoVideoId);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -84,7 +84,16 @@ export const uploadCreatorTeaser = async (req, res) => {
 
 export const deleteCreatorTeaser = async (req, res) => {
   try {
-    const result = await usersService.deleteCreatorTeaser(req.user.id);
+    const result = await usersService.deleteCreatorTeaser(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const setCreatorChapterLimit = async (req, res) => {
+  try {
+    const result = await usersService.setCreatorChapterLimit(req.params.id, req.body.chapterLimit);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });

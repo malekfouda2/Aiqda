@@ -156,14 +156,21 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // Creator self-introduction video shown before their chapters (public path under /uploads/teasers).
-  teaserVideo: {
+  // Creator self-introduction ("teaser") video, streamed from Vimeo like lesson
+  // videos (no watermark). Managed by admins only; shown on the creator's chapters.
+  teaserVimeoVideoId: {
     type: String,
     default: null
   },
-  teaserVideoName: {
+  teaserVimeoEmbedUrl: {
     type: String,
     default: null
+  },
+  // Max number of chapters (courses) a creator may create. Admin-configurable; 1 by default.
+  chapterLimit: {
+    type: Number,
+    default: 1,
+    min: 0
   },
   phone: {
     type: phoneSchema,

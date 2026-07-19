@@ -58,14 +58,9 @@ export const usersAPI = {
   remove: (id) => api.delete(`/users/${id}`),
   acknowledgePlatformNotice: () => api.post('/users/me/platform-notice-acknowledgement'),
   getCreatorPublic: (id) => api.get(`/users/creators/${id}/public`),
-  uploadTeaser: (file) => {
-    const formData = new FormData();
-    formData.append('video', file);
-    return api.post('/users/me/teaser', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  deleteTeaser: () => api.delete('/users/me/teaser')
+  setCreatorTeaser: (creatorId, vimeoVideoId) => api.post(`/users/${creatorId}/teaser`, { vimeoVideoId }),
+  deleteCreatorTeaser: (creatorId) => api.delete(`/users/${creatorId}/teaser`),
+  setChapterLimit: (creatorId, chapterLimit) => api.patch(`/users/${creatorId}/chapter-limit`, { chapterLimit })
 };
 
 export const subscriptionsAPI = {

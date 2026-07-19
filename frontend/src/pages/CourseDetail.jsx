@@ -5,6 +5,7 @@ import { analyticsAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../servi
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import VimeoPlayer from '../components/VimeoPlayer';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import { getCourseJourney, getEntityId, getLessonProgressState } from '../utils/courseNavigation';
@@ -395,6 +396,35 @@ function CourseDetail() {
               </div>
             </div>
           </div>
+
+          {course.instructor?.teaserVimeoVideoId && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="card mb-8"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="icon-box icon-box-primary w-10 h-10 text-lg">
+                  <span>🎬</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {isRTL ? 'تعرّف على صانع المحتوى' : 'Meet your creator'}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {isRTL
+                      ? 'مقدمة قصيرة من صانع هذا الفصل.'
+                      : 'A short introduction from the creator of this chapter.'}
+                  </p>
+                </div>
+              </div>
+              <VimeoPlayer
+                vimeoVideoId={course.instructor.teaserVimeoVideoId}
+                embedUrl={course.instructor.teaserVimeoEmbedUrl}
+              />
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

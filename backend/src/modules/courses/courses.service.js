@@ -207,11 +207,18 @@ export const createCourse = async (courseData, instructorId, userRole = 'instruc
   await ensurePackageAssignmentsExist(packageIds);
   await ensureInstructorCanAssignPackages(instructorId, userRole, packageIds);
 
-  // Creators are limited to a single chapter. Admins are exempt.
+  // Creators are limited to an admin-configurable number of chapters (1 by default).
+  // Admins are exempt.
   if (userRole !== 'admin') {
+    const creator = await User.findById(instructorId).select('chapterLimit');
+    const chapterLimit = Number.isFinite(creator?.chapterLimit) ? creator.chapterLimit : 1;
     const existingCount = await Course.countDocuments({ instructor: instructorId });
-    if (existingCount > 0) {
-      throw new Error('You can only create one chapter.');
+    if (existingCount >= chapterLimit) {
+      throw new Error(
+        chapterLimit === 1
+          ? 'You can only create one chapter.'
+          : `You can only create up to ${chapterLimit} chapters.`
+      );
     }
   }
 
@@ -253,7 +260,7 @@ export const getPublishedCourses = async () => {
 
 export const getCourseById = async (courseId, userId = null, userRole = null) => {
   const course = await Course.findById(courseId)
-    .populate('instructor', 'name email');
+    .populate('instructor', 'name email teaserVimeoVideoId teaserVimeoEmbedUrl');
   if (!course) {
     throw new Error('Course not found');
   }

@@ -547,6 +547,32 @@ export const getVimeoVideos = async (page = 1, perPage = 25, query = '') => {
   };
 };
 
+// Verifies a Vimeo video exists, applies the same paid-plan security preset and
+// embed-domain whitelist used for lesson videos, and returns the id + embed URL.
+// Used for creator teaser videos (no watermark applied at playback).
+export const prepareVimeoVideoForEmbed = async (vimeoVideoId) => {
+  const cleanId = String(vimeoVideoId || '').replace(/[^0-9]/g, '');
+  if (!cleanId) throw new Error('Invalid Vimeo Video ID');
+
+  let videoDetails = null;
+  if (getVimeoAccessToken()) {
+    try {
+      videoDetails = await getVimeoVideoDetails(cleanId, { forceRefresh: true });
+    } catch (err) {
+      throw new Error(`Could not verify video on Vimeo: ${err.message}`);
+    }
+    vimeoVideoDetailsCache.delete(cleanId);
+    await applyVimeoSecurityPreset(cleanId);
+    await syncVimeoEmbedDomainWhitelist(cleanId);
+    vimeoVideoDetailsCache.delete(cleanId);
+  }
+
+  return {
+    vimeoVideoId: cleanId,
+    vimeoEmbedUrl: videoDetails?.embedUrl || buildPlayerEmbedUrl(cleanId),
+  };
+};
+
 export const assignVideoToLesson = async (lessonId, vimeoVideoId) => {
   const cleanId = vimeoVideoId.replace(/[^0-9]/g, '');
   if (!cleanId) throw new Error('Invalid Vimeo Video ID');

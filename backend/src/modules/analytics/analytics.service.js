@@ -929,7 +929,7 @@ export const getAdminCoursesByInstructor = async () => {
 
 export const getAdminInstructorDetail = async (instructorId) => {
   const instructor = await User.findById(instructorId)
-    .select('name email avatar role createdAt isActive assignedPackages')
+    .select('name email avatar role createdAt isActive assignedPackages teaserVimeoVideoId teaserVimeoEmbedUrl chapterLimit')
     .populate('assignedPackages', 'name nameAr isActive')
     .lean();
   if (!instructor || instructor.role !== 'instructor') {
@@ -1008,6 +1008,9 @@ export const getAdminInstructorDetail = async (instructorId) => {
       avatar: instructor.avatar,
       isActive: instructor.isActive,
       joinedAt: instructor.createdAt,
+      teaserVimeoVideoId: instructor.teaserVimeoVideoId || null,
+      teaserVimeoEmbedUrl: instructor.teaserVimeoEmbedUrl || null,
+      chapterLimit: Number.isFinite(instructor.chapterLimit) ? instructor.chapterLimit : 1,
     },
     summary: {
       totalCourses: courses.length,

@@ -129,7 +129,6 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/uploads/partners', express.static('uploads/partners', publicUploadsStaticOptions));
 app.use('/uploads/authentication', express.static('uploads/authentication', publicUploadsStaticOptions));
 app.use('/uploads/team-members', express.static('uploads/team-members', publicUploadsStaticOptions));
-app.use('/uploads/teasers', express.static('uploads/teasers', publicUploadsStaticOptions));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

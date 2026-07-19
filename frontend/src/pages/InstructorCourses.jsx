@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI, usersAPI } from '../services/api';
+import { coursesAPI, lessonsAPI, quizzesAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -59,10 +59,7 @@ const getReviewState = (item) => {
 function InstructorCourses() {
   const { showSuccess, showError } = useUIStore();
   const user = useAuthStore((state) => state.user);
-  const refreshProfile = useAuthStore((state) => state.refreshProfile);
   const isAdmin = user?.role === 'admin';
-  const [teaserUploading, setTeaserUploading] = useState(false);
-  const teaserFileRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const assignedPackageIds = new Set((user?.assignedPackages || []).map((pkg) => pkg._id || pkg));
   const [courses, setCourses] = useState([]);
@@ -223,38 +220,6 @@ function InstructorCourses() {
       addSoftwareTag(softwareInput);
     } else if (e.key === 'Backspace' && !softwareInput && courseForm.software.length > 0) {
       removeSoftwareTag(courseForm.software[courseForm.software.length - 1]);
-    }
-  };
-
-  const TEASER_MAX_BYTES = 100 * 1024 * 1024;
-
-  const handleTeaserUpload = async (file) => {
-    if (!file) return;
-    if (file.size > TEASER_MAX_BYTES) {
-      showError('Video exceeds the 100MB limit');
-      return;
-    }
-    setTeaserUploading(true);
-    try {
-      await usersAPI.uploadTeaser(file);
-      await refreshProfile();
-      showSuccess('Teaser video saved');
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to upload teaser');
-    } finally {
-      setTeaserUploading(false);
-      if (teaserFileRef.current) teaserFileRef.current.value = '';
-    }
-  };
-
-  const handleRemoveTeaser = async () => {
-    if (!confirm('Remove your teaser video?')) return;
-    try {
-      await usersAPI.deleteTeaser();
-      await refreshProfile();
-      showSuccess('Teaser video removed');
-    } catch (error) {
-      showError(error.response?.data?.error || 'Failed to remove teaser');
     }
   };
 
@@ -685,50 +650,11 @@ function InstructorCourses() {
           </h1>
           <p className="text-gray-500">Create and manage your chapters, lessons, and quizzes</p>
         </div>
-        {(isAdmin || courses.length === 0 || showCourseForm) && (
+        {(isAdmin || courses.length < (user?.chapterLimit ?? 1) || showCourseForm) && (
           <button onClick={() => setShowCourseForm(!showCourseForm)} className="btn-primary">
             {showCourseForm ? 'Cancel' : 'New Chapter'}
           </button>
         )}
-      </motion.div>
-
-      <motion.div variants={fadeInUp} className="card mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              Your teaser video
-              <InfoTooltip text="A short intro video about yourself. It appears before your chapters on your public creator page. Max 100MB (MP4, WebM, MOV)." />
-            </h2>
-            <p className="text-sm text-gray-500">A short intro about yourself, shown to members before your chapters.</p>
-          </div>
-        </div>
-        {user?.teaserVideo ? (
-          <div className="space-y-3">
-            <video src={user.teaserVideo} controls className="w-full max-w-2xl rounded-xl border border-gray-100 bg-black" />
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => teaserFileRef.current?.click()} disabled={teaserUploading} className="btn-secondary text-sm disabled:opacity-60">
-                {teaserUploading ? 'Uploading…' : 'Replace video'}
-              </button>
-              <button onClick={handleRemoveTeaser} className="text-sm text-red-500 hover:text-red-600 px-3">Remove</button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => teaserFileRef.current?.click()}
-            disabled={teaserUploading}
-            className="w-full py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-colors flex flex-col items-center gap-2 disabled:opacity-60"
-          >
-            <span className="text-3xl">🎥</span>
-            <span className="text-sm font-medium">{teaserUploading ? 'Uploading…' : 'Upload a teaser video (MP4, WebM, MOV · max 100MB)'}</span>
-          </button>
-        )}
-        <input
-          ref={teaserFileRef}
-          type="file"
-          accept=".mp4,.webm,.ogg,.mov,.m4v"
-          className="hidden"
-          onChange={(e) => { handleTeaserUpload(e.target.files?.[0]); }}
-        />
       </motion.div>
 
       <AnimatePresence>
@@ -1022,18 +948,27 @@ function InstructorCourses() {
                                 {/* 1. Details */}
                                 <div className="space-y-3">
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Lesson title <span className="text-red-400">*</span></label>
+                                    <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-1">
+                                      Lesson title <span className="text-red-400">*</span>
+                                      <InfoTooltip text="The content's name as members see it in the chapter roadmap. Required. Keep it short and specific (e.g. 'Introduction to Variables')." />
+                                    </label>
                                     <input type="text" placeholder="e.g. Introduction to Variables" value={lessonForm.title} onChange={(e) => setLessonForm(f => ({ ...f, title: e.target.value }))} className="input-field" />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Description <span className="text-gray-400 font-normal">(optional)</span></label>
+                                    <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-1">
+                                      Description <span className="text-gray-400 font-normal">(optional)</span>
+                                      <InfoTooltip text="A short summary of what this content covers. Shown under the content title. Optional — you can add or edit it later." />
+                                    </label>
                                     <textarea placeholder="What will members learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
                                 </div>
 
                                 {/* 2. Supporting file (optional) */}
                                 <div className="space-y-2 border-t border-gray-100 pt-5">
-                                  <label className="block text-sm font-medium text-gray-600">Supporting file <span className="text-gray-400 font-normal">(optional)</span></label>
+                                  <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                                    Supporting file <span className="text-gray-400 font-normal">(optional)</span>
+                                    <InfoTooltip text="An optional downloadable resource for members (project files, PDF, images, etc.), up to 25MB. This is NOT the lesson video — the video is assigned by an admin from Vimeo." />
+                                  </label>
                                   <p className="text-xs text-gray-400 mb-1">A downloadable resource for members. Up to 25MB. The lesson video is added separately by an admin.</p>
                                   {lessonForm.file ? (
                                     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
@@ -1083,7 +1018,10 @@ function InstructorCourses() {
                                       className="mt-1"
                                     />
                                     <span>
-                                      <span className="block text-sm font-medium text-gray-700">Add a quiz to this lesson <span className="text-gray-400 font-normal">(optional)</span></span>
+                                      <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        Add a quiz to this lesson <span className="text-gray-400 font-normal">(optional)</span>
+                                        <InfoTooltip text="An optional check-for-understanding members take after this content. 1–8 questions, 3 options each. You can skip it now and add one later." />
+                                      </span>
                                       <span className="block text-xs text-gray-400">Members answer it after the lesson. You can add one later instead.</span>
                                     </span>
                                   </label>
@@ -1100,7 +1038,10 @@ function InstructorCourses() {
                                         'create'
                                       )}
                                       <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-2">Passing score (out of {lessonForm.questions.length})</label>
+                                        <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
+                                          Passing score (out of {lessonForm.questions.length})
+                                          <InfoTooltip text="Minimum correct answers a member needs to pass the quiz. Must be between 1 and the number of questions." />
+                                        </label>
                                         <input type="number" value={lessonForm.passingScore} onChange={(e) => setLessonForm(prev => ({ ...prev, passingScore: Math.max(1, Math.min(prev.questions.length, parseInt(e.target.value) || 1)) }))} className="input-field w-32" min={1} max={lessonForm.questions.length} />
                                       </div>
                                     </div>
