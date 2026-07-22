@@ -9,6 +9,7 @@ import { Subscription } from '../src/modules/subscriptions/subscription.model.js
 import User from '../src/modules/users/user.model.js';
 import {
   authHeader,
+  createConsultation,
   createSubscription,
   createSubscriptionPackage,
   createUser,
@@ -263,4 +264,145 @@ test('tap charge creation and verified webhook capture activate a pending subscr
   assert.ok(updatedSubscription.startDate);
   assert.ok(updatedSubscription.endDate);
   assert.equal(updatedSubscription.activationSource, 'tap_webhook');
+});
+
+test('subscription checkout supports Tabby redirect flow without card tokenization', async () => {
+  process.env.TAP_SECRET_KEY = 'sk_test_tap_secret_key';
+  process.env.TAP_PUBLIC_KEY = 'pk_test_tap_public_key';
+  process.env.APP_URL = 'http://localhost:3001';
+  process.env.FRONTEND_URL = 'http://localhost:5000';
+  process.env.SUBSCRIPTION_CURRENCY = 'SAR';
+
+  const student = await createUser({ role: 'student', name: 'Tabby Student' });
+  const packageRecord = await createSubscriptionPackage({ price: 349 });
+  const subscription = await createSubscription({
+    user: student.user._id,
+    package: packageRecord._id,
+    status: 'pending',
+    currency: 'SAR',
+  });
+
+  let postedChargeBody = null;
+
+  globalThis.fetch = async (url, options = {}) => {
+    assert.equal(url, 'https://api.tap.company/v2/charges');
+    postedChargeBody = JSON.parse(options.body);
+
+    return createTextResponse({
+      id: 'chg_tabby_123',
+      status: 'INITIATED',
+      amount: 349,
+      currency: 'SAR',
+      transaction: {
+        url: 'https://tap.example/tabby',
+      },
+      reference: {
+        payment: '240000000000111',
+        gateway: 'GW-TABBY-1',
+        transaction: postedChargeBody.reference.transaction,
+        order: postedChargeBody.reference.order,
+      },
+      response: {
+        code: '100',
+        message: 'Initiated',
+      },
+      customer: {
+        id: 'cus_tabby_123',
+      },
+      source: {
+        id: 'src_tabby.installement',
+        payment_method: 'TABBY',
+        channel: 'TABBY',
+      },
+      redirect: {
+        url: postedChargeBody.redirect.url,
+      },
+      metadata: postedChargeBody.metadata,
+    });
+  };
+
+  const chargeResponse = await request(suite.app)
+    .post('/api/payments/tap/charge')
+    .set(authHeader(student.token))
+    .send({
+      subscriptionId: subscription._id.toString(),
+      checkoutMethod: 'tabby',
+      phoneCountryCode: '966',
+      phoneNumber: '512345678',
+      checkoutDisclaimerAccepted: true,
+    });
+
+  assert.equal(chargeResponse.status, 201);
+  assert.equal(chargeResponse.body.payment.checkoutMethod, 'tabby');
+  assert.equal(chargeResponse.body.redirectUrl, 'https://tap.example/tabby');
+  assert.equal(postedChargeBody.source.id, 'src_tabby.installement');
+  assert.equal(postedChargeBody.save_card, false);
+  assert.equal(postedChargeBody.threeDSecure, true);
+});
+
+test('consultation checkout supports Tamara redirect flow without card tokenization', async () => {
+  process.env.TAP_SECRET_KEY = 'sk_test_tap_secret_key';
+  process.env.TAP_PUBLIC_KEY = 'pk_test_tap_public_key';
+  process.env.APP_URL = 'http://localhost:3001';
+  process.env.FRONTEND_URL = 'http://localhost:5000';
+  process.env.SUBSCRIPTION_CURRENCY = 'SAR';
+
+  const student = await createUser({ role: 'student', name: 'Tamara Student' });
+  const consultation = await createConsultation({ price: 250, currency: 'SAR' });
+
+  let postedChargeBody = null;
+
+  globalThis.fetch = async (url, options = {}) => {
+    assert.equal(url, 'https://api.tap.company/v2/charges');
+    postedChargeBody = JSON.parse(options.body);
+
+    return createTextResponse({
+      id: 'chg_tamara_123',
+      status: 'INITIATED',
+      amount: 250,
+      currency: 'SAR',
+      transaction: {
+        url: 'https://tap.example/tamara',
+      },
+      reference: {
+        payment: '240000000000222',
+        gateway: 'GW-TAMARA-1',
+        transaction: postedChargeBody.reference.transaction,
+        order: postedChargeBody.reference.order,
+      },
+      response: {
+        code: '100',
+        message: 'Initiated',
+      },
+      customer: {
+        id: 'cus_tamara_123',
+      },
+      source: {
+        id: 'src_tamara',
+        channel: 'TAMARA',
+      },
+      redirect: {
+        url: postedChargeBody.redirect.url,
+      },
+      metadata: postedChargeBody.metadata,
+    });
+  };
+
+  const chargeResponse = await request(suite.app)
+    .post('/api/consultation-bookings/checkout')
+    .set(authHeader(student.token))
+    .send({
+      consultationId: consultation._id.toString(),
+      checkoutMethod: 'tamara',
+      phoneCountryCode: '966',
+      phoneNumber: '512345678',
+      checkoutDisclaimerAccepted: true,
+    });
+
+  assert.equal(chargeResponse.status, 201);
+  assert.equal(chargeResponse.body.payment.checkoutMethod, 'tamara');
+  assert.equal(chargeResponse.body.redirectUrl, 'https://tap.example/tamara');
+  assert.equal(postedChargeBody.source.id, 'src_tamara');
+  assert.equal(postedChargeBody.save_card, false);
+  assert.equal(postedChargeBody.threeDSecure, true);
 });

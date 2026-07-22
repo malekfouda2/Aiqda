@@ -66,6 +66,21 @@ const getPaymentContextLabel = (payment) => {
   return '—';
 };
 
+const getCheckoutMethodLabel = (checkoutMethod) => {
+  switch (checkoutMethod) {
+    case 'apple_pay':
+      return 'Apple Pay';
+    case 'saved_card':
+      return 'Saved payment method';
+    case 'tabby':
+      return 'Tabby';
+    case 'tamara':
+      return 'Tamara';
+    default:
+      return 'Card';
+  }
+};
+
 function AdminPayments() {
   const { showSuccess, showError } = useUIStore();
   const [payments, setPayments] = useState([]);
@@ -281,7 +296,7 @@ function AdminPayments() {
 
                       {payment.checkoutMethod && (
                         <p className="mt-2 text-sm text-gray-500">
-                          Method: {payment.checkoutMethod}
+                          Method: {getCheckoutMethodLabel(payment.checkoutMethod)}
                         </p>
                       )}
 

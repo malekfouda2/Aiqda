@@ -101,6 +101,30 @@ const getFriendlyBillingMessage = (message, isRTL) => {
     .trim();
 };
 
+const BNPL_CHECKOUT_METHODS = ['tabby', 'tamara'];
+
+const isBnplCheckoutMethod = (method) => BNPL_CHECKOUT_METHODS.includes(method);
+
+const getBnplCheckoutCopy = (method, isRTL) => {
+  if (method === 'tabby') {
+    return {
+      label: 'Tabby',
+      cta: isRTL ? 'المتابعة عبر Tabby' : 'Continue With Tabby',
+      description: isRTL
+        ? 'قسّم هذه الدفعة عبر Tabby. سيبقى التجديد التلقائي بحاجة إلى بطاقة محفوظة على الحساب.'
+        : 'Split this payment with Tabby. Automatic renewal still requires a saved card on your account.',
+    };
+  }
+
+  return {
+    label: 'Tamara',
+    cta: isRTL ? 'المتابعة عبر Tamara' : 'Continue With Tamara',
+    description: isRTL
+      ? 'أكمل هذه الدفعة عبر Tamara. سيبقى التجديد التلقائي بحاجة إلى بطاقة محفوظة على الحساب.'
+      : 'Complete this payment with Tamara. Automatic renewal still requires a saved card on your account.',
+  };
+};
+
 function Subscription() {
   const { locale, pick, formatDate, isRTL } = useLocale();
   const navigate = useNavigate();
@@ -372,15 +396,12 @@ function Subscription() {
       const nextSubscription = response.data;
       setCheckoutPurpose('subscription');
       setPendingSubscription(nextSubscription);
-
-      if (savedBillingProfile?.hasSavedCard) {
-        setShowCheckout(false);
-        await startSavedPaymentMethodCharge(nextSubscription._id);
-        return;
-      }
-
       setShowCheckout(true);
-      showSuccess(isRTL ? 'تم إنشاء طلب الاشتراك. أكمل الدفع الإلكتروني لتفعيل الوصول.' : 'Subscription request created. Complete electronic checkout to activate access.');
+      showSuccess(
+        savedBillingProfile?.hasSavedCard
+          ? (isRTL ? 'تم إنشاء طلب الاشتراك. اختر وسيلة الدفع التي تريد استخدامها.' : 'Subscription request created. Choose the payment method you want to use.')
+          : (isRTL ? 'تم إنشاء طلب الاشتراك. أكمل الدفع الإلكتروني لتفعيل الوصول.' : 'Subscription request created. Complete electronic checkout to activate access.')
+      );
     } catch (error) {
       showError(error.response?.data?.error || (isRTL ? 'تعذر طلب الاشتراك' : 'Failed to request subscription'));
     } finally {
@@ -506,7 +527,14 @@ function Subscription() {
       return;
     }
 
-    setSelectedCheckoutMethod(method === 'apple_pay' ? 'apple_pay' : 'card');
+    const normalizedMethod = method === 'apple_pay'
+      ? 'apple_pay'
+      : isBnplCheckoutMethod(method)
+        ? method
+        : 'card';
+
+    setSelectedCheckoutMethod(normalizedMethod);
+    setApplePayArmed(false);
     setApplePayState({ ready: false, error: '' });
     setShowCheckoutDisclaimer(true);
   };
@@ -560,8 +588,57 @@ function Subscription() {
     throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
   };
 
+  const submitRedirectCheckout = async (checkoutMethod) => {
+    if (!checkoutSubscription) {
+      return;
+    }
+
+    const response = await paymentsAPI.createTapCharge({
+      subscriptionId: checkoutSubscription._id,
+      checkoutMethod,
+      phoneCountryCode,
+      phoneNumber,
+      checkoutDisclaimerAccepted: true,
+    });
+
+    const payment = response.data?.payment;
+    const redirectUrl = response.data?.redirectUrl;
+
+    if (payment?.status === 'captured' || payment?.status === 'approved') {
+      setShowCheckoutDisclaimer(false);
+      showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
+      await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
+      return;
+    }
+
+    if (redirectUrl) {
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
+  };
+
   const handleConfirmCheckout = async () => {
     if (!isBillingProfileSetupCheckout && !checkoutSubscription) {
+      return;
+    }
+
+    if (!isBillingProfileSetupCheckout && isBnplCheckoutMethod(selectedCheckoutMethod)) {
+      setSubmittingPayment(true);
+      try {
+        await submitRedirectCheckout(selectedCheckoutMethod);
+      } catch (error) {
+        showError(
+          getFriendlyBillingMessage(
+            error.response?.data?.error || error.message,
+            isRTL
+          ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+        );
+      } finally {
+        setSubmittingPayment(false);
+        setShowCheckoutDisclaimer(false);
+      }
       return;
     }
 
@@ -647,6 +724,10 @@ function Subscription() {
     ? formatDate(savedBillingProfile.updatedAt)
     : '';
   const applePayAvailable = Boolean(tapConfig?.applePay?.enabled);
+  const availableBnplMethods = useMemo(
+    () => BNPL_CHECKOUT_METHODS.filter((method) => tapConfig?.checkoutMethods?.[method]?.enabled),
+    [tapConfig]
+  );
   const isGracePeriod = activeSubscription?.status === 'grace_period';
   const isCancelScheduled = activeSubscription?.status === 'cancel_scheduled';
   const currentSubscriptionEndsLabel = activeSubscription?.status === 'grace_period'
@@ -1228,10 +1309,55 @@ function Subscription() {
                   </p>
                 </div>
               )}
+
+              {!isBillingProfileSetupCheckout && availableBnplMethods.length > 0 && (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {isRTL ? 'الدفع المرن' : 'Flexible payment options'}
+                  </p>
+                  <p className="mt-1 text-sm leading-7 text-gray-600">
+                    {isRTL
+                      ? 'يمكنك أيضًا إكمال هذه الدفعة عبر Tabby أو Tamara على صفحاتهم الآمنة.'
+                      : 'You can also complete this payment through Tabby or Tamara on their secure checkout pages.'}
+                  </p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {availableBnplMethods.map((method) => {
+                      const methodCopy = getBnplCheckoutCopy(method, isRTL);
+
+                      return (
+                        <div key={method} className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                          <p className="text-sm font-semibold text-gray-900">{methodCopy.label}</p>
+                          <p className="mt-1 text-sm leading-7 text-gray-600">{methodCopy.description}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleBeginCheckout(method)}
+                            disabled={submittingPayment || tapConfigLoading}
+                            className="btn-secondary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {methodCopy.cta}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row">
+            {!isBillingProfileSetupCheckout && savedBillingProfile?.hasSavedCard && checkoutSubscription && (
+              <button
+                type="button"
+                onClick={() => startSavedPaymentMethodCharge(checkoutSubscription._id)}
+                disabled={submittingPayment || autoChargingSavedMethod}
+                className="btn-secondary disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {autoChargingSavedMethod
+                  ? (isRTL ? 'جارٍ استخدام البطاقة المحفوظة...' : 'Using saved payment method...')
+                  : (isRTL ? 'استخدم البطاقة المحفوظة' : 'Use Saved Payment Method')}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => handleBeginCheckout('card')}

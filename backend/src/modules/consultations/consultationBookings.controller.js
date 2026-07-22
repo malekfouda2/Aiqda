@@ -2,6 +2,24 @@ import * as consultationBookingsService from './consultationBookings.service.js'
 import * as consultationsService from './consultations.service.js';
 import * as paymentsService from '../payments/payments.service.js';
 
+const getRequestOrigin = (req) => {
+  const originHeader = req.get('origin');
+  if (originHeader) {
+    return originHeader.replace(/\/$/, '');
+  }
+
+  const refererHeader = req.get('referer');
+  if (refererHeader) {
+    try {
+      return new URL(refererHeader).origin.replace(/\/$/, '');
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 export const submitBooking = async (req, res) => {
   try {
     const { consultationId } = req.body;
@@ -39,6 +57,7 @@ export const createCheckout = async (req, res) => {
       phoneCountryCode: req.body.phoneCountryCode,
       phoneNumber: req.body.phoneNumber,
       checkoutDisclaimerAccepted: req.body.checkoutDisclaimerAccepted,
+      frontendBaseUrl: getRequestOrigin(req),
     });
     res.status(201).json(result);
   } catch (error) {

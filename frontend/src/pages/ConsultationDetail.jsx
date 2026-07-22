@@ -79,6 +79,30 @@ const getFriendlyCheckoutMessage = (message, isRTL) => {
     .trim();
 };
 
+const BNPL_CHECKOUT_METHODS = ['tabby', 'tamara'];
+
+const isBnplCheckoutMethod = (method) => BNPL_CHECKOUT_METHODS.includes(method);
+
+const getBnplCheckoutCopy = (method, isRTL) => {
+  if (method === 'tabby') {
+    return {
+      label: 'Tabby',
+      cta: isRTL ? 'المتابعة عبر Tabby' : 'Continue With Tabby',
+      description: isRTL
+        ? 'قسّم دفعة هذه الاستشارة عبر Tabby على صفحة دفع آمنة.'
+        : 'Split this consultation payment with Tabby on a secure checkout page.',
+    };
+  }
+
+  return {
+    label: 'Tamara',
+    cta: isRTL ? 'المتابعة عبر Tamara' : 'Continue With Tamara',
+    description: isRTL
+      ? 'أكمل دفعة هذه الاستشارة عبر Tamara على صفحة دفع آمنة.'
+      : 'Complete this consultation payment with Tamara on a secure checkout page.',
+  };
+};
+
 function ConsultationDetail() {
   const { locale, isRTL } = useLocale();
   const { id } = useParams();
@@ -109,6 +133,10 @@ function ConsultationDetail() {
   const tapChargeId = searchParams.get('tap_id');
   const checkoutCurrency = consultation?.currency || tapConfig?.currency || 'SAR';
   const applePayAvailable = Boolean(tapConfig?.applePay?.enabled);
+  const availableBnplMethods = useMemo(
+    () => BNPL_CHECKOUT_METHODS.filter((method) => tapConfig?.checkoutMethods?.[method]?.enabled),
+    [tapConfig]
+  );
   const fallbackTapConfigError = isRTL
     ? 'الدفع الإلكتروني غير متاح حاليًا.'
     : 'Electronic checkout is not available right now.';
@@ -321,7 +349,14 @@ function ConsultationDetail() {
       return;
     }
 
-    setSelectedCheckoutMethod(method === 'apple_pay' ? 'apple_pay' : 'card');
+    const normalizedMethod = method === 'apple_pay'
+      ? 'apple_pay'
+      : isBnplCheckoutMethod(method)
+        ? method
+        : 'card';
+
+    setSelectedCheckoutMethod(normalizedMethod);
+    setApplePayArmed(false);
     setApplePayState({ ready: false, error: '' });
     setShowCheckoutDisclaimer(true);
   };
@@ -359,7 +394,56 @@ function ConsultationDetail() {
     throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
   };
 
+  const submitRedirectCheckout = async (checkoutMethod) => {
+    const response = await consultationBookingsAPI.createCheckout({
+      consultationId: id,
+      checkoutMethod,
+      phoneCountryCode,
+      phoneNumber,
+      checkoutDisclaimerAccepted: true,
+    });
+
+    const payment = response.data?.payment;
+    const redirectUrl = response.data?.redirectUrl;
+
+    if (payment?.status === 'captured' || payment?.status === 'approved') {
+      setShowCheckoutDisclaimer(false);
+      setIsSubmitted(true);
+      showSuccess(
+        isRTL
+          ? 'تم استلام الدفع وإرسال طلب الحجز للمراجعة.'
+          : 'Payment received and your consultation request was sent for review.'
+      );
+      return;
+    }
+
+    if (redirectUrl) {
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
+  };
+
   const handleConfirmCheckout = async () => {
+    if (isBnplCheckoutMethod(selectedCheckoutMethod)) {
+      setSubmittingPayment(true);
+      try {
+        await submitRedirectCheckout(selectedCheckoutMethod);
+      } catch (error) {
+        showError(
+          getFriendlyCheckoutMessage(
+            error.response?.data?.error || error.message,
+            isRTL
+          ) || (isRTL ? 'تعذر بدء الدفع الإلكتروني.' : 'Failed to start electronic checkout.')
+        );
+      } finally {
+        setSubmittingPayment(false);
+        setShowCheckoutDisclaimer(false);
+      }
+      return;
+    }
+
     if (selectedCheckoutMethod === 'apple_pay') {
       setApplePayArmed(true);
       setShowCheckoutDisclaimer(false);
@@ -694,6 +778,39 @@ function ConsultationDetail() {
                                     ? 'سيظهر Apple Pay على النطاق الآمن المباشر وعند استخدام جهاز ومتصفح مدعومين.'
                                     : 'Apple Pay will appear on the secure live domain when using a supported Apple device and browser.'}
                                 </p>
+                              </div>
+                            )}
+
+                            {availableBnplMethods.length > 0 && (
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-4">
+                                <p className="text-sm font-semibold text-gray-900">
+                                  {isRTL ? 'الدفع المرن' : 'Flexible payment options'}
+                                </p>
+                                <p className="mt-1 text-sm leading-7 text-gray-600">
+                                  {isRTL
+                                    ? 'يمكنك أيضًا إكمال هذه الدفعة عبر Tabby أو Tamara على صفحاتهم الآمنة.'
+                                    : 'You can also complete this payment through Tabby or Tamara on their secure checkout pages.'}
+                                </p>
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  {availableBnplMethods.map((method) => {
+                                    const methodCopy = getBnplCheckoutCopy(method, isRTL);
+
+                                    return (
+                                      <div key={method} className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                                        <p className="text-sm font-semibold text-gray-900">{methodCopy.label}</p>
+                                        <p className="mt-1 text-sm leading-7 text-gray-600">{methodCopy.description}</p>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleBeginCheckout(method)}
+                                          disabled={submittingPayment || tapConfigLoading}
+                                          className="btn-secondary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {methodCopy.cta}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
                           </div>

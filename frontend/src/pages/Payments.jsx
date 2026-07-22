@@ -63,6 +63,21 @@ const getPaymentContextLabel = (payment, isRTL) => {
   return '—';
 };
 
+const getCheckoutMethodLabel = (checkoutMethod, isRTL) => {
+  switch (checkoutMethod) {
+    case 'apple_pay':
+      return 'Apple Pay';
+    case 'saved_card':
+      return isRTL ? 'البطاقة المحفوظة' : 'Saved payment method';
+    case 'tabby':
+      return 'Tabby';
+    case 'tamara':
+      return 'Tamara';
+    default:
+      return isRTL ? 'البطاقة' : 'Card';
+  }
+};
+
 function Payments() {
   const { formatDate, isRTL } = useLocale();
   const [payments, setPayments] = useState([]);
@@ -167,11 +182,7 @@ function Payments() {
                     </p>
                     {payment.checkoutMethod && (
                       <p className="text-gray-400 text-sm">
-                        {isRTL ? 'وسيلة الدفع:' : 'Method:'} {payment.checkoutMethod === 'apple_pay'
-                          ? 'Apple Pay'
-                          : payment.checkoutMethod === 'saved_card'
-                            ? (isRTL ? 'البطاقة المحفوظة' : 'Saved payment method')
-                            : (isRTL ? 'البطاقة' : 'Card')}
+                        {isRTL ? 'وسيلة الدفع:' : 'Method:'} {getCheckoutMethodLabel(payment.checkoutMethod, isRTL)}
                       </p>
                     )}
                     {(payment.status === 'rejected' || payment.status === 'failed' || payment.status === 'cancelled') && (payment.rejectionReason || payment.failureReason) && (

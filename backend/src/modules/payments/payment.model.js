@@ -69,7 +69,7 @@ const paymentSchema = new mongoose.Schema({
   },
   checkoutMethod: {
     type: String,
-    enum: ['card', 'apple_pay', 'saved_card'],
+    enum: ['card', 'apple_pay', 'saved_card', 'tabby', 'tamara'],
     default: 'card'
   },
   renewalCycleKey: {

@@ -53,6 +53,15 @@ const DEFAULT_GRACE_PERIOD_DAYS = 7;
 const DEFAULT_RENEWAL_RETRY_DELAYS_HOURS = [12, 36, 72];
 const DEFAULT_BILLING_PROFILE_SETUP_AMOUNT = 1;
 const DEFAULT_REFUND_WINDOW_HOURS = 24;
+const TAP_BNPL_SOURCE_IDS = {
+  tabby: 'src_tabby.installement',
+  tamara: 'src_tamara',
+};
+const TABBY_MINIMUM_AMOUNTS_BY_CURRENCY = {
+  SAR: 10,
+  AED: 10,
+  KWD: 1,
+};
 
 const parsePositiveInteger = (value, fallback) => {
   const normalized = Number(value);
@@ -123,6 +132,79 @@ const normalizeCountryCode = (value = '') => String(value).replace(/[^\d]/g, '')
 
 const normalizePhoneNumber = (value = '') => String(value).replace(/[^\d]/g, '').trim();
 
+const normalizeTapCheckoutMethod = (value, {
+  allowSavedCard = false,
+  allowBnpl = true,
+} = {}) => {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (allowSavedCard && normalizedValue === 'saved_card') {
+    return 'saved_card';
+  }
+
+  if (normalizedValue === 'apple_pay') {
+    return 'apple_pay';
+  }
+
+  if (allowBnpl && Object.prototype.hasOwnProperty.call(TAP_BNPL_SOURCE_IDS, normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return 'card';
+};
+
+const isBnplCheckoutMethod = (checkoutMethod) => Object.prototype.hasOwnProperty.call(
+  TAP_BNPL_SOURCE_IDS,
+  checkoutMethod
+);
+
+const checkoutMethodRequiresToken = (checkoutMethod) => (
+  checkoutMethod === 'card' || checkoutMethod === 'apple_pay'
+);
+
+const getTapChargeMethodOptions = (checkoutMethod, tokenId = null) => {
+  if (checkoutMethod === 'saved_card') {
+    return {
+      sourceId: tokenId,
+      customerInitiated: false,
+      threeDSecure: false,
+      saveCard: false,
+    };
+  }
+
+  if (isBnplCheckoutMethod(checkoutMethod)) {
+    return {
+      sourceId: TAP_BNPL_SOURCE_IDS[checkoutMethod],
+      customerInitiated: true,
+      threeDSecure: true,
+      saveCard: false,
+    };
+  }
+
+  return {
+    sourceId: tokenId,
+    customerInitiated: true,
+    threeDSecure: true,
+    saveCard: true,
+  };
+};
+
+const assertBnplCheckoutAmountIsValid = (checkoutMethod, amount, currency) => {
+  if (checkoutMethod !== 'tabby') {
+    return;
+  }
+
+  const normalizedCurrency = normalizeCurrency(currency);
+  const minimumAmount = TABBY_MINIMUM_AMOUNTS_BY_CURRENCY[normalizedCurrency];
+  if (!minimumAmount) {
+    return;
+  }
+
+  if (Number(amount || 0) < minimumAmount) {
+    throw new Error(`Tabby requires at least ${minimumAmount} ${normalizedCurrency} for checkout.`);
+  }
+};
+
 const splitFullName = (fullName = '') => {
   const normalizedName = String(fullName).trim();
   if (!normalizedName) {
@@ -134,6 +216,27 @@ const splitFullName = (fullName = '') => {
     firstName: firstName || 'Aiqda',
     lastName: rest.join(' ') || 'Member',
   };
+};
+
+const inferCheckoutMethodFromTapCharge = (charge = {}, fallbackMethod = 'card') => {
+  const sourceId = String(charge.source?.id || '').toLowerCase();
+  const paymentMethod = String(charge.source?.payment_method || '').toLowerCase();
+  const sourceType = String(charge.source?.type || '').toLowerCase();
+  const channel = String(charge.source?.channel || '').toLowerCase();
+
+  if (sourceId === TAP_BNPL_SOURCE_IDS.tabby || paymentMethod.includes('tabby') || channel.includes('tabby')) {
+    return 'tabby';
+  }
+
+  if (sourceId === TAP_BNPL_SOURCE_IDS.tamara || paymentMethod.includes('tamara') || channel.includes('tamara')) {
+    return 'tamara';
+  }
+
+  if (paymentMethod.includes('apple') || sourceType.includes('apple') || channel.includes('apple')) {
+    return 'apple_pay';
+  }
+
+  return fallbackMethod;
 };
 
 const getBackendBaseUrl = () => (
@@ -833,8 +936,8 @@ const updateUserTapBillingProfile = async (userId, charge, phoneDetails) => {
     user.tapCardLastFour = charge.card.last_four || charge.card.last4;
   }
 
-  if (charge.card?.funding || charge.source?.payment_type) {
-    user.tapCardFunding = charge.card?.funding || charge.source?.payment_type || null;
+  if (charge.card?.funding) {
+    user.tapCardFunding = charge.card.funding;
   }
 
   if (user.isModified()) {
@@ -1017,9 +1120,7 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
   payment.tapPaymentAgreementId = charge.payment_agreement?.id || payment.tapPaymentAgreementId;
   payment.checkoutMethod = payment.paymentType === 'renewal'
     ? 'saved_card'
-    : (charge.source?.payment_method || charge.source?.type || '').toLowerCase().includes('apple')
-      ? 'apple_pay'
-      : payment.checkoutMethod;
+    : inferCheckoutMethodFromTapCharge(charge, payment.checkoutMethod);
   payment.failureReason = nextStatus === 'failed' || nextStatus === 'cancelled'
     ? (charge.response?.message || payment.failureReason)
     : null;
@@ -1111,18 +1212,21 @@ const findPaymentForTapCharge = async (charge, userId = null) => {
 const buildTapChargePayload = ({
   payment,
   user,
-  tokenId,
+  sourceId,
   phoneDetails,
   description,
   orderReference,
   redirectUrl,
+  customerInitiated = true,
+  threeDSecure = true,
+  saveCard = true,
   metadata = {},
 }) => ({
   amount: payment.amount,
   currency: payment.currency,
-  customer_initiated: true,
-  threeDSecure: true,
-  save_card: true,
+  customer_initiated: customerInitiated,
+  threeDSecure,
+  save_card: saveCard,
   description,
   metadata: {
     udf1: payment._id.toString(),
@@ -1137,7 +1241,7 @@ const buildTapChargePayload = ({
   customer: buildTapCustomerPayload(user, phoneDetails),
   merchant: getTapMerchantId() ? { id: getTapMerchantId() } : undefined,
   source: {
-    id: tokenId,
+    id: sourceId,
   },
   post: {
     url: buildTapWebhookUrl(),
@@ -1152,48 +1256,64 @@ const buildSubscriptionTapChargePayload = ({
   subscription,
   packageName,
   user,
+  checkoutMethod,
   tokenId,
   phoneDetails,
   description,
   frontendBaseUrl,
-}) => buildTapChargePayload({
-  payment,
-  user,
-  tokenId,
-  phoneDetails,
-  description: description || `Aiqda subscription for ${packageName}`,
-  orderReference: `subscription_${subscription._id}`,
-  redirectUrl: buildTapRedirectUrl(subscription._id.toString(), frontendBaseUrl),
-  metadata: {
-    udf2: subscription._id.toString(),
-  },
-});
+}) => {
+  const chargeMethodOptions = getTapChargeMethodOptions(checkoutMethod, tokenId);
+
+  return buildTapChargePayload({
+    payment,
+    user,
+    sourceId: chargeMethodOptions.sourceId,
+    phoneDetails,
+    description: description || `Aiqda subscription for ${packageName}`,
+    orderReference: `subscription_${subscription._id}`,
+    redirectUrl: buildTapRedirectUrl(subscription._id.toString(), frontendBaseUrl),
+    customerInitiated: chargeMethodOptions.customerInitiated,
+    threeDSecure: chargeMethodOptions.threeDSecure,
+    saveCard: chargeMethodOptions.saveCard,
+    metadata: {
+      udf2: subscription._id.toString(),
+    },
+  });
+};
 
 const buildConsultationTapChargePayload = ({
   payment,
   booking,
   consultationTitle,
   user,
+  checkoutMethod,
   tokenId,
   phoneDetails,
   frontendBaseUrl,
-}) => buildTapChargePayload({
-  payment,
-  user,
-  tokenId,
-  phoneDetails,
-  description: `Aiqda consultation booking for ${consultationTitle}`,
-  orderReference: `consultation_${booking._id}`,
-  redirectUrl: buildTapConsultationRedirectUrl(
-    booking.consultation?._id?.toString?.() || booking.consultation.toString(),
-    booking._id.toString(),
-    frontendBaseUrl
-  ),
-  metadata: {
-    udf2: booking._id.toString(),
-    udf5: 'consultation',
-  },
-});
+}) => {
+  const chargeMethodOptions = getTapChargeMethodOptions(checkoutMethod, tokenId);
+
+  return buildTapChargePayload({
+    payment,
+    user,
+    sourceId: chargeMethodOptions.sourceId,
+    phoneDetails,
+    description: `Aiqda consultation booking for ${consultationTitle}`,
+    orderReference: `consultation_${booking._id}`,
+    redirectUrl: buildTapConsultationRedirectUrl(
+      booking.consultation?._id?.toString?.() || booking.consultation.toString(),
+      booking._id.toString(),
+      frontendBaseUrl
+    ),
+    customerInitiated: chargeMethodOptions.customerInitiated,
+    threeDSecure: chargeMethodOptions.threeDSecure,
+    saveCard: chargeMethodOptions.saveCard,
+    metadata: {
+      udf2: booking._id.toString(),
+      udf5: 'consultation',
+    },
+  });
+};
 
 const buildBillingProfileSetupChargePayload = ({
   payment,
@@ -1204,7 +1324,7 @@ const buildBillingProfileSetupChargePayload = ({
 }) => buildTapChargePayload({
   payment,
   user,
-  tokenId,
+  sourceId: tokenId,
   phoneDetails,
   description: 'Aiqda saved payment method setup',
   orderReference: `billing_profile_${user._id}`,
@@ -1315,8 +1435,11 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
   }
 
   const wantsSavedPaymentMethod = useSavedPaymentMethod === true || useSavedPaymentMethod === 'true';
+  const allowedCheckoutMethod = wantsSavedPaymentMethod
+    ? 'saved_card'
+    : normalizeTapCheckoutMethod(checkoutMethod, { allowBnpl: true });
 
-  if (!wantsSavedPaymentMethod && !tokenId?.trim()) {
+  if (!wantsSavedPaymentMethod && checkoutMethodRequiresToken(allowedCheckoutMethod) && !tokenId?.trim()) {
     throw new Error('A secure payment token is required.');
   }
 
@@ -1341,9 +1464,6 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     throw new Error('User not found');
   }
 
-  const allowedCheckoutMethod = wantsSavedPaymentMethod
-    ? 'saved_card'
-    : (checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card');
   const isRecoveryCheckout = subscription.status === 'grace_period';
   const existingPayment = await Payment.findOne(
     isRecoveryCheckout
@@ -1382,6 +1502,12 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     throw new Error('This subscription does not have a valid payable amount.');
   }
 
+  assertBnplCheckoutAmountIsValid(
+    allowedCheckoutMethod,
+    expectedAmount,
+    subscription.currency || getSubscriptionCurrency()
+  );
+
   if (wantsSavedPaymentMethod && (!user.tapCustomerId || !user.tapCardId || !user.tapPaymentAgreementId)) {
     throw new Error('No saved payment method is available for this membership right now.');
   }
@@ -1394,8 +1520,8 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
     provider: 'tap',
     status: 'initiated',
     customerInitiated: !wantsSavedPaymentMethod,
-    threeDSecure: !wantsSavedPaymentMethod,
-    saveCard: !wantsSavedPaymentMethod,
+    threeDSecure: wantsSavedPaymentMethod ? false : getTapChargeMethodOptions(allowedCheckoutMethod).threeDSecure,
+    saveCard: wantsSavedPaymentMethod ? false : getTapChargeMethodOptions(allowedCheckoutMethod).saveCard,
     paymentType: isRecoveryCheckout ? 'recovery' : 'initial',
     checkoutMethod: allowedCheckoutMethod,
     checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
@@ -1427,7 +1553,8 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
             subscription,
             packageName: subscription.package?.name || 'Aiqda subscription',
             user,
-            tokenId: tokenId.trim(),
+            checkoutMethod: allowedCheckoutMethod,
+            tokenId: tokenId?.trim(),
             phoneDetails,
             frontendBaseUrl,
             description: isRecoveryCheckout
@@ -1538,13 +1665,16 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
     phoneCountryCode,
     phoneNumber,
     checkoutDisclaimerAccepted,
+    frontendBaseUrl,
   } = paymentData;
+
+  const normalizedCheckoutMethod = normalizeTapCheckoutMethod(checkoutMethod, { allowBnpl: true });
 
   if (!consultationId) {
     throw new Error('Consultation id is required.');
   }
 
-  if (!tokenId?.trim()) {
+  if (checkoutMethodRequiresToken(normalizedCheckoutMethod) && !tokenId?.trim()) {
     throw new Error('A secure payment token is required.');
   }
 
@@ -1579,6 +1709,11 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
   }
 
   const phoneDetails = normalizePhoneInput(user, phoneCountryCode, phoneNumber);
+  assertBnplCheckoutAmountIsValid(
+    normalizedCheckoutMethod,
+    consultation.price,
+    consultation.currency || getSubscriptionCurrency()
+  );
   const booking = await ConsultationBooking.create({
     consultation: consultationId,
     user: userId,
@@ -1596,10 +1731,10 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
     provider: 'tap',
     status: 'initiated',
     customerInitiated: true,
-    threeDSecure: true,
-    saveCard: false,
+    threeDSecure: getTapChargeMethodOptions(normalizedCheckoutMethod).threeDSecure,
+    saveCard: getTapChargeMethodOptions(normalizedCheckoutMethod).saveCard,
     paymentType: 'consultation',
-    checkoutMethod: checkoutMethod === 'apple_pay' ? 'apple_pay' : 'card',
+    checkoutMethod: normalizedCheckoutMethod,
     checkoutDisclaimerVersion: REFUND_POLICY_VERSION,
     checkoutDisclaimerAcceptedAt: new Date(),
   });
@@ -1612,8 +1747,10 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
         booking: populatedBooking,
         consultationTitle: populatedBooking.consultation?.title || 'consultation',
         user,
-        tokenId: tokenId.trim(),
+        checkoutMethod: normalizedCheckoutMethod,
+        tokenId: tokenId?.trim(),
         phoneDetails,
+        frontendBaseUrl,
       })
     );
 
@@ -1965,6 +2102,21 @@ export const getTapCheckoutConfig = () => {
       environment: getTapApplePayEnvironment(),
       sdkUrl: getTapApplePaySdkUrl(),
       cssUrl: getTapApplePayCssUrl(),
+    },
+    checkoutMethods: {
+      card: {
+        enabled: true,
+      },
+      apple_pay: {
+        enabled: isTapApplePayConfigured(),
+      },
+      tabby: {
+        enabled: String(process.env.TAP_ENABLE_TABBY || 'true').toLowerCase() !== 'false',
+        minimumAmounts: TABBY_MINIMUM_AMOUNTS_BY_CURRENCY,
+      },
+      tamara: {
+        enabled: String(process.env.TAP_ENABLE_TAMARA || 'true').toLowerCase() !== 'false',
+      },
     },
   };
 };
