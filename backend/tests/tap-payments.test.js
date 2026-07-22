@@ -406,3 +406,52 @@ test('consultation checkout supports Tamara redirect flow without card tokenizat
   assert.equal(postedChargeBody.save_card, false);
   assert.equal(postedChargeBody.threeDSecure, true);
 });
+
+test('consultation checkout does not fall back to merchant redirect url when Tap omits transaction url', async () => {
+  process.env.TAP_SECRET_KEY = 'sk_test_tap_secret_key';
+  process.env.TAP_PUBLIC_KEY = 'pk_test_tap_public_key';
+  process.env.APP_URL = 'http://localhost:3001';
+  process.env.FRONTEND_URL = 'http://localhost:5000';
+  process.env.SUBSCRIPTION_CURRENCY = 'SAR';
+
+  const student = await createUser({ role: 'student', name: 'Tamara Redirect Student' });
+  const consultation = await createConsultation({ price: 250, currency: 'SAR' });
+
+  globalThis.fetch = async () => createTextResponse({
+    id: 'chg_tamara_missing_txn_url',
+    status: 'INITIATED',
+    amount: 250,
+    currency: 'SAR',
+    reference: {
+      payment: '240000000000333',
+      gateway: 'GW-TAMARA-2',
+      transaction: 'payment_fake',
+      order: `consultation_${consultation._id.toString()}`,
+    },
+    response: {
+      code: '100',
+      message: 'Initiated',
+    },
+    source: {
+      id: 'src_tamara',
+      channel: 'TAMARA',
+    },
+    redirect: {
+      url: 'http://localhost:5000/consultations/test?tap_redirect=1',
+    },
+  });
+
+  const chargeResponse = await request(suite.app)
+    .post('/api/consultation-bookings/checkout')
+    .set(authHeader(student.token))
+    .send({
+      consultationId: consultation._id.toString(),
+      checkoutMethod: 'tamara',
+      phoneCountryCode: '966',
+      phoneNumber: '512345678',
+      checkoutDisclaimerAccepted: true,
+    });
+
+  assert.equal(chargeResponse.status, 201);
+  assert.equal(chargeResponse.body.redirectUrl, null);
+});

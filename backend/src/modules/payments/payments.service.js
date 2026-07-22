@@ -239,6 +239,8 @@ const inferCheckoutMethodFromTapCharge = (charge = {}, fallbackMethod = 'card') 
   return fallbackMethod;
 };
 
+const getTapHostedPaymentUrl = (charge = {}) => charge.transaction?.url || null;
+
 const getBackendBaseUrl = () => (
   process.env.BACKEND_PUBLIC_URL
   || process.env.APP_URL
@@ -1114,7 +1116,7 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
   payment.tapGatewayReference = charge.reference?.gateway || payment.tapGatewayReference;
   payment.tapResponseCode = charge.response?.code || payment.tapResponseCode;
   payment.tapResponseMessage = charge.response?.message || payment.tapResponseMessage;
-  payment.tapRedirectUrl = charge.transaction?.url || charge.redirect?.url || payment.tapRedirectUrl;
+  payment.tapRedirectUrl = getTapHostedPaymentUrl(charge) || payment.tapRedirectUrl;
   payment.tapCustomerId = charge.customer?.id || payment.tapCustomerId;
   payment.tapCardId = charge.card?.id || charge.payment_agreement?.contract?.id || payment.tapCardId;
   payment.tapPaymentAgreementId = charge.payment_agreement?.id || payment.tapPaymentAgreementId;
@@ -1572,7 +1574,7 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
       payment: syncedPayment,
       chargeId: charge.id || null,
       chargeStatus: charge.status || null,
-      redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
+      redirectUrl: getTapHostedPaymentUrl(charge),
     };
   } catch (error) {
     payment.status = 'failed';
@@ -1644,7 +1646,7 @@ export const createTapBillingProfileSetupCharge = async (userId, paymentData) =>
       payment: syncedPayment,
       chargeId: charge.id || null,
       chargeStatus: charge.status || null,
-      redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
+      redirectUrl: getTapHostedPaymentUrl(charge),
     };
   } catch (error) {
     payment.status = 'failed';
@@ -1764,7 +1766,7 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
       bookingId: booking._id.toString(),
       chargeId: charge.id || null,
       chargeStatus: charge.status || null,
-      redirectUrl: charge.transaction?.url || charge.redirect?.url || null,
+      redirectUrl: getTapHostedPaymentUrl(charge),
     };
   } catch (error) {
     booking.status = 'payment_failed';
