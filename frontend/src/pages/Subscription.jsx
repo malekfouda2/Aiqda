@@ -125,6 +125,28 @@ const getBnplCheckoutCopy = (method, isRTL) => {
   };
 };
 
+const getBnplMethodsSummary = (methods, isRTL) => {
+  const labels = methods
+    .map((method) => (method === 'tabby' ? 'Tabby' : method === 'tamara' ? 'Tamara' : null))
+    .filter(Boolean);
+
+  if (labels.length === 0) {
+    return '';
+  }
+
+  if (labels.length === 1) {
+    return isRTL
+      ? `يمكنك أيضًا إكمال هذه الدفعة عبر ${labels[0]} على صفحتهم الآمنة.`
+      : `You can also complete this payment through ${labels[0]} on its secure checkout page.`;
+  }
+
+  const formattedLabels = `${labels.slice(0, -1).join(', ')} ${isRTL ? 'أو' : 'or'} ${labels.at(-1)}`;
+
+  return isRTL
+    ? `يمكنك أيضًا إكمال هذه الدفعة عبر ${formattedLabels} على صفحاتهم الآمنة.`
+    : `You can also complete this payment through ${formattedLabels} on their secure checkout pages.`;
+};
+
 function Subscription() {
   const { locale, pick, formatDate, isRTL } = useLocale();
   const navigate = useNavigate();
@@ -585,6 +607,14 @@ function Subscription() {
       return;
     }
 
+    if (payment?.status === 'failed' || payment?.status === 'cancelled' || payment?.status === 'rejected') {
+      throw new Error(
+        payment.failureReason
+        || payment.tapResponseMessage
+        || (isRTL ? 'تعذر إكمال الدفع.' : 'The payment could not be completed.')
+      );
+    }
+
     throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
   };
 
@@ -614,6 +644,14 @@ function Subscription() {
     if (redirectUrl) {
       window.location.assign(redirectUrl);
       return;
+    }
+
+    if (payment?.status === 'failed' || payment?.status === 'cancelled' || payment?.status === 'rejected') {
+      throw new Error(
+        payment.failureReason
+        || payment.tapResponseMessage
+        || (isRTL ? 'تعذر إكمال الدفع.' : 'The payment could not be completed.')
+      );
     }
 
     throw new Error(isRTL ? 'تعذر المتابعة إلى صفحة الدفع.' : 'We could not continue to the payment page.');
@@ -1316,9 +1354,7 @@ function Subscription() {
                     {isRTL ? 'الدفع المرن' : 'Flexible payment options'}
                   </p>
                   <p className="mt-1 text-sm leading-7 text-gray-600">
-                    {isRTL
-                      ? 'يمكنك أيضًا إكمال هذه الدفعة عبر Tabby أو Tamara على صفحاتهم الآمنة.'
-                      : 'You can also complete this payment through Tabby or Tamara on their secure checkout pages.'}
+                    {getBnplMethodsSummary(availableBnplMethods, isRTL)}
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {availableBnplMethods.map((method) => {

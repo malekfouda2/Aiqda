@@ -241,6 +241,13 @@ const inferCheckoutMethodFromTapCharge = (charge = {}, fallbackMethod = 'card') 
 
 const getTapHostedPaymentUrl = (charge = {}) => charge.transaction?.url || null;
 
+const getTapFailureMessage = (charge = {}, fallbackMessage = null) => (
+  charge.gateway?.response?.message
+  || charge.response?.message
+  || fallbackMessage
+  || null
+);
+
 const getBackendBaseUrl = () => (
   process.env.BACKEND_PUBLIC_URL
   || process.env.APP_URL
@@ -1115,7 +1122,7 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
   payment.tapOrderReference = charge.reference?.order || payment.tapOrderReference;
   payment.tapGatewayReference = charge.reference?.gateway || payment.tapGatewayReference;
   payment.tapResponseCode = charge.response?.code || payment.tapResponseCode;
-  payment.tapResponseMessage = charge.response?.message || payment.tapResponseMessage;
+  payment.tapResponseMessage = getTapFailureMessage(charge, payment.tapResponseMessage);
   payment.tapRedirectUrl = getTapHostedPaymentUrl(charge) || payment.tapRedirectUrl;
   payment.tapCustomerId = charge.customer?.id || payment.tapCustomerId;
   payment.tapCardId = charge.card?.id || charge.payment_agreement?.contract?.id || payment.tapCardId;
@@ -1124,7 +1131,7 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
     ? 'saved_card'
     : inferCheckoutMethodFromTapCharge(charge, payment.checkoutMethod);
   payment.failureReason = nextStatus === 'failed' || nextStatus === 'cancelled'
-    ? (charge.response?.message || payment.failureReason)
+    ? getTapFailureMessage(charge, payment.failureReason)
     : null;
   payment.chargeSnapshot = charge;
 
@@ -1138,7 +1145,10 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
 
   if (payment.paymentType === 'renewal' && nextStatus === 'initiated') {
     payment.status = 'failed';
-    payment.failureReason = charge.response?.message || 'Recurring renewal requires customer action and cannot continue automatically.';
+    payment.failureReason = getTapFailureMessage(
+      charge,
+      'Recurring renewal requires customer action and cannot continue automatically.'
+    );
     payment.tapResponseMessage = payment.failureReason;
     await payment.save();
     return finalizeFailedRenewalFromPayment(payment, payment.failureReason);
