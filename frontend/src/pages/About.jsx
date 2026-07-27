@@ -166,14 +166,14 @@ function About() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4">
               <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'فريق' : 'Leadership'}</span>
+              <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">{isRTL ? 'القيادة' : 'Leadership'}</span>
             </div>
             <h2 className="text-4xl font-bold text-gray-900">
-              {isRTL ? 'تعرّف إلى ' : 'Meet Our '}<span className="gradient-text">{isRTL ? 'العمل' : 'Team'}</span>
+              {isRTL ? 'تعرّف على ' : 'Meet Our '}<span className="gradient-text">{isRTL ? 'فريقنا' : 'Team'}</span>
             </h2>
             <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
               {isRTL
-                ? `خبراء محترفون حاصلون على جوائز يقودون رسالة ${brandName} للارتقاء بتعليم التحريك.`
+                ? `فريق من الخبراء والممارسين يقود رسالة ${brandName} للارتقاء بتعليم التحريك وصناعة محتوى يواكب المعايير المهنية.`
                 : `Award-winning industry professionals leading ${brandName}'s mission to elevate animation education.`}
             </p>
           </motion.div>
