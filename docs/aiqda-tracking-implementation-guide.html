@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aiqda Tracking Implementation Guide</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #5e6b85;
+      --line: #d8e0ef;
+      --panel: #f6f8fc;
+      --panel-2: #eef4ff;
+      --accent: #e83e8c;
+      --accent-2: #0ea5e9;
+      --success: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.55;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 48px 52px 72px;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #ffffff 0%, #fff1f7 45%, #eef8ff 100%);
+      border-radius: 28px;
+      padding: 36px 38px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      line-height: 1.15;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 26px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.88);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .meta-value {
+      font-size: 15px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    h2 {
+      margin: 34px 0 12px;
+      font-size: 22px;
+      border-bottom: 2px solid #eef2f9;
+      padding-bottom: 8px;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul, ol {
+      margin: 10px 0 10px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .note,
+    .warning,
+    .success {
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin: 16px 0;
+    }
+
+    .note {
+      background: var(--panel-2);
+      border: 1px solid #cfe1ff;
+    }
+
+    .warning {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+    }
+
+    .success {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #111827;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      background: #eff2f8;
+      padding: 0.16em 0.38em;
+      border-radius: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 11px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5fb;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        max-width: none;
+        padding: 24px 28px 36px;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">Aiqda Professional Guide</div>
+      <h1>Tracking Implementation Guide</h1>
+      <p class="subtitle">
+        This guide documents Aiqda&rsquo;s current analytics architecture and the exact steps required to complete
+        Google Tag Manager, Google Analytics 4, and Meta Pixel configuration using the live implementation now present in the codebase.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-label">Prepared On</div>
+          <div class="meta-value">August 4, 2026</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">GTM Container</div>
+          <div class="meta-value">GTM-MF72G76S</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Meta Pixel</div>
+          <div class="meta-value">1022093374056344</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>1. Current Implementation Status</h2>
+      <div class="success">
+        <strong>Current model:</strong> Aiqda now uses a GTM-managed GA4 architecture. Direct GA4 event dispatch from frontend code has been removed.
+      </div>
+
+      <p>The frontend currently does the following:</p>
+      <ul>
+        <li>Pushes structured events into <code>window.dataLayer</code> for GTM.</li>
+        <li>Sends internal product analytics events to the backend for Aiqda&rsquo;s own reporting.</li>
+        <li>Sends Meta Pixel events through <code>fbq</code>.</li>
+      </ul>
+
+      <p>The frontend no longer loads <code>gtag.js</code> or sends GA4 events directly. GA4 should now be configured entirely inside Google Tag Manager.</p>
+    </section>
+
+    <section>
+      <h2>2. Aiqda Event Model</h2>
+      <p>The following key events are already produced by the site and pushed into the GTM data layer:</p>
+
+      <div>
+        <span class="pill">page_view</span>
+        <span class="pill">session_start</span>
+        <span class="pill">page_engagement</span>
+        <span class="pill">scroll_depth</span>
+        <span class="pill">search</span>
+        <span class="pill">file_download</span>
+        <span class="pill">navigation_click</span>
+        <span class="pill">outbound_click</span>
+        <span class="pill">cta_click</span>
+        <span class="pill">sign_up</span>
+        <span class="pill">generate_lead</span>
+        <span class="pill">begin_checkout</span>
+        <span class="pill">add_payment_info</span>
+        <span class="pill">purchase</span>
+        <span class="pill">aiqda_user_context</span>
+        <span class="pill">aiqda_user_context_cleared</span>
+      </div>
+
+      <div class="note">
+        The same event stream is also used for internal dashboard analytics. GTM should therefore only be used for external analytics/tagging destinations and should not replace the internal backend event ingestion.
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Data Layer Variables To Create In GTM</h2>
+      <p>Create the following Data Layer Variables in Google Tag Manager:</p>
+
+      <div class="grid-2">
+        <div class="panel">
+          <ul>
+            <li><code>page_title</code></li>
+            <li><code>page_path</code></li>
+            <li><code>page_location</code></li>
+            <li><code>locale</code></li>
+            <li><code>visitor_id</code></li>
+            <li><code>session_id</code></li>
+            <li><code>referrer</code></li>
+            <li><code>utm_source</code></li>
+            <li><code>utm_medium</code></li>
+            <li><code>utm_campaign</code></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <ul>
+            <li><code>utm_term</code></li>
+            <li><code>utm_content</code></li>
+            <li><code>label</code></li>
+            <li><code>href</code></li>
+            <li><code>destinationPath</code></li>
+            <li><code>percent</code></li>
+            <li><code>searchTerm</code></li>
+            <li><code>engagementTimeMs</code></li>
+            <li><code>maxScrollPercent</code></li>
+            <li><code>user_role</code> and <code>subscription_status</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. GTM Configuration Steps</h2>
+
+      <h3>4.1 Create The Google Tag</h3>
+      <ol>
+        <li>Open Google Tag Manager.</li>
+        <li>Select container <code>GTM-MF72G76S</code>.</li>
+        <li>Go to <strong>Tags</strong> and create a new tag.</li>
+        <li>Select tag type <strong>Google tag</strong>.</li>
+        <li>Enter your GA4 Measurement ID: <code>G-DXPP8Z7FVT</code>.</li>
+        <li>Set the trigger to <strong>Initialization - All Pages</strong>.</li>
+        <li>Save the tag.</li>
+      </ol>
+
+      <h3>4.2 Create Custom Event Triggers</h3>
+      <p>Create one Custom Event trigger for each Aiqda event listed in Section 2.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Trigger Name</th>
+            <th>Event Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>CE - page_view</td><td><code>page_view</code></td></tr>
+          <tr><td>CE - session_start</td><td><code>session_start</code></td></tr>
+          <tr><td>CE - page_engagement</td><td><code>page_engagement</code></td></tr>
+          <tr><td>CE - scroll_depth</td><td><code>scroll_depth</code></td></tr>
+          <tr><td>CE - search</td><td><code>search</code></td></tr>
+          <tr><td>CE - file_download</td><td><code>file_download</code></td></tr>
+          <tr><td>CE - navigation_click</td><td><code>navigation_click</code></td></tr>
+          <tr><td>CE - outbound_click</td><td><code>outbound_click</code></td></tr>
+          <tr><td>CE - cta_click</td><td><code>cta_click</code></td></tr>
+          <tr><td>CE - sign_up</td><td><code>sign_up</code></td></tr>
+          <tr><td>CE - generate_lead</td><td><code>generate_lead</code></td></tr>
+          <tr><td>CE - begin_checkout</td><td><code>begin_checkout</code></td></tr>
+          <tr><td>CE - add_payment_info</td><td><code>add_payment_info</code></td></tr>
+          <tr><td>CE - purchase</td><td><code>purchase</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.3 Create GA4 Event Tags</h3>
+      <p>Recommended mapping:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Aiqda Event</th>
+            <th>GA4 Event Name</th>
+            <th>Main Parameters</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>page_view</code></td><td><code>page_view</code></td><td><code>page_title</code>, <code>page_path</code>, <code>page_location</code>, <code>locale</code>, <code>visitor_id</code>, <code>session_id</code></td></tr>
+          <tr><td><code>session_start</code></td><td><code>session_start</code></td><td><code>page_path</code>, <code>locale</code></td></tr>
+          <tr><td><code>page_engagement</code></td><td><code>page_engagement</code></td><td><code>engagement_time_msec</code>, <code>max_scroll_percent</code></td></tr>
+          <tr><td><code>scroll_depth</code></td><td><code>scroll</code></td><td><code>percent_scrolled</code></td></tr>
+          <tr><td><code>search</code></td><td><code>search</code></td><td><code>search_term</code></td></tr>
+          <tr><td><code>file_download</code></td><td><code>file_download</code></td><td><code>link_url</code>, <code>link_text</code></td></tr>
+          <tr><td><code>navigation_click</code></td><td><code>select_content</code></td><td><code>item_name</code>, <code>link_url</code>, <code>destination_path</code></td></tr>
+          <tr><td><code>outbound_click</code></td><td><code>click</code></td><td><code>link_url</code>, <code>link_text</code></td></tr>
+          <tr><td><code>cta_click</code></td><td><code>select_content</code></td><td><code>item_name</code></td></tr>
+          <tr><td><code>sign_up</code></td><td><code>sign_up</code></td><td>default payload plus any registration metadata</td></tr>
+          <tr><td><code>generate_lead</code></td><td><code>generate_lead</code></td><td>lead context parameters if applicable</td></tr>
+          <tr><td><code>begin_checkout</code></td><td><code>begin_checkout</code></td><td>package, value, currency when available</td></tr>
+          <tr><td><code>add_payment_info</code></td><td><code>add_payment_info</code></td><td>payment-related context</td></tr>
+          <tr><td><code>purchase</code></td><td><code>purchase</code></td><td>value, currency, transaction/package identifiers</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. GA4 Property Configuration</h2>
+
+      <h3>5.1 Custom Definitions</h3>
+      <p>Create event-scoped custom dimensions in GA4 for the most important custom parameters:</p>
+      <ul>
+        <li><code>locale</code></li>
+        <li><code>visitor_id</code></li>
+        <li><code>session_id</code></li>
+        <li><code>destinationPath</code></li>
+        <li><code>maxScrollPercent</code></li>
+      </ul>
+
+      <p>If you later send user properties through GTM, create user-scoped custom dimensions for:</p>
+      <ul>
+        <li><code>user_role</code></li>
+        <li><code>subscription_status</code></li>
+      </ul>
+
+      <h3>5.2 Key Events</h3>
+      <p>Mark these as GA4 key events:</p>
+      <ul>
+        <li><code>sign_up</code></li>
+        <li><code>generate_lead</code></li>
+        <li><code>begin_checkout</code></li>
+        <li><code>purchase</code></li>
+        <li>Optionally <code>add_payment_info</code> if you want to analyze payment-step drop-off.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>6. Meta Pixel Configuration</h2>
+      <p>Meta Pixel ID <code>1022093374056344</code> is already integrated in the frontend code.</p>
+
+      <p>The implementation currently maps the following events:</p>
+      <ul>
+        <li><code>PageView</code></li>
+        <li><code>Search</code></li>
+        <li><code>CompleteRegistration</code></li>
+        <li><code>Lead</code></li>
+        <li><code>InitiateCheckout</code></li>
+        <li><code>AddPaymentInfo</code></li>
+        <li><code>Purchase</code></li>
+        <li>Custom Meta events for everything else</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>7. Testing Procedure</h2>
+
+      <h3>7.1 GTM Preview</h3>
+      <ol>
+        <li>Open GTM and click <strong>Preview</strong>.</li>
+        <li>Connect to the target site URL.</li>
+        <li>Navigate through the site and confirm the expected events appear in Tag Assistant.</li>
+      </ol>
+
+      <h3>7.2 GA4 Realtime</h3>
+      <ol>
+        <li>Open GA4 <strong>Realtime</strong>.</li>
+        <li>Perform the same actions on the site.</li>
+        <li>Confirm events are arriving in Realtime.</li>
+      </ol>
+
+      <h3>7.3 Meta Events Manager</h3>
+      <ol>
+        <li>Open Meta Events Manager and select Pixel <code>1022093374056344</code>.</li>
+        <li>Use <strong>Test Events</strong>.</li>
+        <li>Confirm <code>PageView</code>, <code>Lead</code>, <code>InitiateCheckout</code>, and <code>Purchase</code> appear when expected.</li>
+      </ol>
+
+      <div class="warning">
+        Use GTM Preview before publishing container changes. This reduces the risk of duplicate or malformed GA4 events.
+      </div>
+    </section>
+
+    <section>
+      <h2>8. Production Notes</h2>
+      <p>For production builds, ensure the frontend environment includes:</p>
+      <ul>
+        <li><code>VITE_GTM_CONTAINER_ID=GTM-MF72G76S</code></li>
+        <li><code>VITE_META_PIXEL_ID=1022093374056344</code></li>
+      </ul>
+
+      <p>
+        The old <code>VITE_GA4_MEASUREMENT_ID</code> value can remain documented for reference, but GA4 dispatch now
+        happens through GTM rather than direct frontend code.
+      </p>
+    </section>
+
+    <section>
+      <h2>9. Official References</h2>
+      <ul>
+        <li>Google Tag setup in GTM: <code>support.google.com/tagmanager/answer/9442095</code></li>
+        <li>GA4 events in GTM: <code>support.google.com/tagmanager/answer/13034206</code></li>
+        <li>GTM Preview and debug: <code>support.google.com/tagmanager/answer/6107056</code></li>
+        <li>GA4 event-scoped custom dimensions: <code>support.google.com/analytics/answer/14239696</code></li>
+        <li>GA4 user-scoped custom dimensions: <code>support.google.com/analytics/answer/14239618</code></li>
+        <li>GA4 key events: <code>support.google.com/analytics/answer/9267568</code></li>
+      </ul>
+    </section>
+
+    <div class="footer">
+      Prepared for Aiqda internal use. This guide reflects the codebase state as of August 4, 2026.
+    </div>
+  </main>
+</body>
+</html>

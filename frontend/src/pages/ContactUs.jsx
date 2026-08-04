@@ -5,6 +5,7 @@ import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import { contactMessagesAPI } from '../services/api';
 import { useLocale } from '../i18n/useLocale';
+import { trackPublicAnalyticsEvent } from '../utils/analytics';
 import {
   pageVariants,
   fadeInUp,
@@ -68,6 +69,7 @@ function ContactUs() {
 
     try {
       await contactMessagesAPI.submit(formData);
+      void trackPublicAnalyticsEvent('contact_request', { locale: isRTL ? 'ar' : 'en', path: '/contact-us' });
       showSuccess(isRTL ? 'تم إرسال رسالتك. سنعود إليك قريبًا.' : 'Your message has been sent. We will get back to you soon.');
       setFormData(buildInitialFormData(user));
     } catch (error) {

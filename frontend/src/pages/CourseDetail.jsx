@@ -11,7 +11,7 @@ import { useLocale } from '../i18n/useLocale';
 import { getCourseJourney, getEntityId, getLessonProgressState } from '../utils/courseNavigation';
 
 function CourseDetail() {
-  const { locale, t, isRTL } = useLocale();
+  const { locale, isRTL } = useLocale();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -183,13 +183,6 @@ function CourseDetail() {
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.9fr)]">
               <div className="min-w-0">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className={`tag ${
-                    course.level === 'beginner' ? 'tag-beginner' :
-                    course.level === 'intermediate' ? 'tag-intermediate' :
-                    'tag-advanced'
-                  }`}>
-                    {t(`status.${course.level}`, course.level)}
-                  </span>
                   <span className="text-gray-400">{getLocalizedField(course, 'category', locale)}</span>
                 </div>
                 

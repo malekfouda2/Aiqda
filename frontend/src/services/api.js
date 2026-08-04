@@ -136,10 +136,12 @@ export const quizzesAPI = {
 };
 
 export const analyticsAPI = {
+  trackPublicEvent: (data) => api.post('/analytics/public', data),
   getStudentProgress: () => api.get('/analytics/student'),
   getCourseProgress: (courseId) => api.get(`/analytics/student/course/${courseId}`),
   getInstructorAnalytics: () => api.get('/analytics/instructor'),
   getAdminAnalytics: () => api.get('/analytics/admin'),
+  getAdminAnalyticsCenter: (params) => api.get('/analytics/admin/measurement-center', { params }),
   getAdminCoursesByInstructor: () => api.get('/analytics/admin/courses-by-instructor'),
   getAdminInstructors: () => api.get('/analytics/admin/instructors'),
   getAdminInstructorDetail: (id) => api.get(`/analytics/admin/instructors/${id}`),

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import CreatorAgreementModal from '../components/CreatorAgreementModal';
 import { useLocale } from '../i18n/useLocale';
+import { trackPublicAnalyticsEvent } from '../utils/analytics';
 
 const COUNTRY_CODES = [
   { code: '+1', label: 'US/CA (+1)' },
@@ -244,6 +245,7 @@ function InstructorApplication() {
       await axios.post('/api/instructor-applications', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      void trackPublicAnalyticsEvent('creator_application', { locale: isRTL ? 'ar' : 'en', path: '/apply-creator' });
       setShowCreatorAgreement(false);
       setIsSubmitted(true);
     } catch (err) {

@@ -27,7 +27,10 @@ export const getOverview = async ({ from = null, to = null } = {}) => {
   const refundedMinor = sumField(reversalTxns, 'refundedMinor');
   const chargebackMinor = sumField(reversalTxns, 'chargebackMinor');
 
-  const earnings = await InstructorEarning.find().lean();
+  const scopedTransactionIds = rootTxns.map((txn) => txn._id);
+  const earnings = (from || to)
+    ? await InstructorEarning.find({ financeTransaction: { $in: scopedTransactionIds } }).lean()
+    : await InstructorEarning.find().lean();
   const live = earnings.filter((e) => !['voided'].includes(e.status));
   const unpaidPayable = (e) => Math.max(0, (e.approvedMinor || 0) - (e.paidMinor || 0));
   const eligibleUnpaid = (e) => Math.max(0, (e.eligibleMinor || 0) - (e.paidMinor || 0));
@@ -68,8 +71,12 @@ export const getOverview = async ({ from = null, to = null } = {}) => {
     actualInstructorPayouts: fromMinor(paidMinor),
     instructorRecoveryBalances: fromMinor(recoveryMinor),
     platformGrossShare: fromMinor(platformGrossMinor),
-    platformCashAfterFeesAndLiabilities: fromMinor(grossMinor - gatewayFeeMinor - manualFeeMinor - eligibleLiabilityMinor),
-    platformCashAfterPayouts: fromMinor(grossMinor - gatewayFeeMinor - manualFeeMinor - paidMinor),
+    platformCashAfterFeesAndLiabilities: fromMinor(
+      grossMinor - gatewayFeeMinor - manualFeeMinor - refundedMinor - chargebackMinor - eligibleLiabilityMinor,
+    ),
+    platformCashAfterPayouts: fromMinor(
+      grossMinor - gatewayFeeMinor - manualFeeMinor - refundedMinor - chargebackMinor - paidMinor,
+    ),
     currency: 'SAR',
   };
 };

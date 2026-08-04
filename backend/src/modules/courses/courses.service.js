@@ -39,7 +39,6 @@ const COURSE_UPDATABLE_FIELDS = [
   'description',
   'thumbnail',
   'category',
-  'level',
   'software'
 ];
 

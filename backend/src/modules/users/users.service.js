@@ -110,7 +110,7 @@ export const getPublicCreatorProfile = async (creatorId) => {
   }
 
   const chapters = await Course.find({ instructor: creatorId, isPublished: true })
-    .select('title description category level software order thumbnail lessonsCount')
+    .select('title description category software order thumbnail lessonsCount')
     .sort({ order: 1, createdAt: 1 })
     .lean();
 

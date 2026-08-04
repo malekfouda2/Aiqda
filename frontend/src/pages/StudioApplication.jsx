@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useLocale } from '../i18n/useLocale';
 import { fadeInUp, staggerContainer, pageVariants } from '../utils/animations';
+import { trackPublicAnalyticsEvent } from '../utils/analytics';
 
 const STEPS = [
   { id: 1, name: 'Studio Identity' },
@@ -137,6 +138,7 @@ export default function StudioApplication() {
     setIsSubmitting(true);
     try {
       await axios.post('/api/studio-applications', formState);
+      void trackPublicAnalyticsEvent('studio_application', { locale: isRTL ? 'ar' : 'en', path: '/apply-studio' });
       setIsSubmitted(true);
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || err.response?.data?.message || 'Something went wrong. Please try again.' });

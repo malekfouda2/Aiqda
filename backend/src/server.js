@@ -5,6 +5,7 @@ import { autoSeedIfEmpty } from './seed.js';
 import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishBackfill.js';
 import { backfillContentReviewState } from './startup/contentReviewStateBackfill.js';
 import { backfillCourseOrder } from './startup/courseOrderBackfill.js';
+import { removeLegacyCourseLevels } from './startup/removeLegacyCourseLevels.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
@@ -46,6 +47,10 @@ mongoose.connect(MONGODB_URI)
       console.log(
         `Backfilled chapter order for ${courseOrderResult.updatedCourses} chapters across ${courseOrderResult.updatedInstructors} creators.`
       );
+    }
+    const levelRemovalResult = await removeLegacyCourseLevels();
+    if (levelRemovalResult.updatedCourses > 0) {
+      console.log(`Removed legacy chapter level values from ${levelRemovalResult.updatedCourses} chapters.`);
     }
     const renewalWorker = startSubscriptionRenewalWorker();
     if (renewalWorker.started) {

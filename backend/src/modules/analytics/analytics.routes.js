@@ -4,6 +4,8 @@ import { authenticate, isAdmin, isInstructor } from '../../middlewares/auth.midd
 
 const router = express.Router();
 
+router.post('/public', analyticsController.trackPublicEvent);
+
 router.use(authenticate);
 
 router.get('/student', analyticsController.getStudentProgress);
@@ -12,6 +14,7 @@ router.get('/student/course/:courseId', analyticsController.getCourseProgress);
 router.get('/instructor', isInstructor, analyticsController.getInstructorAnalytics);
 
 router.get('/admin', isAdmin, analyticsController.getAdminAnalytics);
+router.get('/admin/measurement-center', isAdmin, analyticsController.getAdminAnalyticsCenter);
 router.get('/admin/courses-by-instructor', isAdmin, analyticsController.getAdminCoursesByInstructor);
 router.get('/admin/instructors', isAdmin, analyticsController.getAdminAllInstructors);
 router.get('/admin/instructors/:instructorId', isAdmin, analyticsController.getAdminInstructorDetail);

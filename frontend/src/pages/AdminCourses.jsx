@@ -856,7 +856,7 @@ function AdminCourses() {
                                     )}
                                   </div>
                                   <p className="mb-2 text-xs text-gray-400">
-                                    {course.category} · {course.level} · Created {new Date(course.createdAt).toLocaleDateString()}
+                                    {course.category} · Created {new Date(course.createdAt).toLocaleDateString()}
                                   </p>
                                   {(course.software || []).length > 0 && (
                                     <div className="mb-2 flex flex-wrap gap-1.5">

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authAPI, usersAPI } from '../services/api';
 import { PLATFORM_NOTICE_VERSION } from '../content/platformNotice';
+import { trackAnalyticsEvent } from '../utils/analytics';
 import { canAccessAdminPanel, canAccessInstructorPanel, canAccessMemberDashboard, isAdminRole } from '../utils/roles';
 
 const useAuthStore = create((set, get) => ({
@@ -50,6 +51,12 @@ const useAuthStore = create((set, get) => ({
         isHydrating: false,
         hasHydrated: true,
       });
+      void trackAnalyticsEvent('login', {
+        metadata: {
+          method: 'email',
+          role: response.data.user?.role || '',
+        },
+      });
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Login failed';
@@ -68,6 +75,12 @@ const useAuthStore = create((set, get) => ({
         isHydrating: false,
         hasHydrated: true,
       });
+      void trackAnalyticsEvent('sign_up', {
+        metadata: {
+          method: 'email',
+          role: response.data.user?.role || role,
+        },
+      });
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Registration failed';
@@ -85,6 +98,12 @@ const useAuthStore = create((set, get) => ({
         isLoading: false,
         isHydrating: false,
         hasHydrated: true,
+      });
+      void trackAnalyticsEvent('login', {
+        metadata: {
+          method: 'social',
+          role: response.data.user?.role || '',
+        },
       });
       return { success: true, redirectPath: response.data.redirectPath };
     } catch (error) {

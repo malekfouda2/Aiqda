@@ -3,9 +3,11 @@ import { Navigate, Routes, Route, useLocation, useParams } from 'react-router-do
 import MainLayout from './layouts/MainLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicAnalyticsTracker from './components/PublicAnalyticsTracker';
 import LoadingSpinner from './components/LoadingSpinner';
 import ScrollToTop from './components/ScrollToTop';
 import { useLocale } from './i18n/useLocale';
+import { clearAnalyticsUserContext, setAnalyticsUserContext } from './utils/analytics';
 import useAuthStore from './store/authStore';
 import { ADMIN_PANEL_ROLES, INSTRUCTOR_PANEL_ROLES, MEMBER_DASHBOARD_ROLES, isApplicationsAdminRole } from './utils/roles';
 
@@ -32,6 +34,7 @@ const Subscription = lazy(() => import('./pages/Subscription'));
 const Payments = lazy(() => import('./pages/Payments'));
 const LessonView = lazy(() => import('./pages/LessonView'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminAnalyticsMeasurements = lazy(() => import('./pages/AdminAnalyticsMeasurements'));
 const AdminContactMessages = lazy(() => import('./pages/AdminContactMessages'));
 const AdminWhatsAppSettings = lazy(() => import('./pages/AdminWhatsAppSettings'));
 const AdminTeamMembers = lazy(() => import('./pages/AdminTeamMembers'));
@@ -99,9 +102,11 @@ function AdminIndexRoute() {
 }
 
 function App() {
+  const { locale } = useLocale();
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
-  const userId = useAuthStore((state) => state.user?._id);
+  const user = useAuthStore((state) => state.user);
+  const userId = user?._id;
 
   useEffect(() => {
     initializeAuth();
@@ -127,9 +132,24 @@ function App() {
     };
   }, [refreshProfile, userId]);
 
+  useEffect(() => {
+    if (!user) {
+      void clearAnalyticsUserContext();
+      return;
+    }
+
+    void setAnalyticsUserContext({
+      userId: user._id,
+      role: user.role,
+      locale,
+      subscriptionStatus: user.subscriptionStatus || '',
+    });
+  }, [locale, user]);
+
   return (
     <>
       <ScrollToTop />
+      <PublicAnalyticsTracker />
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={renderLazyPage(Home)} />
@@ -191,6 +211,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminIndexRoute />} />
+            <Route path="analytics" element={renderLazyPage(AdminAnalyticsMeasurements)} />
             <Route path="contact-messages" element={renderLazyPage(AdminContactMessages)} />
             <Route path="whatsapp-settings" element={renderLazyPage(AdminWhatsAppSettings)} />
             <Route path="team-members" element={renderLazyPage(AdminTeamMembers)} />

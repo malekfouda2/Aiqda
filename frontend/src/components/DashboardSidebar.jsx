@@ -19,6 +19,7 @@ function DashboardSidebar({ type }) {
 
   const adminLinks = [
     { to: '/admin', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/admin/analytics', icon: '📈', label: 'Analytics & Measurements' },
     { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
     { to: '/admin/whatsapp-settings', icon: '💬', label: 'WhatsApp Chat' },
     { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },
@@ -133,6 +134,7 @@ function DashboardMobileNav({ type }) {
   ];
   const adminLinks = [
     { to: '/admin', icon: '📊', label: t('common.overview'), end: true },
+    { to: '/admin/analytics', icon: '📈', label: 'Analytics & Measurements' },
     { to: '/admin/contact-messages', icon: '✉️', label: 'Contact Inbox' },
     { to: '/admin/whatsapp-settings', icon: '💬', label: 'WhatsApp Chat' },
     { to: '/admin/team-members', icon: '🧑‍🎨', label: 'Team Members' },

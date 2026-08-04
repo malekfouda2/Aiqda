@@ -1,11 +1,17 @@
 import { LessonProgress, CourseProgress } from './progress.model.js';
+import AnalyticsEvent from './analyticsEvent.model.js';
 import Course from '../courses/course.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
 import Payment from '../payments/payment.model.js';
 import { Subscription, SubscriptionPackage } from '../subscriptions/subscription.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
+import { getProgressTrackingContext } from './progressTracking.js';
 import { getVimeoAccountInfo, getVimeoVideoDetails } from '../video/video.service.js';
+import ContactMessage from '../contact-messages/contactMessage.model.js';
+import InstructorApplication from '../instructor-applications/instructorApplication.model.js';
+import StudioApplication from '../studio-applications/studioApplication.model.js';
+import ConsultationBooking from '../consultations/consultationBooking.model.js';
 
 const roundCurrency = (value) => Math.round(value * 100) / 100;
 const toIdString = (value) => value?.toString();
@@ -22,6 +28,8 @@ const LIVE_ACTIVITY_WINDOW_MINUTES = LIVE_ACTIVITY_WINDOW_MS / (60 * 1000);
 const MEMBER_REWARD_ACTIVITY_WINDOW_DAYS = 14;
 const MEMBER_REWARD_ACTIVITY_WINDOW_MS = MEMBER_REWARD_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const MEMBER_LEADERBOARD_LIMIT = 5;
+const KPI_WINDOW_DAYS = 30;
+const KPI_WINDOW_MS = KPI_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS = [
   'impressions',
   'finishes',
@@ -50,6 +58,34 @@ const MEMBER_REWARD_LEVELS = [
 ];
 const MEMBER_QUALIFIED_CONTENT_MILESTONES = [1, 3, 5, 8, 12, 16];
 const MEMBER_COMPLETED_CHAPTER_MILESTONES = [1, 2, 3, 5, 8];
+const PUBLIC_ANALYTICS_EVENT_TYPES = new Set([
+  'session_start',
+  'page_view',
+  'page_engagement',
+  'scroll_depth',
+  'search',
+  'file_download',
+  'navigation_click',
+  'cta_click',
+  'outbound_click',
+  'contact_request',
+  'creator_application',
+  'studio_application',
+  'consultation_request',
+  'member_registration',
+  'login',
+  'sign_up',
+  'generate_lead',
+  'select_content',
+  'view_item',
+  'begin_checkout',
+  'checkout_method_selected',
+  'billing_profile_setup_started',
+  'billing_profile_setup_submitted',
+  'billing_profile_setup_completed',
+  'add_payment_info',
+  'purchase',
+]);
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -81,6 +117,205 @@ const toPercentage = (value, total) => (
   total > 0 ? Math.round((value / total) * 100) : 0
 );
 
+const normalizeShortString = (value, maxLength = 160) => (
+  typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
+);
+
+const normalizePath = (value) => {
+  const normalizedValue = normalizeShortString(value, 320);
+
+  if (!normalizedValue) {
+    return '/';
+  }
+
+  return normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`;
+};
+
+const normalizeLocale = (value) => (
+  value === 'ar' || value === 'en' ? value : null
+);
+
+const normalizeMetadata = (value) => (
+  value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+);
+
+const normalizeUtmPayload = (value = {}) => ({
+  source: normalizeShortString(value.source, 120),
+  medium: normalizeShortString(value.medium, 120),
+  campaign: normalizeShortString(value.campaign, 160),
+  term: normalizeShortString(value.term, 160),
+  content: normalizeShortString(value.content, 160),
+});
+
+const ANALYTICS_KEY_EVENT_TYPES = new Set([
+  'contact_request',
+  'creator_application',
+  'studio_application',
+  'consultation_request',
+  'member_registration',
+  'sign_up',
+  'generate_lead',
+  'purchase',
+]);
+const ANALYTICS_TOP_LIST_LIMIT = 8;
+const ANALYTICS_SESSION_ENGAGEMENT_THRESHOLD_MS = 10_000;
+
+const toDayKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+};
+
+const buildRollingDaySeries = (days = KPI_WINDOW_DAYS) => {
+  const result = [];
+  const now = new Date();
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - offset
+    ));
+    const key = toDayKey(date);
+    result.push({
+      key,
+      label: `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}`,
+    });
+  }
+
+  return result;
+};
+
+const incrementMapCount = (map, key, amount = 1) => {
+  if (!key) {
+    return;
+  }
+
+  map.set(key, (map.get(key) || 0) + amount);
+};
+
+const incrementMapObject = (map, key, defaults = {}) => {
+  if (!key) {
+    return null;
+  }
+
+  if (!map.has(key)) {
+    map.set(key, { ...defaults });
+  }
+
+  return map.get(key);
+};
+
+const averageOrZero = (sum, count, precision = 1) => {
+  if (!count) {
+    return 0;
+  }
+
+  const factor = 10 ** precision;
+  return Math.round((sum / count) * factor) / factor;
+};
+
+const normalizeReferrerHost = (value) => {
+  const referrer = normalizeShortString(value, 500);
+  if (!referrer) {
+    return 'Direct';
+  }
+
+  try {
+    return new URL(referrer).hostname.replace(/^www\./i, '') || 'Direct';
+  } catch {
+    return referrer;
+  }
+};
+
+const getDeviceTypeFromUserAgent = (userAgent = '') => {
+  const normalized = userAgent.toLowerCase();
+
+  if (!normalized) {
+    return 'Unknown';
+  }
+
+  if (/ipad|tablet/.test(normalized)) {
+    return 'Tablet';
+  }
+
+  if (/mobile|iphone|android/.test(normalized)) {
+    return 'Mobile';
+  }
+
+  return 'Desktop';
+};
+
+const getBrowserFromUserAgent = (userAgent = '') => {
+  const normalized = userAgent.toLowerCase();
+
+  if (!normalized) {
+    return 'Unknown';
+  }
+
+  if (normalized.includes('edg/')) {
+    return 'Edge';
+  }
+
+  if (normalized.includes('chrome/') && !normalized.includes('edg/')) {
+    return 'Chrome';
+  }
+
+  if (normalized.includes('safari/') && !normalized.includes('chrome/')) {
+    return 'Safari';
+  }
+
+  if (normalized.includes('firefox/')) {
+    return 'Firefox';
+  }
+
+  if (normalized.includes('opr/') || normalized.includes('opera/')) {
+    return 'Opera';
+  }
+
+  return 'Other';
+};
+
+const getOsFromUserAgent = (userAgent = '') => {
+  const normalized = userAgent.toLowerCase();
+
+  if (!normalized) {
+    return 'Unknown';
+  }
+
+  if (normalized.includes('windows')) {
+    return 'Windows';
+  }
+
+  if (normalized.includes('iphone') || normalized.includes('ipad') || normalized.includes('ios')) {
+    return 'iOS';
+  }
+
+  if (normalized.includes('android')) {
+    return 'Android';
+  }
+
+  if (normalized.includes('mac os') || normalized.includes('macintosh')) {
+    return 'macOS';
+  }
+
+  if (normalized.includes('linux')) {
+    return 'Linux';
+  }
+
+  return 'Other';
+};
+
+const mapCountsToRows = (map, labelKey, valueKey = 'count', limit = ANALYTICS_TOP_LIST_LIMIT) => (
+  [...map.entries()]
+    .map(([label, count]) => ({ [labelKey]: label, [valueKey]: count }))
+    .sort((left, right) => right[valueKey] - left[valueKey])
+    .slice(0, limit)
+);
+
 const countUniqueStudents = (courses = []) => {
   const uniqueStudents = new Set();
 
@@ -91,6 +326,33 @@ const countUniqueStudents = (courses = []) => {
   }
 
   return uniqueStudents.size;
+};
+
+export const trackPublicEvent = async (payload = {}, req = {}) => {
+  const eventType = normalizeShortString(payload.eventType, 80);
+
+  if (!PUBLIC_ANALYTICS_EVENT_TYPES.has(eventType)) {
+    throw new Error('Unsupported analytics event type');
+  }
+
+  const utm = normalizeUtmPayload(payload.utm);
+
+  await AnalyticsEvent.create({
+    eventType,
+    path: normalizePath(payload.path),
+    title: normalizeShortString(payload.title, 200),
+    locale: normalizeLocale(payload.locale),
+    visitorId: normalizeShortString(payload.visitorId, 120),
+    sessionId: normalizeShortString(payload.sessionId, 120),
+    referrer: normalizeShortString(payload.referrer, 500),
+    userAgent: normalizeShortString(req.headers?.['user-agent'], 400),
+    utmSource: utm.source,
+    utmMedium: utm.medium,
+    utmCampaign: utm.campaign,
+    utmTerm: utm.term,
+    utmContent: utm.content,
+    metadata: normalizeMetadata(payload.metadata),
+  });
 };
 
 const buildMonthlyCounts = (records = [], dateField) => {
@@ -583,7 +845,7 @@ const getInstructorCourseDataset = async ({ activeOnly = false } = {}) => {
   const instructorIds = instructors.map((instructor) => instructor._id);
   const courses = instructorIds.length > 0
     ? await Course.find({ instructor: { $in: instructorIds } })
-      .select('instructor title category level software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+      .select('instructor title category software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
       .sort({ order: 1, createdAt: 1 })
       .lean()
     : [];
@@ -709,7 +971,16 @@ export const getStudentProgress = async (userId) => {
   };
 };
 
-export const getCourseProgress = async (userId, courseId) => {
+export const getCourseProgress = async (userId, courseId, userRole = null) => {
+  if (!userId) {
+    return { courseProgress: null, lessonProgress: [] };
+  }
+
+  const trackingContext = await getProgressTrackingContext(userId, userRole, courseId);
+  if (!trackingContext.shouldTrack) {
+    return { courseProgress: null, lessonProgress: [] };
+  }
+
   const courseProgress = await CourseProgress.findOne({ user: userId, course: courseId })
     .populate('course');
 
@@ -801,8 +1072,8 @@ export const getInstructorAnalytics = async (instructorId) => {
 };
 
 export const getAdminAnalytics = async () => {
-  const activeSince = new Date(Date.now() - LIVE_ACTIVITY_WINDOW_MS);
   const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const analyticsWindowStart = new Date(Date.now() - KPI_WINDOW_MS);
   const [
     totalCourses,
     publishedCourses,
@@ -812,9 +1083,15 @@ export const getAdminAnalytics = async () => {
     recentActivity,
     lessonProgress,
     totalMembers,
-    newMembers30d,
+    newMembers30dEntries,
     activeSubscriptions,
-    totalInstructors
+    totalInstructors,
+    analyticsEvents30d,
+    contactRequests30dEntries,
+    creatorApplications30dEntries,
+    studioApplications30dEntries,
+    consultationRequests30dEntries,
+    paymentEntries30d,
   ] = await Promise.all([
     Course.countDocuments(),
     Course.countDocuments({ isPublished: true }),
@@ -831,10 +1108,32 @@ export const getAdminAnalytics = async () => {
       .select('user lesson watchPercentage lastWatchedAt')
       .lean(),
     User.countDocuments({ role: 'student' }),
-    User.countDocuments({ role: 'student', createdAt: { $gte: last30Days } }),
+    User.find({ role: 'student', createdAt: { $gte: last30Days } })
+      .select('createdAt')
+      .lean(),
     Subscription.countDocuments({ status: { $in: ['active', 'cancel_scheduled', 'grace_period'] } }),
-    User.countDocuments({ role: 'instructor' })
+    User.countDocuments({ role: 'instructor' }),
+    AnalyticsEvent.find({ createdAt: { $gte: analyticsWindowStart } })
+      .select('eventType sessionId visitorId path title locale referrer userAgent utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
+      .sort({ createdAt: 1 })
+      .lean(),
+    ContactMessage.find({ createdAt: { $gte: last30Days } })
+      .select('createdAt')
+      .lean(),
+    InstructorApplication.find({ createdAt: { $gte: last30Days } })
+      .select('createdAt')
+      .lean(),
+    StudioApplication.find({ createdAt: { $gte: last30Days } })
+      .select('createdAt')
+      .lean(),
+    ConsultationBooking.find({ createdAt: { $gte: last30Days } })
+      .select('createdAt amount currency status paidAt')
+      .lean(),
+    Payment.find({ createdAt: { $gte: last30Days } })
+      .select('amount currency status paymentType checkoutMethod refundStatus refundAmount refundedAt createdAt consultationBooking subscription')
+      .lean(),
   ]);
+
   const totalEnrollments = courseProgress.length;
   const completedCourses = courseProgress.filter((progressEntry) => progressEntry.isCompleted).length;
   const activeProgressEntries = lessonProgress.filter((progressEntry) => isRecentlyActive(progressEntry.lastWatchedAt));
@@ -843,6 +1142,409 @@ export const getAdminAnalytics = async () => {
   const averageWatchPercentage = lessonProgress.length > 0
     ? Math.round(lessonProgress.reduce((sum, progressEntry) => sum + Number(progressEntry.watchPercentage || 0), 0) / lessonProgress.length)
     : 0;
+  const newMembers30d = newMembers30dEntries.length;
+  const contactRequests30d = contactRequests30dEntries.length;
+  const creatorApplications30d = creatorApplications30dEntries.length;
+  const studioApplications30d = studioApplications30dEntries.length;
+  const consultationRequests30d = consultationRequests30dEntries.length;
+
+  const daySeries = buildRollingDaySeries(KPI_WINDOW_DAYS);
+  const trendByDayKey = new Map(
+    daySeries.map(({ key, label }) => [
+      key,
+      {
+        date: key,
+        label,
+        sessions: 0,
+        pageViews: 0,
+        engagedSessions: 0,
+        leads: 0,
+        registrations: 0,
+        purchases: 0,
+        revenue: 0,
+      },
+    ])
+  );
+
+  const eventCountMap = new Map();
+  const sessionMap = new Map();
+  const pageMap = new Map();
+  const flowMap = new Map();
+  const referrerMap = new Map();
+  const sourceMap = new Map();
+  const campaignMap = new Map();
+  const localeMap = new Map();
+  const landingPageMap = new Map();
+  const deviceMap = new Map();
+  const browserMap = new Map();
+  const osMap = new Map();
+  const ctaMap = new Map();
+  const searchMap = new Map();
+  const outboundMap = new Map();
+  const downloadMap = new Map();
+
+  for (const entry of analyticsEvents30d) {
+    const dayKey = toDayKey(entry.createdAt);
+    const dayBucket = trendByDayKey.get(dayKey);
+    incrementMapCount(eventCountMap, entry.eventType);
+
+    const sessionId = normalizeShortString(entry.sessionId, 120);
+    const visitorId = normalizeShortString(entry.visitorId, 120);
+    const normalizedPath = normalizePath(entry.path);
+    const pageStats = incrementMapObject(pageMap, normalizedPath, {
+      path: normalizedPath,
+      title: normalizeShortString(entry.title, 200),
+      pageViews: 0,
+      uniqueVisitors: new Set(),
+      sessions: 0,
+      engagedSessions: 0,
+      entrances: 0,
+      engagementTimeMs: 0,
+      scrollDepthSum: 0,
+      scrollSamples: 0,
+      ctaClicks: 0,
+      outboundClicks: 0,
+      downloads: 0,
+      searches: 0,
+    });
+
+    if (pageStats && visitorId) {
+      pageStats.uniqueVisitors.add(visitorId);
+    }
+
+    if (sessionId) {
+      const sessionStats = incrementMapObject(sessionMap, sessionId, {
+        sessionId,
+        visitorId,
+        firstSeenAt: entry.createdAt,
+        pageViews: 0,
+        engagementTimeMs: 0,
+        hasKeyEvent: false,
+        firstPath: '',
+        lastPath: '',
+        referrer: '',
+        locale: '',
+        utmSource: '',
+        utmMedium: '',
+        utmCampaign: '',
+        userAgent: '',
+        visitedPaths: new Set(),
+      });
+
+      if (sessionStats.visitedPaths && normalizedPath) {
+        sessionStats.visitedPaths.add(normalizedPath);
+      }
+
+      if (!sessionStats.referrer) {
+        sessionStats.referrer = entry.referrer || '';
+      }
+      if (!sessionStats.locale) {
+        sessionStats.locale = entry.locale || '';
+      }
+      if (!sessionStats.utmSource) {
+        sessionStats.utmSource = entry.utmSource || '';
+      }
+      if (!sessionStats.utmMedium) {
+        sessionStats.utmMedium = entry.utmMedium || '';
+      }
+      if (!sessionStats.utmCampaign) {
+        sessionStats.utmCampaign = entry.utmCampaign || '';
+      }
+      if (!sessionStats.userAgent) {
+        sessionStats.userAgent = entry.userAgent || '';
+      }
+      if (!sessionStats.firstPath && entry.eventType === 'page_view') {
+        sessionStats.firstPath = normalizedPath;
+      }
+    }
+
+    if (entry.eventType === 'page_view') {
+      if (pageStats) {
+        pageStats.pageViews += 1;
+        if (!pageStats.title) {
+          pageStats.title = normalizeShortString(entry.title, 200);
+        }
+      }
+
+      if (dayBucket) {
+        dayBucket.pageViews += 1;
+      }
+
+      if (sessionId) {
+        const sessionStats = sessionMap.get(sessionId);
+        const previousPath = normalizeShortString(entry.metadata?.previousPath || '', 320);
+
+        sessionStats.pageViews += 1;
+
+        if (previousPath && previousPath !== normalizedPath) {
+          incrementMapCount(flowMap, `${previousPath}|||${normalizedPath}`);
+        } else if (sessionStats.lastPath && sessionStats.lastPath !== normalizedPath) {
+          incrementMapCount(flowMap, `${sessionStats.lastPath}|||${normalizedPath}`);
+        }
+
+        sessionStats.lastPath = normalizedPath;
+      }
+    }
+
+    if (entry.eventType === 'page_engagement') {
+      const engagementTimeMs = Number(entry.metadata?.engagementTimeMs || 0);
+      const scrollPercent = Number(entry.metadata?.maxScrollPercent || 0);
+
+      if (pageStats) {
+        pageStats.engagementTimeMs += engagementTimeMs;
+        if (scrollPercent > 0) {
+          pageStats.scrollDepthSum += scrollPercent;
+          pageStats.scrollSamples += 1;
+        }
+      }
+
+      if (sessionId && sessionMap.has(sessionId)) {
+        sessionMap.get(sessionId).engagementTimeMs += engagementTimeMs;
+      }
+    }
+
+    if (entry.eventType === 'search') {
+      if (pageStats) {
+        pageStats.searches += 1;
+      }
+      incrementMapCount(searchMap, normalizeShortString(entry.metadata?.searchTerm, 160) || 'Unknown');
+    }
+
+    if (entry.eventType === 'cta_click' || entry.eventType === 'navigation_click') {
+      if (pageStats) {
+        pageStats.ctaClicks += 1;
+      }
+      const label = normalizeShortString(entry.metadata?.label, 160) || normalizeShortString(entry.metadata?.destinationPath, 320) || 'Unlabeled CTA';
+      incrementMapCount(ctaMap, `${label}|||${normalizedPath}`);
+    }
+
+    if (entry.eventType === 'outbound_click') {
+      if (pageStats) {
+        pageStats.outboundClicks += 1;
+      }
+      incrementMapCount(outboundMap, normalizeShortString(entry.metadata?.href, 320) || 'Unknown');
+    }
+
+    if (entry.eventType === 'file_download') {
+      if (pageStats) {
+        pageStats.downloads += 1;
+      }
+      incrementMapCount(downloadMap, normalizeShortString(entry.metadata?.href, 320) || 'Unknown');
+    }
+
+    if (ANALYTICS_KEY_EVENT_TYPES.has(entry.eventType)) {
+      if (dayBucket && (entry.eventType === 'generate_lead' || entry.eventType === 'contact_request' || entry.eventType === 'creator_application' || entry.eventType === 'studio_application' || entry.eventType === 'consultation_request')) {
+        dayBucket.leads += 1;
+      }
+
+      if (sessionId && sessionMap.has(sessionId)) {
+        sessionMap.get(sessionId).hasKeyEvent = true;
+      }
+    }
+  }
+
+  for (const entry of newMembers30dEntries) {
+    const bucket = trendByDayKey.get(toDayKey(entry.createdAt));
+    if (bucket) {
+      bucket.registrations += 1;
+    }
+  }
+
+  const capturedPayments30d = paymentEntries30d.filter((entry) => ['captured', 'approved'].includes(entry.status));
+  const refundedPayments30d = paymentEntries30d.filter((entry) => entry.refundStatus === 'refunded');
+  const revenueByCheckoutMethod = new Map();
+  const paymentTypeMap = new Map();
+
+  for (const payment of capturedPayments30d) {
+    const bucket = trendByDayKey.get(toDayKey(payment.createdAt));
+    const amount = Number(payment.amount || 0);
+
+    if (bucket) {
+      bucket.purchases += 1;
+      bucket.revenue = roundCurrency(bucket.revenue + amount);
+    }
+
+    incrementMapCount(revenueByCheckoutMethod, payment.checkoutMethod || 'unknown', amount);
+    incrementMapCount(paymentTypeMap, payment.paymentType || 'unknown');
+  }
+
+  const totalRevenue30d = roundCurrency(
+    capturedPayments30d.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+  );
+  const totalRefunds30d = roundCurrency(
+    refundedPayments30d.reduce((sum, payment) => sum + Number(payment.refundAmount || 0), 0)
+  );
+  const purchaseCount30d = capturedPayments30d.length;
+
+  for (const [sessionId, sessionStats] of sessionMap.entries()) {
+    const dayBucket = trendByDayKey.get(toDayKey(sessionStats.firstSeenAt));
+    const isEngaged = (
+      sessionStats.pageViews >= 2
+      || sessionStats.engagementTimeMs >= ANALYTICS_SESSION_ENGAGEMENT_THRESHOLD_MS
+      || sessionStats.hasKeyEvent
+    );
+
+    if (dayBucket) {
+      dayBucket.sessions += 1;
+      if (isEngaged) {
+        dayBucket.engagedSessions += 1;
+      }
+    }
+
+    incrementMapCount(referrerMap, normalizeReferrerHost(sessionStats.referrer));
+    incrementMapCount(sourceMap, sessionStats.utmSource || 'Direct');
+    incrementMapCount(campaignMap, sessionStats.utmCampaign || 'Unassigned');
+    incrementMapCount(localeMap, sessionStats.locale || 'unknown');
+    incrementMapCount(deviceMap, getDeviceTypeFromUserAgent(sessionStats.userAgent));
+    incrementMapCount(browserMap, getBrowserFromUserAgent(sessionStats.userAgent));
+    incrementMapCount(osMap, getOsFromUserAgent(sessionStats.userAgent));
+
+    const landingPagePath = sessionStats.firstPath || sessionStats.lastPath || '/';
+    const landingPageStats = incrementMapObject(landingPageMap, landingPagePath, {
+      path: landingPagePath,
+      sessions: 0,
+      engagedSessions: 0,
+    });
+    landingPageStats.sessions += 1;
+    if (isEngaged) {
+      landingPageStats.engagedSessions += 1;
+    }
+
+    for (const visitedPath of sessionStats.visitedPaths || []) {
+      const pageStats = pageMap.get(visitedPath);
+      if (!pageStats) {
+        continue;
+      }
+
+      pageStats.sessions += 1;
+      if (isEngaged) {
+        pageStats.engagedSessions += 1;
+      }
+      if (landingPagePath === visitedPath) {
+        pageStats.entrances += 1;
+      }
+    }
+  }
+
+  const websiteVisits30d = sessionMap.size;
+  const uniqueVisitors30d = new Set(
+    analyticsEvents30d
+      .map((entry) => normalizeShortString(entry.visitorId, 120))
+      .filter(Boolean)
+  ).size;
+  const totalPageViews30d = Number(eventCountMap.get('page_view') || 0);
+  const engagedSessions30d = [...sessionMap.values()].filter((sessionStats) => (
+    sessionStats.pageViews >= 2
+    || sessionStats.engagementTimeMs >= ANALYTICS_SESSION_ENGAGEMENT_THRESHOLD_MS
+    || sessionStats.hasKeyEvent
+  )).length;
+  const bounceSessions30d = Math.max(websiteVisits30d - engagedSessions30d, 0);
+  const totalEngagementTimeMs30d = [...sessionMap.values()]
+    .reduce((sum, sessionStats) => sum + Number(sessionStats.engagementTimeMs || 0), 0);
+  const averagePagesPerSession30d = averageOrZero(totalPageViews30d, websiteVisits30d, 2);
+  const averageEngagementTimePerSessionSeconds30d = averageOrZero(totalEngagementTimeMs30d / 1000, websiteVisits30d, 1);
+  const averageEngagementTimePerActiveUserSeconds30d = averageOrZero(totalEngagementTimeMs30d / 1000, engagedSessions30d, 1);
+  const averageScrollDepth30d = averageOrZero(
+    [...pageMap.values()].reduce((sum, pageStats) => sum + Number(pageStats.scrollDepthSum || 0), 0),
+    [...pageMap.values()].reduce((sum, pageStats) => sum + Number(pageStats.scrollSamples || 0), 0),
+    1
+  );
+
+  const leadBreakdown = {
+    contactRequests: contactRequests30d,
+    creatorApplications: creatorApplications30d,
+    studioApplications: studioApplications30d,
+    consultationRequests: consultationRequests30d,
+    memberRegistrations: newMembers30d,
+  };
+  const leads30d = Object.values(leadBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+  const engagementRate30d = toPercentage(engagedSessions30d, websiteVisits30d);
+  const bounceRate30d = toPercentage(bounceSessions30d, websiteVisits30d);
+
+  const topPages = [...pageMap.values()]
+    .map((pageStats) => ({
+      path: pageStats.path,
+      title: pageStats.title || pageStats.path,
+      pageViews: pageStats.pageViews,
+      uniqueVisitors: pageStats.uniqueVisitors.size,
+      sessions: pageStats.sessions,
+      entrances: pageStats.entrances,
+      engagementRate: toPercentage(pageStats.engagedSessions, pageStats.sessions),
+      avgEngagementTimeSeconds: averageOrZero(pageStats.engagementTimeMs / 1000, pageStats.sessions, 1),
+      avgScrollDepth: averageOrZero(pageStats.scrollDepthSum, pageStats.scrollSamples, 1),
+      ctaClicks: pageStats.ctaClicks,
+      outboundClicks: pageStats.outboundClicks,
+      downloads: pageStats.downloads,
+      searches: pageStats.searches,
+    }))
+    .sort((left, right) => right.pageViews - left.pageViews)
+    .slice(0, ANALYTICS_TOP_LIST_LIMIT);
+
+  const navigationFlows = [...flowMap.entries()]
+    .map(([key, count]) => {
+      const [from, to] = key.split('|||');
+      return { from, to, count };
+    })
+    .sort((left, right) => right.count - left.count)
+    .slice(0, ANALYTICS_TOP_LIST_LIMIT);
+
+  const ctaPerformance = [...ctaMap.entries()]
+    .map(([key, count]) => {
+      const [label, path] = key.split('|||');
+      return { label, path, count };
+    })
+    .sort((left, right) => right.count - left.count)
+    .slice(0, ANALYTICS_TOP_LIST_LIMIT);
+
+  const topSearchTerms = mapCountsToRows(searchMap, 'term');
+  const topReferrers = mapCountsToRows(referrerMap, 'label');
+  const topSources = mapCountsToRows(sourceMap, 'label');
+  const topCampaigns = mapCountsToRows(campaignMap, 'label');
+  const localeDistribution = mapCountsToRows(localeMap, 'label');
+  const deviceDistribution = mapCountsToRows(deviceMap, 'label');
+  const browserDistribution = mapCountsToRows(browserMap, 'label');
+  const operatingSystemDistribution = mapCountsToRows(osMap, 'label');
+  const checkoutMethodDistribution = mapCountsToRows(revenueByCheckoutMethod, 'label', 'amount')
+    .map((row) => ({ ...row, amount: roundCurrency(row.amount) }));
+  const paymentTypeDistribution = mapCountsToRows(paymentTypeMap, 'label');
+  const landingPages = [...landingPageMap.values()]
+    .map((row) => ({
+      path: row.path,
+      sessions: row.sessions,
+      engagementRate: toPercentage(row.engagedSessions, row.sessions),
+    }))
+    .sort((left, right) => right.sessions - left.sessions)
+    .slice(0, ANALYTICS_TOP_LIST_LIMIT);
+  const topEvents = mapCountsToRows(eventCountMap, 'eventType');
+  const topOutboundLinks = mapCountsToRows(outboundMap, 'href');
+  const topDownloads = mapCountsToRows(downloadMap, 'href');
+
+  const funnelSteps = [
+    {
+      key: 'sessions',
+      label: 'Sessions',
+      count: websiteVisits30d,
+      conversionRate: 100,
+    },
+    {
+      key: 'begin_checkout',
+      label: 'Begin Checkout',
+      count: Number(eventCountMap.get('begin_checkout') || 0),
+      conversionRate: toPercentage(Number(eventCountMap.get('begin_checkout') || 0), websiteVisits30d),
+    },
+    {
+      key: 'add_payment_info',
+      label: 'Add Payment Info',
+      count: Number(eventCountMap.get('add_payment_info') || 0),
+      conversionRate: toPercentage(Number(eventCountMap.get('add_payment_info') || 0), websiteVisits30d),
+    },
+    {
+      key: 'purchase',
+      label: 'Purchases',
+      count: purchaseCount30d,
+      conversionRate: toPercentage(purchaseCount30d, websiteVisits30d),
+    },
+  ];
 
   return {
     overview: {
@@ -860,8 +1562,78 @@ export const getAdminAnalytics = async () => {
       newMembers30d,
       activeSubscriptions,
       totalInstructors,
+      marketingKpis: {
+        windowDays: KPI_WINDOW_DAYS,
+        websiteVisits: websiteVisits30d,
+        uniqueVisitors: uniqueVisitors30d,
+        pageViews: totalPageViews30d,
+        pagesPerSession: averagePagesPerSession30d,
+        leads: leads30d,
+        engagementRate: engagementRate30d,
+        bounceRate: bounceRate30d,
+        averageEngagementTimePerSessionSeconds: averageEngagementTimePerSessionSeconds30d,
+        averageEngagementTimePerActiveUserSeconds: averageEngagementTimePerActiveUserSeconds30d,
+        averageScrollDepth: averageScrollDepth30d,
+        purchases: purchaseCount30d,
+        revenue: totalRevenue30d,
+        refunds: totalRefunds30d,
+        contactRequests: contactRequests30d,
+        leadBreakdown,
+      },
     },
-    recentActivity
+    analytics: {
+      windowDays: KPI_WINDOW_DAYS,
+      summary: {
+        sessions: websiteVisits30d,
+        uniqueVisitors: uniqueVisitors30d,
+        pageViews: totalPageViews30d,
+        pagesPerSession: averagePagesPerSession30d,
+        engagedSessions: engagedSessions30d,
+        engagementRate: engagementRate30d,
+        bounceRate: bounceRate30d,
+        averageEngagementTimePerSessionSeconds: averageEngagementTimePerSessionSeconds30d,
+        averageEngagementTimePerActiveUserSeconds: averageEngagementTimePerActiveUserSeconds30d,
+        averageScrollDepth: averageScrollDepth30d,
+        leads: leads30d,
+        purchases: purchaseCount30d,
+        revenue: totalRevenue30d,
+        refunds: totalRefunds30d,
+      },
+      trends: [...trendByDayKey.values()],
+      acquisition: {
+        referrers: topReferrers,
+        sources: topSources,
+        campaigns: topCampaigns,
+        locales: localeDistribution,
+        landingPages,
+      },
+      behavior: {
+        topPages,
+        navigationFlows,
+        ctaPerformance,
+        searchTerms: topSearchTerms,
+        outboundLinks: topOutboundLinks,
+        downloads: topDownloads,
+        events: topEvents,
+      },
+      technology: {
+        devices: deviceDistribution,
+        browsers: browserDistribution,
+        operatingSystems: operatingSystemDistribution,
+      },
+      commerce: {
+        purchases: purchaseCount30d,
+        revenue: totalRevenue30d,
+        refunds: totalRefunds30d,
+        checkoutMethods: checkoutMethodDistribution,
+        paymentTypes: paymentTypeDistribution,
+        consultationRequests: consultationRequests30d,
+      },
+      funnel: {
+        steps: funnelSteps,
+      },
+    },
+    recentActivity,
   };
 };
 
@@ -879,7 +1651,6 @@ export const getAdminCoursesByInstructor = async () => {
         _id: course._id,
         title: course.title,
         category: course.category,
-        level: course.level,
         software: course.software || [],
         order: course.order || 0,
         isPublished: course.isPublished,
@@ -937,7 +1708,7 @@ export const getAdminInstructorDetail = async (instructorId) => {
   }
 
   const courses = await Course.find({ instructor: instructorId })
-    .select('title category level software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
+    .select('title category software order isPublished reviewStatus enrolledStudents lessonsCount createdAt')
     .sort({ order: 1, createdAt: 1 })
     .lean();
 
@@ -969,7 +1740,6 @@ export const getAdminInstructorDetail = async (instructorId) => {
       _id: course._id,
       title: course.title,
       category: course.category,
-      level: course.level,
       software: course.software || [],
       order: course.order || 0,
       isPublished: course.isPublished,

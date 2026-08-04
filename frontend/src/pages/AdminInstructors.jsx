@@ -475,7 +475,7 @@ function AdminInstructors() {
                                           {reviewBadge(course).label}
                                         </span>
                                       </div>
-                                      <p className="text-xs text-gray-400">{course.category} · {course.level}</p>
+                                      <p className="text-xs text-gray-400">{course.category}</p>
                                     </div>
                                     <div className="shrink-0">
                                       {course.isPublished ? (

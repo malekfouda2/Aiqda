@@ -31,7 +31,7 @@ const CURRENT_ACCESS_STATUSES = ['active', 'grace_period', 'cancel_scheduled'];
 const DEFAULT_REFUND_WINDOW_HOURS = 24;
 
 const PACKAGE_POPULATE = [
-  { path: 'courses', select: 'title category level' },
+  { path: 'courses', select: 'title category' },
   {
     path: 'includedPackages',
     select: 'name purchaseMode billingOptions isActive includedPackages',

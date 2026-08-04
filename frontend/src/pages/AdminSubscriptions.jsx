@@ -698,7 +698,7 @@ function AdminSubscriptions() {
                             <div>
                               <span className="text-sm font-medium">{course.title}</span>
                               <span className="text-xs text-gray-400 ml-2">
-                                {course.category} - {course.level}
+                                {course.category}
                               </span>
                             </div>
                             {isSelected && (

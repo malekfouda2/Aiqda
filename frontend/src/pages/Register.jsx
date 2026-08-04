@@ -5,6 +5,7 @@ import useAuthStore from '../store/authStore';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import PlatformNoticeModal from '../components/PlatformNoticeModal';
 import { useLocale } from '../i18n/useLocale';
+import { trackAnalyticsEvent } from '../utils/analytics';
 
 function Register() {
   const { t, isRTL, brandName } = useLocale();
@@ -39,6 +40,11 @@ function Register() {
   const handleRegisterWithTerms = async () => {
     const result = await register(name, email, password, 'student', true);
     if (result.success) {
+      void trackAnalyticsEvent(
+        'member_registration',
+        { locale: isRTL ? 'ar' : 'en', path: '/register' },
+        { sendToGa: false }
+      );
       navigate('/dashboard');
       return;
     }

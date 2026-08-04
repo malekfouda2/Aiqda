@@ -23,11 +23,6 @@ const courseSchema = new mongoose.Schema({
     type: String,
     default: 'General'
   },
-  level: {
-    type: String,
-    enum: ['beginner', 'intermediate', 'advanced'],
-    default: 'beginner'
-  },
   // Software/tools the creator uses in this chapter (e.g. Blender, Maya, Photoshop).
   // Surfaced on every endpoint that returns the course.
   software: {

@@ -11,6 +11,7 @@ import TapCardCheckout from '../components/TapCardCheckout';
 import TapApplePayCheckout from '../components/TapApplePayCheckout';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+import { trackAnalyticsEvent } from '../utils/analytics';
 import {
   SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER,
   SUBSCRIPTION_DEVICE_LIMIT_TITLE,
@@ -310,6 +311,20 @@ function Subscription() {
 
         const payment = response.data;
         if (payment.status === 'captured' || payment.status === 'approved') {
+          void trackAnalyticsEvent(
+            payment.paymentType === 'billing_profile_setup' ? 'add_payment_info' : 'purchase',
+            {
+              metadata: {
+                paymentType: payment.paymentType || '',
+                currency: payment.currency || checkoutCurrency,
+                value: Number(payment.amount || checkoutAmount || 0),
+                paymentStatus: payment.status,
+              },
+            },
+            {
+              backendEventType: payment.paymentType === 'billing_profile_setup' ? 'billing_profile_setup_completed' : 'purchase',
+            }
+          );
           showSuccess(
             payment.paymentType === 'billing_profile_setup'
               ? (isRTL ? 'تم حفظ وسيلة الدفع بنجاح.' : 'Your payment method was saved successfully.')
@@ -416,9 +431,21 @@ function Subscription() {
     try {
       const response = await subscriptionsAPI.requestSubscription(packageId, billingTerm);
       const nextSubscription = response.data;
+      const selectedPackage = packages.find((pkg) => pkg._id === packageId);
       setCheckoutPurpose('subscription');
       setPendingSubscription(nextSubscription);
       setShowCheckout(true);
+      void trackAnalyticsEvent('begin_checkout', {
+        metadata: {
+          subscriptionId: nextSubscription?._id || '',
+          packageId,
+          packageName: selectedPackage?.name || '',
+          billingTerm,
+          currency: nextSubscription?.currency || 'SAR',
+          value: Number(nextSubscription?.priceAtPurchase || 0),
+          items: 1,
+        },
+      });
       showSuccess(
         savedBillingProfile?.hasSavedCard
           ? (isRTL ? 'تم إنشاء طلب الاشتراك. اختر وسيلة الدفع التي تريد استخدامها.' : 'Subscription request created. Choose the payment method you want to use.')
@@ -449,6 +476,15 @@ function Subscription() {
       const redirectUrl = response.data?.redirectUrl;
 
       if (payment?.status === 'captured' || payment?.status === 'approved') {
+        void trackAnalyticsEvent('purchase', {
+          metadata: {
+            subscriptionId,
+            checkoutMethod: 'saved_card',
+            currency: payment.currency || checkoutCurrency,
+            value: Number(payment.amount || checkoutAmount || 0),
+            paymentStatus: payment.status,
+          },
+        });
         showSuccess(isRTL ? 'تم استخدام وسيلة الدفع المحفوظة وتفعيل الاشتراك.' : 'Your saved payment method was used and the subscription is now active.');
         setShowCheckout(false);
         await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
@@ -514,6 +550,12 @@ function Subscription() {
 
     setCheckoutPurpose('billing_profile');
     setShowCheckout(true);
+    void trackAnalyticsEvent('billing_profile_setup_started', {
+      metadata: {
+        currency: tapConfig?.billingProfileSetup?.currency || tapConfig?.currency || 'SAR',
+        value: Number(tapConfig?.billingProfileSetup?.amount || 0),
+      },
+    });
     await ensureCheckoutReady('billing_profile');
   };
 
@@ -558,6 +600,15 @@ function Subscription() {
     setSelectedCheckoutMethod(normalizedMethod);
     setApplePayArmed(false);
     setApplePayState({ ready: false, error: '' });
+    void trackAnalyticsEvent('checkout_method_selected', {
+      metadata: {
+        checkoutMethod: normalizedMethod,
+        subscriptionId: checkoutSubscription?._id || '',
+        currency: checkoutCurrency,
+        value: Number(checkoutAmount || 0),
+        purpose: checkoutPurpose,
+      },
+    });
     setShowCheckoutDisclaimer(true);
   };
 
@@ -587,6 +638,22 @@ function Subscription() {
     const redirectUrl = response.data?.redirectUrl;
 
     if (payment?.status === 'captured' || payment?.status === 'approved') {
+      void trackAnalyticsEvent(
+        isBillingProfileSetupCheckout ? 'add_payment_info' : 'purchase',
+        {
+          metadata: {
+            subscriptionId: checkoutSubscription?._id || '',
+            checkoutMethod,
+            currency: payment.currency || checkoutCurrency,
+            value: Number(payment.amount || checkoutAmount || 0),
+            paymentStatus: payment.status,
+            paymentType: payment.paymentType || '',
+          },
+        },
+        {
+          backendEventType: isBillingProfileSetupCheckout ? 'billing_profile_setup_completed' : 'purchase',
+        }
+      );
       setShowCheckoutDisclaimer(false);
       setApplePayArmed(false);
       showSuccess(
@@ -635,6 +702,15 @@ function Subscription() {
     const redirectUrl = response.data?.redirectUrl;
 
     if (payment?.status === 'captured' || payment?.status === 'approved') {
+      void trackAnalyticsEvent('purchase', {
+        metadata: {
+          subscriptionId: checkoutSubscription?._id || '',
+          checkoutMethod,
+          currency: payment.currency || checkoutCurrency,
+          value: Number(payment.amount || checkoutAmount || 0),
+          paymentStatus: payment.status,
+        },
+      });
       setShowCheckoutDisclaimer(false);
       showSuccess(isRTL ? 'تم تأكيد الدفع وتفعيل الاشتراك.' : 'Payment confirmed and subscription activated.');
       await Promise.all([refreshProfile(), fetchLatestSubscriptions()]);
@@ -693,6 +769,14 @@ function Subscription() {
 
     setSubmittingPayment(true);
     try {
+      void trackAnalyticsEvent(isBillingProfileSetupCheckout ? 'billing_profile_setup_submitted' : 'add_payment_info', {
+        metadata: {
+          checkoutMethod: 'card',
+          subscriptionId: checkoutSubscription?._id || '',
+          currency: checkoutCurrency,
+          value: Number(checkoutAmount || 0),
+        },
+      });
       const tokenResponse = await tapCardRef.current.tokenize();
       const tokenId = tokenResponse?.id;
       if (!tokenId) {

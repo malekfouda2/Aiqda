@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import request from 'supertest';
+import { CourseProgress, LessonProgress } from '../src/modules/analytics/progress.model.js';
 
 import {
   authHeader,
@@ -79,6 +80,72 @@ test('students only see published lessons they are enrolled in while instructors
     .set(authHeader(instructor.token));
   assert.equal(instructorListResponse.status, 200);
   assert.equal(instructorListResponse.body.length, 2);
+});
+
+test('admin viewers can access member content without generating lesson or chapter progress', async () => {
+  const instructor = await createUser({ role: 'instructor' });
+  const admin = await createUser({ role: 'admin' });
+  const student = await createUser({ role: 'student' });
+
+  const course = await createCourse({
+    instructorId: instructor.user._id,
+    enrolledStudents: [student.user._id],
+    isPublished: true,
+    title: 'Admin Review Course'
+  });
+
+  const packageRecord = await createSubscriptionPackage({
+    courses: [course._id]
+  });
+  await createSubscription({
+    user: student.user._id,
+    package: packageRecord._id,
+    status: 'active',
+    startDate: new Date(Date.now() - 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
+  const lesson = await createLesson({
+    course: course._id,
+    title: 'Admin Review Lesson',
+    order: 1,
+    isPublished: true
+  });
+
+  await createQuiz({ lesson: lesson._id });
+
+  const lessonResponse = await request(suite.app)
+    .get(`/api/lessons/${lesson._id}`)
+    .set(authHeader(admin.token));
+  assert.equal(lessonResponse.status, 200);
+  assert.equal(lessonResponse.body.progress, null);
+
+  const watchResponse = await request(suite.app)
+    .post(`/api/lessons/${lesson._id}/progress`)
+    .set(authHeader(admin.token))
+    .send({ watchPercentage: 95 });
+  assert.equal(watchResponse.status, 200);
+  assert.equal(watchResponse.body.watchPercentage, 0);
+  assert.equal(watchResponse.body.trackingDisabled, true);
+
+  const quizResponse = await request(suite.app)
+    .post(`/api/quizzes/lesson/${lesson._id}/submit`)
+    .set(authHeader(admin.token))
+    .send({ answers: [1] });
+  assert.equal(quizResponse.status, 200);
+  assert.equal(quizResponse.body.passed, true);
+  assert.equal(quizResponse.body.progress.trackingDisabled, true);
+  assert.equal(quizResponse.body.progress.watchPercentage, 0);
+
+  const courseProgressResponse = await request(suite.app)
+    .get(`/api/analytics/student/course/${course._id}`)
+    .set(authHeader(admin.token));
+  assert.equal(courseProgressResponse.status, 200);
+  assert.equal(courseProgressResponse.body.courseProgress, null);
+  assert.deepEqual(courseProgressResponse.body.lessonProgress, []);
+
+  assert.equal(await LessonProgress.countDocuments({ user: admin.user._id }), 0);
+  assert.equal(await CourseProgress.countDocuments({ user: admin.user._id }), 0);
 });
 
 test('students cannot access draft quizzes while admins can still review full quiz data', async () => {

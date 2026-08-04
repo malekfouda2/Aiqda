@@ -11,6 +11,7 @@ import TapApplePayCheckout from '../components/TapApplePayCheckout';
 import { pageVariants, fadeInUp } from '../utils/animations';
 import { getLocalizedArrayField, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+import { trackPublicAnalyticsEvent } from '../utils/analytics';
 
 const splitName = (value = '') => {
   const normalizedName = String(value).trim();
@@ -330,6 +331,7 @@ function ConsultationDetail() {
       await consultationBookingsAPI.submit({
         consultationId: id,
       });
+      void trackPublicAnalyticsEvent('consultation_request', { locale: isRTL ? 'ar' : 'en', path: `/consultations/${id}` });
       setIsSubmitted(true);
       showSuccess(isRTL ? 'تم إرسال طلب الحجز بنجاح!' : 'Your booking has been submitted successfully!');
     } catch (error) {

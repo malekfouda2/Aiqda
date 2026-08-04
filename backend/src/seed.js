@@ -117,7 +117,6 @@ export async function seedDatabase(options = {}) {
           title: 'AutoCAD Fundamentals',
           description: 'Master the basics of AutoCAD for architectural and engineering drafting. Learn 2D drawing, dimensioning, layers, and plotting.',
           category: 'Engineering',
-          level: 'beginner',
           isPublished: true,
           lessons: [
             { title: 'Introduction to AutoCAD Interface', description: 'Navigate the AutoCAD workspace, toolbars, and command line' },
@@ -131,7 +130,6 @@ export async function seedDatabase(options = {}) {
           title: 'Advanced AutoCAD 3D Modeling',
           description: 'Take your AutoCAD skills to the next level with 3D modeling, rendering, and visualization techniques.',
           category: 'Engineering',
-          level: 'advanced',
           isPublished: true,
           lessons: [
             { title: '3D Coordinate Systems', description: 'Understanding UCS, WCS, and 3D navigation' },
@@ -149,7 +147,6 @@ export async function seedDatabase(options = {}) {
           title: 'Revit Architecture Essentials',
           description: 'Learn Building Information Modeling (BIM) with Autodesk Revit. Create architectural plans, sections, and 3D views.',
           category: 'Architecture',
-          level: 'beginner',
           isPublished: true,
           lessons: [
             { title: 'Revit Interface and Project Setup', description: 'Setting up a new project, templates, and navigation' },
@@ -164,7 +161,6 @@ export async function seedDatabase(options = {}) {
           title: 'SketchUp for Interior Design',
           description: 'Use SketchUp to create stunning interior design presentations with 3D models, materials, and lighting.',
           category: 'Interior Design',
-          level: 'intermediate',
           isPublished: true,
           lessons: [
             { title: 'SketchUp Workspace Setup', description: 'Interface overview, plugins, and workspace customization' },
@@ -181,7 +177,6 @@ export async function seedDatabase(options = {}) {
           title: 'Excel for Business Analytics',
           description: 'Master Excel formulas, pivot tables, charts, and data analysis for business decision-making.',
           category: 'Business',
-          level: 'intermediate',
           isPublished: true,
           lessons: [
             { title: 'Advanced Formulas and Functions', description: 'VLOOKUP, INDEX-MATCH, SUMIFS, and array formulas' },
@@ -194,7 +189,6 @@ export async function seedDatabase(options = {}) {
           title: 'Project Management with Primavera P6',
           description: 'Learn project scheduling, resource management, and cost tracking with Oracle Primavera P6.',
           category: 'Project Management',
-          level: 'advanced',
           isPublished: true,
           lessons: [
             { title: 'P6 Interface and Project Creation', description: 'Navigating P6, creating EPS, OBS, and projects' },
@@ -208,7 +202,6 @@ export async function seedDatabase(options = {}) {
           title: 'Introduction to Python Programming',
           description: 'Start your programming journey with Python. Learn variables, loops, functions, and basic data structures.',
           category: 'Programming',
-          level: 'beginner',
           isPublished: false,
           lessons: [
             { title: 'Python Setup and First Program', description: 'Installing Python, IDE setup, and Hello World' },
@@ -256,7 +249,6 @@ export async function seedDatabase(options = {}) {
         title: courseData.title,
         description: courseData.description,
         category: courseData.category,
-        level: courseData.level,
         isPublished: courseData.isPublished,
         instructor: group.instructor._id,
         lessonsCount: courseData.lessons.length,

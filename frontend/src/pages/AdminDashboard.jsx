@@ -99,132 +99,132 @@ function AdminDashboard() {
       initial="hidden"
       animate="visible"
     >
-          <motion.div variants={fadeInUp} className="mb-10">
-            <motion.div
-              variants={slideInLeft}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
-          >
-              <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-500">{isRTL ? 'لوحة الإدارة' : 'Admin Dashboard'}</span>
-            </motion.div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              {isRTL ? 'نظرة ' : 'Platform '}<span className="gradient-text">{isRTL ? 'عامة' : 'Overview'}</span>
-            </h1>
-            <p className="text-gray-500 text-lg">{isRTL ? 'أدر منصتك التعليمية' : 'Manage your education platform'}</p>
-            {lastUpdatedAt && (
-              <p className="text-xs text-gray-400 mt-3">
-                {isRTL
-                  ? `يتم التحديث تلقائيًا كل 15 ثانية • آخر تحديث ${lastUpdatedAt.toLocaleTimeString()}`
-                  : `Auto-refreshes every 15 seconds • Last updated ${lastUpdatedAt.toLocaleTimeString()}`}
-              </p>
-            )}
-          </motion.div>
+      <motion.div variants={fadeInUp} className="mb-10">
+        <motion.div
+          variants={slideInLeft}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4"
+        >
+          <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
+          <span className="text-xs text-gray-500">{isRTL ? 'لوحة الإدارة' : 'Admin Dashboard'}</span>
+        </motion.div>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          {isRTL ? 'نظرة ' : 'Platform '}<span className="gradient-text">{isRTL ? 'عامة' : 'Overview'}</span>
+        </h1>
+        <p className="text-gray-500 text-lg">{isRTL ? 'أدر منصتك التعليمية' : 'Manage your education platform'}</p>
+        {lastUpdatedAt && (
+          <p className="text-xs text-gray-400 mt-3">
+            {isRTL
+              ? `يتم التحديث تلقائيًا كل 15 ثانية • آخر تحديث ${lastUpdatedAt.toLocaleTimeString()}`
+              : `Auto-refreshes every 15 seconds • Last updated ${lastUpdatedAt.toLocaleTimeString()}`}
+          </p>
+        )}
+      </motion.div>
 
-          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            {statsCards.map((stat) => (
-              <motion.div
-                key={stat.label}
-                variants={cardVariants}
-                className="stat-card group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`icon-box ${stat.iconClass} transition-transform duration-300 group-hover:scale-110`}>
-                    <span>{stat.icon}</span>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                    <p className="text-gray-500 text-sm">{stat.label}</p>
-                    {stat.sub ? <p className="text-xs text-gray-400 mt-1">{stat.sub}</p> : null}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8 mb-8">
-            <motion.div variants={cardVariants} className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="icon-box icon-box-success w-10 h-10 text-lg"><span>💰</span></div>
-                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'لمحة مالية' : 'Finance Snapshot'}</h2>
-                </div>
-                <Link to="/admin/finance" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
-                  {isRTL ? 'عرض المالية ←' : 'View Finance →'}
-                </Link>
-              </div>
-
-              {!finance ? (
-                <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center"><span className="text-2xl">📊</span></div>
-                  <p className="text-gray-500">{isRTL ? 'لا توجد بيانات مالية بعد' : 'No financial data yet'}</p>
-                </div>
-              ) : (
-                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
-                  {financeRows.map((row, idx) => (
-                    <motion.div key={`${row.label}-${idx}`} variants={tableRowVariants} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
-                      <span className="text-sm text-gray-600">{row.label}</span>
-                      <span className={`text-base font-semibold ${row.accent}`}>{row.value}</span>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
-            </motion.div>
-
-            <motion.div variants={cardVariants} className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="icon-box icon-box-primary w-10 h-10 text-lg"><span>👥</span></div>
-                  <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'الأعضاء والنمو' : 'Members & Growth'}</h2>
-                </div>
-                <Link to="/admin/users" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
-                  {isRTL ? 'إدارة الأعضاء ←' : 'Manage Members →'}
-                </Link>
-              </div>
-
-              <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 gap-3">
-                {memberRows.map((row) => (
-                  <motion.div key={row.label} variants={tableRowVariants} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">{row.icon}</span>
-                      <span className="text-2xl font-bold text-gray-900">{row.value}</span>
-                    </div>
-                    <p className="text-xs text-gray-500">{row.label}</p>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-          </motion.div>
-
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        {statsCards.map((stat) => (
           <motion.div
-            variants={fadeInUp}
-            className="card"
+            key={stat.label}
+            variants={cardVariants}
+            className="stat-card group"
           >
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'إجراءات سريعة' : 'Quick Actions'}</h2>
-            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {quickActions.map((action) => (
-                <motion.div
-                  key={action.to}
-                  variants={cardVariants}
-                  whileHover={{ y: -2 }}
-                >
-                  <Link
-                    to={action.to}
-                    className="flex items-center gap-4 p-5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
-                  >
-                    <div className={`icon-box ${action.iconClass} w-12 h-12 text-xl transition-transform duration-300 group-hover:scale-110`}>
-                      <span>{action.icon}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors block">
-                        {action.label}
-                      </span>
-                      <span className="text-xs text-gray-400">{action.description}</span>
-                    </div>
-                  </Link>
+            <div className="flex items-center gap-4">
+              <div className={`icon-box ${stat.iconClass} transition-transform duration-300 group-hover:scale-110`}>
+                <span>{stat.icon}</span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-gray-500 text-sm">{stat.label}</p>
+                {stat.sub ? <p className="text-xs text-gray-400 mt-1">{stat.sub}</p> : null}
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-8 mb-8">
+        <motion.div variants={cardVariants} className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="icon-box icon-box-success w-10 h-10 text-lg"><span>💰</span></div>
+              <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'لمحة مالية' : 'Finance Snapshot'}</h2>
+            </div>
+            <Link to="/admin/finance" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
+              {isRTL ? 'عرض المالية ←' : 'View Finance →'}
+            </Link>
+          </div>
+
+          {!finance ? (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center"><span className="text-2xl">📊</span></div>
+              <p className="text-gray-500">{isRTL ? 'لا توجد بيانات مالية بعد' : 'No financial data yet'}</p>
+            </div>
+          ) : (
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-3">
+              {financeRows.map((row, idx) => (
+                <motion.div key={`${row.label}-${idx}`} variants={tableRowVariants} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
+                  <span className="text-sm text-gray-600">{row.label}</span>
+                  <span className={`text-base font-semibold ${row.accent}`}>{row.value}</span>
                 </motion.div>
               ))}
             </motion.div>
+          )}
+        </motion.div>
+
+        <motion.div variants={cardVariants} className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="icon-box icon-box-primary w-10 h-10 text-lg"><span>👥</span></div>
+              <h2 className="text-xl font-semibold text-gray-900">{isRTL ? 'الأعضاء والنمو' : 'Members & Growth'}</h2>
+            </div>
+            <Link to="/admin/users" className="text-primary-500 hover:text-primary-600 text-sm font-medium transition-colors">
+              {isRTL ? 'إدارة الأعضاء ←' : 'Manage Members →'}
+            </Link>
+          </div>
+
+          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid grid-cols-2 gap-3">
+            {memberRows.map((row) => (
+              <motion.div key={row.label} variants={tableRowVariants} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">{row.icon}</span>
+                  <span className="text-2xl font-bold text-gray-900">{row.value}</span>
+                </div>
+                <p className="text-xs text-gray-500">{row.label}</p>
+              </motion.div>
+            ))}
           </motion.div>
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        variants={fadeInUp}
+        className="card"
+      >
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">{isRTL ? 'إجراءات سريعة' : 'Quick Actions'}</h2>
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action) => (
+            <motion.div
+              key={action.to}
+              variants={cardVariants}
+              whileHover={{ y: -2 }}
+            >
+              <Link
+                to={action.to}
+                className="flex items-center gap-4 p-5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-primary-200 transition-all duration-300 group"
+              >
+                <div className={`icon-box ${action.iconClass} w-12 h-12 text-xl transition-transform duration-300 group-hover:scale-110`}>
+                  <span>{action.icon}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900 group-hover:text-primary-500 transition-colors block">
+                    {action.label}
+                  </span>
+                  <span className="text-xs text-gray-400">{action.description}</span>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
     </motion.div>
   );
 }

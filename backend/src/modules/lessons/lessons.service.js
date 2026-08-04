@@ -2,6 +2,10 @@ import Lesson from './lesson.model.js';
 import Course from '../courses/course.model.js';
 import { updateLessonCount } from '../courses/courses.service.js';
 import { LessonProgress } from '../analytics/progress.model.js';
+import {
+  buildUntrackedLessonProgress,
+  getProgressTrackingContext,
+} from '../analytics/progressTracking.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
 import { notify } from '../notifications/notify.js';
@@ -135,6 +139,11 @@ export const getLessonById = async (lessonId, userId = null, userRole = null) =>
   }
 
   if (userId) {
+    const trackingContext = await getProgressTrackingContext(userId, userRole, lesson.course._id);
+    if (!trackingContext.shouldTrack) {
+      return { lesson, progress: null };
+    }
+
     const progress = await LessonProgress.findOne({ user: userId, lesson: lessonId });
     return { lesson, progress };
   }
@@ -335,6 +344,16 @@ export const updateWatchProgress = async (lessonId, userId, watchPercentage, use
   const normalizedWatchPercentage = Number(watchPercentage);
   if (!Number.isFinite(normalizedWatchPercentage) || normalizedWatchPercentage < 0 || normalizedWatchPercentage > 100) {
     throw new Error('Watch percentage must be a number between 0 and 100');
+  }
+
+  const trackingContext = await getProgressTrackingContext(userId, userRole, lesson.course._id);
+  if (!trackingContext.shouldTrack) {
+    return buildUntrackedLessonProgress({
+      userId,
+      lessonId: lesson._id,
+      courseId: lesson.course._id,
+      reason: trackingContext.reason,
+    });
   }
 
   let progress = await LessonProgress.findOne({ user: userId, lesson: lessonId });

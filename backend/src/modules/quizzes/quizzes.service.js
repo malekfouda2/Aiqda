@@ -1,6 +1,10 @@
 import Quiz from './quiz.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import { LessonProgress, CourseProgress } from '../analytics/progress.model.js';
+import {
+  buildUntrackedLessonProgress,
+  getProgressTrackingContext,
+} from '../analytics/progressTracking.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 import { onCourseProgressChanged } from '../finance/financeHooks.js';
 
@@ -215,15 +219,6 @@ export const submitQuiz = async (lessonId, userId, answers, userRole = null) => 
     throw new Error('Please answer all quiz questions');
   }
 
-  let progress = await LessonProgress.findOne({ user: userId, lesson: lessonId });
-  if (!progress) {
-    progress = new LessonProgress({
-      user: userId,
-      lesson: lessonId,
-      course: lesson.course._id
-    });
-  }
-
   let score = 0;
   const results = quiz.questions.map((question, index) => {
     const isCorrect = question.correctAnswer === answers[index];
@@ -237,6 +232,35 @@ export const submitQuiz = async (lessonId, userId, answers, userRole = null) => 
   });
 
   const passed = score >= quiz.passingScore;
+
+  const trackingContext = await getProgressTrackingContext(userId, userRole, lesson.course._id);
+  if (!trackingContext.shouldTrack) {
+    return {
+      score,
+      totalQuestions: quiz.questions.length,
+      passed,
+      passingScore: quiz.passingScore,
+      results,
+      progress: buildUntrackedLessonProgress({
+        userId,
+        lessonId: lesson._id,
+        courseId: lesson.course._id,
+        quizPassed: passed,
+        quizScore: score,
+        quizAttempts: 1,
+        reason: trackingContext.reason,
+      }),
+    };
+  }
+
+  let progress = await LessonProgress.findOne({ user: userId, lesson: lessonId });
+  if (!progress) {
+    progress = new LessonProgress({
+      user: userId,
+      lesson: lessonId,
+      course: lesson.course._id
+    });
+  }
 
   progress.quizScore = Math.max(progress.quizScore, score);
   progress.quizAttempts += 1;

@@ -8,7 +8,7 @@ import { useLocale } from '../i18n/useLocale';
 import { getPackageCourseIds } from '../utils/subscriptions';
 
 function Courses() {
-  const { locale, t, isRTL } = useLocale();
+  const { locale, isRTL } = useLocale();
   const [courses, setCourses] = useState([]);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,15 +159,6 @@ function Courses() {
                       <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-300">
                         <span className="text-3xl">🎓</span>
                       </div>
-                    </div>
-                    <div className="absolute top-3 left-3">
-                      <span className={`tag ${
-                        course.level === 'beginner' ? 'tag-beginner' :
-                        course.level === 'intermediate' ? 'tag-intermediate' :
-                        'tag-advanced'
-                      }`}>
-                        {t(`status.${course.level}`, course.level)}
-                      </span>
                     </div>
                   </div>
 
