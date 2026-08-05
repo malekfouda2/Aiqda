@@ -22,6 +22,151 @@ const TABS = [
   { key: 'realtime', label: 'Realtime' },
   { key: 'embedded', label: 'Embedded' },
 ];
+const VISUAL_DEMO_GA4 = {
+  acquisition: {
+    channels: [
+      { label: 'Organic Search', sessions: 2480, activeUsers: 1910, newUsers: 1480, engagementRate: 62.4, totalRevenue: 18420 },
+      { label: 'Paid Social', sessions: 1940, activeUsers: 1508, newUsers: 1322, engagementRate: 54.8, totalRevenue: 12990 },
+      { label: 'Direct', sessions: 1710, activeUsers: 1245, newUsers: 640, engagementRate: 68.1, totalRevenue: 16770 },
+      { label: 'Referral', sessions: 920, activeUsers: 702, newUsers: 314, engagementRate: 49.9, totalRevenue: 6440 },
+      { label: 'Email', sessions: 610, activeUsers: 488, newUsers: 126, engagementRate: 73.2, totalRevenue: 5980 },
+    ],
+    countries: [
+      { label: 'Saudi Arabia', activeUsers: 1680, sessions: 2140, totalRevenue: 19870 },
+      { label: 'Egypt', activeUsers: 1140, sessions: 1530, totalRevenue: 12240 },
+      { label: 'United Arab Emirates', activeUsers: 760, sessions: 940, totalRevenue: 10180 },
+      { label: 'United States', activeUsers: 520, sessions: 710, totalRevenue: 5820 },
+      { label: 'United Kingdom', activeUsers: 350, sessions: 440, totalRevenue: 3610 },
+      { label: 'India', activeUsers: 300, sessions: 415, totalRevenue: 2980 },
+    ],
+  },
+  audiences: {
+    audiences: [
+      { label: 'High-Intent Subscribers', activeUsers: 860, newUsers: 214, sessions: 1420, screenPageViewsPerSession: 5.2, averageSessionDuration: 384, totalRevenue: 15480 },
+      { label: 'Creative Explorers', activeUsers: 690, newUsers: 308, sessions: 1180, screenPageViewsPerSession: 4.6, averageSessionDuration: 326, totalRevenue: 9320 },
+      { label: 'Returning Professionals', activeUsers: 480, newUsers: 96, sessions: 910, screenPageViewsPerSession: 6.1, averageSessionDuration: 417, totalRevenue: 11890 },
+      { label: 'Consultation Prospects', activeUsers: 310, newUsers: 122, sessions: 540, screenPageViewsPerSession: 3.8, averageSessionDuration: 251, totalRevenue: 2440 },
+      { label: 'Arabic Mobile Learners', activeUsers: 260, newUsers: 118, sessions: 470, screenPageViewsPerSession: 4.2, averageSessionDuration: 273, totalRevenue: 1880 },
+    ],
+  },
+  realtime: {
+    byMinute: [
+      { label: '29m', activeUsers: 8 },
+      { label: '24m', activeUsers: 12 },
+      { label: '19m', activeUsers: 16 },
+      { label: '14m', activeUsers: 19 },
+      { label: '9m', activeUsers: 22 },
+      { label: '4m', activeUsers: 27 },
+      { label: 'Now', activeUsers: 24 },
+    ],
+    countries: [
+      { label: 'Saudi Arabia', activeUsers: 12 },
+      { label: 'Egypt', activeUsers: 7 },
+      { label: 'United Arab Emirates', activeUsers: 4 },
+      { label: 'United States', activeUsers: 3 },
+      { label: 'United Kingdom', activeUsers: 2 },
+    ],
+  },
+};
+const COUNTRY_GEO_ALIASES = {
+  saudi: 'Saudi Arabia',
+  'saudi arabia': 'Saudi Arabia',
+  ksa: 'Saudi Arabia',
+  egypt: 'Egypt',
+  'united arab emirates': 'United Arab Emirates',
+  uae: 'United Arab Emirates',
+  qatar: 'Qatar',
+  kuwait: 'Kuwait',
+  bahrain: 'Bahrain',
+  oman: 'Oman',
+  jordan: 'Jordan',
+  lebanon: 'Lebanon',
+  iraq: 'Iraq',
+  turkey: 'Turkey',
+  india: 'India',
+  pakistan: 'Pakistan',
+  bangladesh: 'Bangladesh',
+  'united states': 'United States',
+  usa: 'United States',
+  canada: 'Canada',
+  mexico: 'Mexico',
+  brazil: 'Brazil',
+  argentina: 'Argentina',
+  chile: 'Chile',
+  'united kingdom': 'United Kingdom',
+  uk: 'United Kingdom',
+  ireland: 'Ireland',
+  france: 'France',
+  germany: 'Germany',
+  spain: 'Spain',
+  italy: 'Italy',
+  netherlands: 'Netherlands',
+  belgium: 'Belgium',
+  sweden: 'Sweden',
+  norway: 'Norway',
+  poland: 'Poland',
+  russia: 'Russia',
+  nigeria: 'Nigeria',
+  kenya: 'Kenya',
+  'south africa': 'South Africa',
+  australia: 'Australia',
+  indonesia: 'Indonesia',
+  malaysia: 'Malaysia',
+  singapore: 'Singapore',
+  japan: 'Japan',
+  china: 'China',
+  'south korea': 'South Korea',
+};
+const WORLD_MAP_BASE_PATHS = [
+  'M69 170C92 129 148 106 211 117C253 124 280 150 284 184C290 221 260 255 214 263C169 271 114 259 86 226C72 209 61 189 69 170Z',
+  'M230 284C267 276 306 297 318 335C332 378 303 443 266 466C238 483 209 469 205 430C199 377 203 308 230 284Z',
+  'M386 128C425 96 493 95 535 125C562 143 589 155 629 150C691 142 741 164 764 205C782 238 759 276 714 281C661 288 624 254 581 263C537 272 507 301 458 288C411 276 372 239 365 196C361 170 368 144 386 128Z',
+  'M508 299C548 280 600 291 626 333C652 377 633 434 589 459C553 480 509 460 492 416C474 368 477 316 508 299Z',
+  'M704 309C733 293 779 300 812 329C843 356 857 395 839 424C817 459 763 452 732 423C701 394 681 329 704 309Z',
+  'M789 382C831 363 903 382 928 424C950 461 921 500 870 501C824 501 782 472 774 431C770 411 772 392 789 382Z',
+];
+const COUNTRY_MAP_FEATURES = {
+  'United States': { name: 'United States', path: 'M126 197L219 181L266 205L246 250L176 257L106 227Z' },
+  Canada: { name: 'Canada', path: 'M96 118L218 103L283 136L253 178L166 186L82 162Z' },
+  Mexico: { name: 'Mexico', path: 'M153 258L237 256L263 292L225 316L170 293Z' },
+  Brazil: { name: 'Brazil', path: 'M259 313L320 337L310 421L263 468L218 432L224 356Z' },
+  Argentina: { name: 'Argentina', path: 'M250 415L285 427L274 501L238 498L231 447Z' },
+  Chile: { name: 'Chile', path: 'M222 394L241 403L232 504L212 499L211 438Z' },
+  'United Kingdom': { name: 'United Kingdom', path: 'M453 151L479 146L491 172L471 193L446 180Z' },
+  Ireland: { name: 'Ireland', path: 'M431 159L450 152L453 178L434 184Z' },
+  France: { name: 'France', path: 'M467 194L505 188L517 227L486 250L456 226Z' },
+  Germany: { name: 'Germany', path: 'M507 166L544 171L551 215L517 225L501 189Z' },
+  Spain: { name: 'Spain', path: 'M444 239L488 246L501 277L462 292L430 268Z' },
+  Italy: { name: 'Italy', path: 'M526 225L552 241L561 291L543 303L519 249Z' },
+  Sweden: { name: 'Sweden', path: 'M526 78L561 86L553 153L521 157L512 116Z' },
+  Norway: { name: 'Norway', path: 'M488 78L523 74L514 153L484 145Z' },
+  Poland: { name: 'Poland', path: 'M551 173L588 178L589 215L553 215Z' },
+  Russia: { name: 'Russia', path: 'M589 101L779 95L860 139L834 205L678 197L601 165Z' },
+  Turkey: { name: 'Turkey', path: 'M566 231L630 228L653 251L601 269L553 256Z' },
+  Egypt: { name: 'Egypt', path: 'M538 276L579 273L594 323L553 330Z' },
+  'Saudi Arabia': { name: 'Saudi Arabia', path: 'M596 294L660 292L691 342L664 389L601 361L579 319Z' },
+  'United Arab Emirates': { name: 'United Arab Emirates', path: 'M684 337L712 341L705 361L679 355Z' },
+  Qatar: { name: 'Qatar', path: 'M674 333L684 338L678 353L669 344Z' },
+  Kuwait: { name: 'Kuwait', path: 'M652 289L671 291L669 306L651 304Z' },
+  Bahrain: { name: 'Bahrain', path: 'M672 320L680 323L676 333L668 328Z' },
+  Oman: { name: 'Oman', path: 'M687 362L723 359L712 399L675 389Z' },
+  Jordan: { name: 'Jordan', path: 'M580 268L607 266L607 289L586 299Z' },
+  Lebanon: { name: 'Lebanon', path: 'M586 247L596 248L594 267L582 264Z' },
+  Iraq: { name: 'Iraq', path: 'M609 247L654 253L657 291L608 289Z' },
+  Nigeria: { name: 'Nigeria', path: 'M495 348L548 347L556 393L511 405L485 375Z' },
+  Kenya: { name: 'Kenya', path: 'M587 396L626 395L638 440L601 460L577 430Z' },
+  'South Africa': { name: 'South Africa', path: 'M555 459L628 460L646 500L594 520L542 499Z' },
+  India: { name: 'India', path: 'M722 307L780 324L790 391L752 443L710 382Z' },
+  Pakistan: { name: 'Pakistan', path: 'M679 282L726 291L727 333L694 344L669 315Z' },
+  Bangladesh: { name: 'Bangladesh', path: 'M792 343L815 347L809 371L788 364Z' },
+  China: { name: 'China', path: 'M728 219L833 211L887 266L853 330L774 326L719 289Z' },
+  Japan: { name: 'Japan', path: 'M916 229L943 253L933 307L905 279Z' },
+  'South Korea': { name: 'South Korea', path: 'M882 277L904 283L898 307L876 300Z' },
+  Indonesia: { name: 'Indonesia', path: 'M811 399L905 402L933 430L858 438L794 422Z' },
+  Malaysia: { name: 'Malaysia', path: 'M795 378L835 386L829 409L789 397Z' },
+  Singapore: { name: 'Singapore', path: 'M828 409L839 412L833 420L823 416Z' },
+  Australia: { name: 'Australia', path: 'M815 402L910 414L958 461L925 514L831 504L784 455Z' },
+};
 
 const formatInteger = (value) => Number(value || 0).toLocaleString();
 const formatPercent = (value) => `${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
@@ -37,6 +182,18 @@ const formatSeconds = (value) => {
 
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 };
+const normalizeCountryKey = (value) => String(value || '').trim().toLowerCase();
+const toGeoCountryName = (value) => COUNTRY_GEO_ALIASES[normalizeCountryKey(value)] || String(value || '').trim();
+const toChartPercent = (value, maxValue) => {
+  if (!maxValue) {
+    return 0;
+  }
+
+  return Math.max(8, (Number(value || 0) / maxValue) * 100);
+};
+const useVisualRows = (rows, fallback, enabled) => (
+  Array.isArray(rows) && rows.length > 0 ? rows : enabled ? fallback : []
+);
 
 const createDisabledGa4Payload = (daysValue = 30, reason = 'GA4 analytics are not available right now.') => ({
   enabled: false,
@@ -92,13 +249,13 @@ function Card({ title, subtitle, actions, children, accent = 'default' }) {
     : 'border-gray-200 bg-white';
 
   return (
-    <section className={`rounded-3xl border p-5 shadow-sm ${accentClass}`}>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <section className={`h-full rounded-3xl border p-4 shadow-sm sm:p-5 lg:p-6 ${accentClass}`}>
+      <div className="mb-4 flex flex-col gap-3 lg:mb-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-          {subtitle ? <p className="mt-1 text-sm text-gray-500">{subtitle}</p> : null}
+          {subtitle ? <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-500">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
       </div>
       {children}
     </section>
@@ -144,13 +301,13 @@ function KpiCard({ label, value, sublabel, icon, tone = 'default' }) {
   };
 
   return (
-    <div className={`rounded-2xl border p-4 ${tones[tone] || tones.default}`}>
+    <div className={`flex h-full min-h-[164px] flex-col rounded-2xl border p-4 ${tones[tone] || tones.default}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <span className={`text-xs uppercase tracking-[0.18em] ${tone === 'dark' ? 'text-white/70' : 'text-gray-400'}`}>{label}</span>
+        <span className={`text-xs uppercase tracking-[0.16em] ${tone === 'dark' ? 'text-white/70' : 'text-gray-400'}`}>{label}</span>
         <span className="text-xl">{icon}</span>
       </div>
       <p className={`text-3xl font-bold ${tone === 'dark' ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-      {sublabel ? <p className={`mt-2 text-sm ${tone === 'dark' ? 'text-white/70' : 'text-gray-500'}`}>{sublabel}</p> : null}
+      {sublabel ? <p className={`mt-2 text-sm leading-6 ${tone === 'dark' ? 'text-white/70' : 'text-gray-500'}`}>{sublabel}</p> : null}
     </div>
   );
 }
@@ -165,7 +322,7 @@ function StatusBanner({ title, tone = 'info', children }) {
   return (
     <div className={`rounded-2xl border px-4 py-4 ${toneClass}`}>
       <p className="text-sm font-semibold">{title}</p>
-      <div className="mt-2 text-sm leading-7">{children}</div>
+      <div className="mt-2 text-sm leading-6">{children}</div>
     </div>
   );
 }
@@ -195,7 +352,7 @@ function DataTable({ columns, rows, emptyLabel }) {
           {rows.map((row, rowIndex) => (
             <tr key={row.id || row.label || row.path || rowIndex} className="border-b border-gray-100 align-top last:border-b-0">
               {columns.map((column) => (
-                <td key={column.key} className="px-3 py-4 text-sm text-gray-700 first:pl-0 last:pr-0">
+                <td key={column.key} className="break-words px-3 py-4 text-sm leading-6 text-gray-700 first:pl-0 last:pr-0">
                   {column.render ? column.render(row[column.key], row) : row[column.key]}
                 </td>
               ))}
@@ -219,12 +376,12 @@ function BarsList({ rows, labelKey = 'label', valueKey = 'count', valueFormatter
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {rows.map((row) => {
         const rawValue = Number(row?.[valueKey] || 0);
         const width = `${Math.max(8, (rawValue / maxValue) * 100)}%`;
         return (
-          <div key={`${row?.[labelKey]}-${rawValue}`}>
+          <div key={`${row?.[labelKey]}-${rawValue}`} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <span className="truncate text-sm font-medium text-gray-700">{row?.[labelKey]}</span>
               <span className="text-sm font-semibold text-gray-900">{valueFormatter(rawValue)}</span>
@@ -318,6 +475,319 @@ function RealtimeBars({ rows }) {
           <span className="w-full truncate text-center text-[11px] text-gray-500">{row.label}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ChannelMixIllustration({ rows = [] }) {
+  const topRows = rows.slice(0, 5);
+  const totalSessions = topRows.reduce((sum, row) => sum + Number(row.sessions || 0), 0) || 1;
+  const palette = ['#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f59e0b'];
+  let cumulative = 0;
+
+  const segments = topRows.map((row, index) => {
+    const portion = Number(row.sessions || 0) / totalSessions;
+    const start = cumulative;
+    cumulative += portion;
+    const dashLength = portion * 314;
+    const dashOffset = -(start * 314);
+
+    return {
+      ...row,
+      color: palette[index % palette.length],
+      dashLength,
+      dashOffset,
+      share: portion * 100,
+    };
+  });
+
+  return (
+    <div className="h-full rounded-[2rem] border border-primary-100 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-5 text-white shadow-[0_24px_80px_rgba(15,23,42,0.28)] sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">Acquisition Signature</p>
+          <h3 className="mt-3 text-2xl font-semibold">Channel mix illustration</h3>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+            A compact premium view of which traffic streams are shaping current demand.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-right backdrop-blur">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/50">Top Channels</p>
+          <p className="mt-2 text-2xl font-bold">{formatInteger(topRows.length)}</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="flex items-center justify-center">
+          <div className="relative flex h-56 w-56 items-center justify-center sm:h-64 sm:w-64">
+            <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+              <defs>
+                <radialGradient id="channelMixGlow" cx="50%" cy="50%" r="60%">
+                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.16" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="70" cy="70" r="58" fill="url(#channelMixGlow)" />
+              <circle cx="70" cy="70" r="50" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
+              {segments.map((segment) => (
+                <circle
+                  key={segment.label}
+                  cx="70"
+                  cy="70"
+                  r="50"
+                  fill="none"
+                  stroke={segment.color}
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray={`${segment.dashLength} 314`}
+                  strokeDashoffset={segment.dashOffset}
+                />
+              ))}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xs uppercase tracking-[0.22em] text-slate-300">Tracked Sessions</span>
+              <span className="mt-2 text-4xl font-bold">{formatInteger(totalSessions)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {segments.length ? segments.map((segment) => (
+            <div key={segment.label} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: segment.color }} />
+                  <span className="text-sm font-medium text-white">{segment.label}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-white">{formatInteger(segment.sessions)}</p>
+                  <p className="text-xs text-slate-300">{formatPercent(segment.share)}</p>
+                </div>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white/10">
+                <div className="h-2 rounded-full" style={{ width: `${segment.share}%`, backgroundColor: segment.color }} />
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-10 text-center text-sm text-slate-300">
+              Channel illustration will appear once acquisition rows are available.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeoAudienceMap({ rows = [], valueKey = 'activeUsers', title = 'Global presence', subtitle = 'Hover a country to inspect traffic concentration.' }) {
+  const [hoveredId, setHoveredId] = useState(null);
+  const normalizedRows = useMemo(() => rows
+    .map((row, index) => ({
+      ...row,
+      id: `${normalizeCountryKey(row.label) || 'country'}-${index}`,
+      geoLabel: toGeoCountryName(row.label),
+      value: Number(row?.[valueKey] || 0),
+    }))
+    .filter((row) => row.value > 0)
+    .sort((left, right) => right.value - left.value), [rows, valueKey]);
+  const rowByCountry = normalizedRows.reduce((acc, row) => {
+    acc[row.geoLabel] = row;
+    return acc;
+  }, {});
+  const maxValue = Math.max(...normalizedRows.map((row) => row.value), 1);
+  const activeRow = normalizedRows.find((row) => row.id === hoveredId) || normalizedRows[0] || null;
+  const setHoverIfChanged = (nextId) => {
+    setHoveredId((currentId) => (currentId === nextId ? currentId : nextId));
+  };
+  const getCountryFill = (row) => {
+    if (!row) {
+      return '#dbeafe';
+    }
+
+    const intensity = row.value / maxValue;
+    if (intensity > 0.72) return '#ec4899';
+    if (intensity > 0.45) return '#38bdf8';
+    if (intensity > 0.22) return '#67e8f9';
+    return '#bae6fd';
+  };
+
+  return (
+    <div className="h-full rounded-2xl border border-cyan-100 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.24em] text-cyan-700/80">Geographic Intelligence</p>
+          <h3 className="mt-3 text-2xl font-semibold text-gray-900">{title}</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">{subtitle}</p>
+        </div>
+        <div className="min-w-[240px] rounded-2xl border border-cyan-100 bg-white/90 p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-gray-400">Focused Country</p>
+          {activeRow ? (
+            <>
+              <p className="mt-3 text-2xl font-bold text-gray-900">{activeRow.label}</p>
+              <p className="mt-1 text-sm text-gray-500">{formatInteger(activeRow.value)} measured users</p>
+              <div className="mt-4 h-2 rounded-full bg-white/10">
+                <div
+                  className="h-2 rounded-full bg-gradient-to-r from-primary-400 to-cyan-300"
+                  style={{ width: `${toChartPercent(activeRow.value, maxValue)}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-gray-500">Country signals will appear here once traffic data is available.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="rounded-2xl border border-gray-100 bg-slate-50 p-3 shadow-sm">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 via-cyan-50/70 to-white">
+            {normalizedRows.length ? (
+              <>
+                <svg
+                  viewBox="0 0 1000 540"
+                  className="block aspect-[1.85/1] w-full"
+                  role="img"
+                  aria-label="World map with country activity"
+                  onPointerLeave={() => setHoverIfChanged(null)}
+                >
+                  <rect width="1000" height="540" fill="transparent" />
+                  {WORLD_MAP_BASE_PATHS.map((path, index) => (
+                    <path
+                      key={`base-${index}`}
+                      d={path}
+                      fill="#e2e8f0"
+                      stroke="#cbd5e1"
+                      strokeWidth="1.5"
+                    />
+                  ))}
+
+                  {Object.values(COUNTRY_MAP_FEATURES).map((feature) => {
+                    const row = rowByCountry[feature.name];
+                    const isActive = activeRow?.geoLabel === feature.name;
+                    return (
+                      <path
+                        key={feature.name}
+                        d={feature.path}
+                        fill={getCountryFill(row)}
+                        stroke={isActive ? '#111827' : row ? '#0f172a' : '#ffffff'}
+                        strokeWidth={row ? '1.8' : '1'}
+                        opacity={row ? 1 : 0.42}
+                        transform={isActive ? 'translate(0 -2)' : undefined}
+                        className={row ? 'cursor-pointer' : ''}
+                        onPointerEnter={() => row && setHoverIfChanged(row.id)}
+                      >
+                        {row ? <title>{`${row.label}: ${formatInteger(row.value)} users`}</title> : null}
+                      </path>
+                    );
+                  })}
+                </svg>
+
+                {activeRow ? (
+                  <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+                    <p className="text-xs uppercase tracking-[0.16em] text-gray-400">Hovered Country</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{activeRow.label}</p>
+                    <p className="text-xs text-gray-500">{formatInteger(activeRow.value)} measured users</p>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex aspect-[1.85/1] items-center justify-center px-6 text-center text-sm text-gray-500">
+                Country performance data will appear here once traffic data is available.
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-400">
+            Hover any highlighted country on the world map to inspect its measured volume.
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {normalizedRows.slice(0, 6).map((row, index) => (
+            <button
+              key={row.id}
+              type="button"
+              onPointerEnter={() => setHoverIfChanged(row.id)}
+              onFocus={() => setHoverIfChanged(row.id)}
+              className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                activeRow?.id === row.id
+                  ? 'border-cyan-200 bg-cyan-50 shadow-sm'
+                  : 'border-gray-100 bg-white hover:border-cyan-100 hover:bg-cyan-50/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{row.label}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-gray-400">Rank #{index + 1}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900">{formatInteger(row.value)}</p>
+                  <p className="text-xs text-gray-400">Mapped country</p>
+                </div>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-gray-100">
+                <div
+                  className="h-2 rounded-full bg-gradient-to-r from-primary-400 to-cyan-300"
+                  style={{ width: `${toChartPercent(row.value, maxValue)}%` }}
+                />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AudienceSpectrum({ rows = [] }) {
+  const topRows = rows.slice(0, 5);
+  const maxUsers = Math.max(...topRows.map((row) => Number(row.activeUsers || 0)), 1);
+  const palette = [
+    'from-primary-400/80 to-pink-300/60',
+    'from-cyan-400/80 to-sky-300/60',
+    'from-emerald-400/80 to-teal-300/60',
+    'from-amber-400/80 to-orange-300/60',
+    'from-violet-400/80 to-fuchsia-300/60',
+  ];
+
+  return (
+    <div className="rounded-[2rem] border border-violet-100 bg-gradient-to-br from-[#fff7fb] via-white to-[#ecfeff] p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.22em] text-violet-500">Audience Spectrum</p>
+          <h3 className="mt-3 text-2xl font-semibold text-gray-900">Who is responding the most</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+            Illustrated audience bands highlight the strongest demand pockets and their relative momentum.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-violet-100 bg-white/90 px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Audience Sets</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{formatInteger(topRows.length)}</p>
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-4">
+        {topRows.length ? topRows.map((row, index) => {
+          const width = `${Math.max(20, (Number(row.activeUsers || 0) / maxUsers) * 100)}%`;
+          return (
+            <div key={`${row.label}-${index}`} className="rounded-2xl border border-gray-100 bg-white/80 p-4 backdrop-blur">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{row.label}</p>
+                  <p className="mt-1 text-xs text-gray-400">{formatInteger(row.sessions)} sessions · {formatCurrency(row.totalRevenue || 0)}</p>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{formatInteger(row.activeUsers)}</p>
+              </div>
+              <div className="h-4 rounded-full bg-gray-100">
+                <div className={`h-4 rounded-full bg-gradient-to-r ${palette[index % palette.length]}`} style={{ width }} />
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white/80 px-4 py-12 text-center text-sm text-gray-500">
+            Audience illustrations will appear once GA4 audience rows are available.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -421,6 +891,12 @@ function AdminAnalyticsMeasurements() {
   const ga4Trend = ga4.overview?.trend || [];
   const selectedMetric = TREND_METRICS.find((metric) => metric.key === selectedTrendMetric) || TREND_METRICS[0];
   const hasGa4 = Boolean(ga4.enabled);
+  const useDemoVisuals = import.meta.env.DEV && !hasGa4;
+  const visualChannels = useVisualRows(ga4.acquisition?.channels, VISUAL_DEMO_GA4.acquisition.channels, useDemoVisuals);
+  const visualCountries = useVisualRows(ga4.acquisition?.countries, VISUAL_DEMO_GA4.acquisition.countries, useDemoVisuals);
+  const visualAudiences = useVisualRows(ga4.audiences?.audiences, VISUAL_DEMO_GA4.audiences.audiences, useDemoVisuals);
+  const visualRealtimeByMinute = useVisualRows(ga4.realtime?.byMinute, VISUAL_DEMO_GA4.realtime.byMinute, useDemoVisuals);
+  const visualRealtimeCountries = useVisualRows(ga4.realtime?.countries, VISUAL_DEMO_GA4.realtime.countries, useDemoVisuals);
 
   const financeSnapshot = [
     { label: 'Gross payments', value: formatCurrency(finance?.grossPaid) },
@@ -431,22 +907,22 @@ function AdminAnalyticsMeasurements() {
 
   const exportRows = useMemo(() => ({
     ga4Trend,
-    ga4Channels: ga4.acquisition?.channels || [],
+    ga4Channels: visualChannels,
     ga4SourceMediums: ga4.acquisition?.sourceMediums || [],
     ga4Campaigns: ga4.acquisition?.campaigns || [],
-    ga4Countries: ga4.acquisition?.countries || [],
+    ga4Countries: visualCountries,
     ga4TopPages: ga4.engagement?.topPages || [],
     ga4Events: ga4.engagement?.events || [],
     ga4Products: ga4.commerce?.products || [],
     ga4Currencies: ga4.commerce?.currencies || [],
     ga4Retention: ga4.retention?.rows || [],
-    ga4Audiences: ga4.audiences?.audiences || [],
+    ga4Audiences: visualAudiences,
     ga4AudienceTrend: ga4.audiences?.trend || [],
     internalTopPages: internalBehavior.topPages || [],
     internalFlows: internalBehavior.navigationFlows || [],
     internalCtas: internalBehavior.ctaPerformance || [],
     internalCheckoutMethods: internalCommerce.checkoutMethods || [],
-  }), [ga4, internalBehavior, internalCommerce, ga4Trend]);
+  }), [ga4, internalBehavior, internalCommerce, ga4Trend, visualAudiences, visualChannels, visualCountries]);
 
   if (loading) {
     return (
@@ -487,7 +963,7 @@ function AdminAnalyticsMeasurements() {
         />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1.35fr_0.65fr]">
+      <div className="grid gap-6 2xl:grid-cols-[1.35fr_0.65fr]">
         <Card
           title="GA4 Executive Trend"
           subtitle={`Selected Google Analytics metric over the last ${ga4.range?.days || days} days`}
@@ -517,7 +993,17 @@ function AdminAnalyticsMeasurements() {
         </Card>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-2">
+      <div className="grid gap-6">
+        <ChannelMixIllustration rows={visualChannels} />
+        <GeoAudienceMap
+          rows={visualCountries}
+          valueKey="activeUsers"
+          title="Audience concentration map"
+          subtitle="A premium geographic overlay showing where the strongest audience clusters are forming across the measured range."
+        />
+      </div>
+
+      <div className="grid gap-6 2xl:grid-cols-2">
         <Card title="Platform Funnel" subtitle="Internal tracked subscription/payment funnel">
           <div className="space-y-4">
             {(internalFunnel.steps || []).map((step, index) => {
@@ -567,7 +1053,23 @@ function AdminAnalyticsMeasurements() {
 
   const renderAcquisitionTab = () => (
     <div className="space-y-8">
-      <div className="grid gap-8 xl:grid-cols-3">
+      {useDemoVisuals ? (
+        <StatusBanner title="Development preview visuals are active" tone="info">
+          Premium acquisition and audience illustrations are currently showing local preview data because GA4 is not connected in this environment yet.
+        </StatusBanner>
+      ) : null}
+
+      <div className="grid gap-6">
+        <GeoAudienceMap
+          rows={visualCountries}
+          valueKey="activeUsers"
+          title="Country performance map"
+          subtitle="Hover highlighted countries on the world map to compare active users and quickly spot high-value demand zones."
+        />
+        <ChannelMixIllustration rows={visualChannels} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-3">
         <Card
           title="GA4 Channel Groups"
           subtitle="Primary session acquisition channels"
@@ -588,7 +1090,7 @@ function AdminAnalyticsMeasurements() {
             </ActionButton>
           )}
         >
-          <BarsList rows={ga4.acquisition?.channels || []} valueKey="sessions" emptyLabel="GA4 channel data will appear here." />
+          <BarsList rows={visualChannels} valueKey="sessions" emptyLabel="GA4 channel data will appear here." />
         </Card>
 
         <Card title="Internal Referrers" subtitle="Referrer hosts from internal tracking">
@@ -600,7 +1102,7 @@ function AdminAnalyticsMeasurements() {
         </Card>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-2">
+      <div className="grid gap-6 2xl:grid-cols-2">
         <Card
           title="GA4 Source / Medium"
           subtitle="Top source-medium combinations"
@@ -651,7 +1153,7 @@ function AdminAnalyticsMeasurements() {
             </ActionButton>
           )}
         >
-          <BarsList rows={ga4.acquisition?.countries || []} valueKey="activeUsers" emptyLabel="Country performance data will appear here." />
+          <BarsList rows={visualCountries} valueKey="activeUsers" emptyLabel="Country performance data will appear here." />
         </Card>
       </div>
 
@@ -689,7 +1191,7 @@ function AdminAnalyticsMeasurements() {
 
   const renderEngagementTab = () => (
     <div className="space-y-8">
-      <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
         <Card
           title="GA4 Top Pages"
           subtitle="Official page engagement from Google Analytics"
@@ -738,7 +1240,7 @@ function AdminAnalyticsMeasurements() {
         </Card>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-2">
+      <div className="grid gap-6 2xl:grid-cols-2">
         <Card
           title="GA4 Events"
           subtitle="Most frequent event names"
@@ -772,7 +1274,7 @@ function AdminAnalyticsMeasurements() {
         </Card>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-2">
+      <div className="grid gap-6 2xl:grid-cols-2">
         <Card
           title="Internal Navigation Flows"
           subtitle="Top page-to-page flows from internal event tracking"
@@ -841,7 +1343,7 @@ function AdminAnalyticsMeasurements() {
         <KpiCard label="Internal Revenue" value={formatCurrency(internalSummary.revenue)} sublabel={`${formatInteger(internalSummary.purchases)} captured payments`} icon="🏦" tone="dark" />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-3">
+      <div className="grid gap-6 xl:grid-cols-3">
         <Card
           title="Checkout Methods"
           subtitle="Internal revenue by checkout method"
@@ -966,6 +1468,14 @@ function AdminAnalyticsMeasurements() {
 
   const renderAudiencesTab = () => (
     <div className="space-y-8">
+      {useDemoVisuals ? (
+        <StatusBanner title="Development preview visuals are active" tone="info">
+          Audience illustration cards are currently rendered from local preview data so you can review the design before GA4 audience reporting is connected.
+        </StatusBanner>
+      ) : null}
+
+      <AudienceSpectrum rows={visualAudiences} />
+
       <Card
         title="GA4 Audiences"
         subtitle="Audience-level performance from Google Analytics"
@@ -998,7 +1508,7 @@ function AdminAnalyticsMeasurements() {
             { key: 'averageSessionDuration', label: 'Avg Duration', render: (value) => formatSeconds(value) },
             { key: 'totalRevenue', label: 'Revenue', render: (value) => formatCurrency(value) },
           ]}
-          rows={ga4.audiences?.audiences || []}
+          rows={visualAudiences}
         />
       </Card>
 
@@ -1041,9 +1551,9 @@ function AdminAnalyticsMeasurements() {
         <KpiCard label="Views in Window" value={formatInteger(ga4Summary.screenPageViews)} sublabel={`${ga4.range?.days || days}-day GA4 measurement window`} icon="👁️" />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
         <Card title="Realtime Activity by Minute" subtitle="Last 30 minutes from GA4 Realtime" accent="gradient">
-          <RealtimeBars rows={(ga4.realtime?.byMinute || []).map((row) => ({ label: row.label.replace(' ago', ''), activeUsers: row.activeUsers }))} />
+          <RealtimeBars rows={visualRealtimeByMinute.map((row) => ({ label: row.label.replace(' ago', ''), activeUsers: row.activeUsers }))} />
         </Card>
 
         <Card title="Realtime Pages" subtitle="Pages/screens with current live activity">
@@ -1051,9 +1561,16 @@ function AdminAnalyticsMeasurements() {
         </Card>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-2">
+      <GeoAudienceMap
+        rows={visualRealtimeCountries}
+        valueKey="activeUsers"
+        title="Live audience geography"
+        subtitle="A realtime world view of where current active users are concentrated. Hover each country marker to inspect its live load."
+      />
+
+      <div className="grid gap-6 2xl:grid-cols-2">
         <Card title="Realtime Countries" subtitle="Live users by country">
-          <BarsList rows={(ga4.realtime?.countries || []).map((row) => ({ label: row.label, count: row.activeUsers }))} emptyLabel="Realtime country activity will appear here." />
+          <BarsList rows={visualRealtimeCountries.map((row) => ({ label: row.label, count: row.activeUsers }))} emptyLabel="Realtime country activity will appear here." />
         </Card>
 
         <Card title="Realtime Devices" subtitle="Live users by device">

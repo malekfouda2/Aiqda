@@ -33,25 +33,43 @@ function Home() {
   const { locale, pick, isRTL, brandName } = useLocale();
   const { user } = useAuthStore();
   const [packages, setPackages] = useState([]);
+  const [packagesStatus, setPackagesStatus] = useState("loading");
   const [selectedTerms, setSelectedTerms] = useState({});
 
+  const loadPackages = async () => {
+    setPackagesStatus("loading");
+
+    try {
+      const res = await Promise.race([
+        subscriptionsAPI.getPackages(false),
+        new Promise((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error("packages_request_timeout"));
+          }, 8000);
+        }),
+      ]);
+
+      const nextPackages = Array.isArray(res?.data) ? res.data : [];
+      setPackages(nextPackages);
+      setSelectedTerms(
+        nextPackages.reduce((accumulator, pkg) => {
+          const defaultTerm = getDefaultBillingTerm(pkg);
+          if (defaultTerm) {
+            accumulator[pkg._id] = defaultTerm;
+          }
+          return accumulator;
+        }, {})
+      );
+      setPackagesStatus("ready");
+    } catch {
+      setPackages([]);
+      setSelectedTerms({});
+      setPackagesStatus("error");
+    }
+  };
+
   useEffect(() => {
-    subscriptionsAPI
-      .getPackages(false)
-      .then((res) => {
-        const nextPackages = res.data || [];
-        setPackages(nextPackages);
-        setSelectedTerms(
-          nextPackages.reduce((accumulator, pkg) => {
-            const defaultTerm = getDefaultBillingTerm(pkg);
-            if (defaultTerm) {
-              accumulator[pkg._id] = defaultTerm;
-            }
-            return accumulator;
-          }, {})
-        );
-      })
-      .catch(() => {});
+    loadPackages();
   }, []);
 
   const updateSelectedTerm = (packageId, billingTerm) => {
@@ -266,19 +284,18 @@ function Home() {
         </div>
       </section>
 
-      {displayPackages.length > 0 && (
-        <section className="content-auto relative py-32 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <span className="text-primary-500 text-sm font-medium tracking-widest uppercase mb-4 block">
-                {isRTL ? "خطط اشتراك تناسب طموحك " : "Subscription Plans"}
-              </span>
+      <section className="content-auto relative py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <span className="text-primary-500 text-sm font-medium tracking-widest uppercase mb-4 block">
+              {isRTL ? "خطط اشتراك تناسب طموحك " : "Subscription Plans"}
+            </span>
 <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
   {isRTL ? "اختر" : "Choose Your"}
   <span className="gradient-text"> {isRTL ? "المسار اللي يشبهك" : "Workthrough Path"}</span>
@@ -289,23 +306,24 @@ function Home() {
     : "Pick the package that fits your goals and start your creative journey today."}
 </p>
 
-              <div className="mt-6 mx-auto max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4 text-left">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-blue-700 shadow-sm">
-                    i
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-                      {pick(SUBSCRIPTION_DEVICE_LIMIT_TITLE)}
-                    </p>
-                    <p className="mt-1 text-sm leading-7 text-blue-900/80">
-                      {pick(SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER)}
-                    </p>
-                  </div>
+            <div className="mt-6 mx-auto max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4 text-left">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-blue-700 shadow-sm">
+                  i
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+                    {pick(SUBSCRIPTION_DEVICE_LIMIT_TITLE)}
+                  </p>
+                  <p className="mt-1 text-sm leading-7 text-blue-900/80">
+                    {pick(SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER)}
+                  </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
 
+          {displayPackages.length > 0 ? (
             <div
               className={`grid gap-8 ${displayPackages.length === 1 ? "max-w-md mx-auto" : displayPackages.length === 2 ? "md:grid-cols-2 max-w-3xl mx-auto" : "md:grid-cols-2 lg:grid-cols-3"}`}
             >
@@ -493,39 +511,6 @@ function Home() {
                         </div>
                       )}
 
-                      {pkg.courses?.length > 0 && (
-                        <div className="pt-2 border-t border-gray-100">
-                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-                            {isRTL ? "الفصول المشمولة" : "Chapters Included"}
-                          </p>
-                          <ul className="space-y-1.5">
-                            {pkg.courses.map((course, i) => (
-                              <li
-                                key={i}
-                                className="flex items-start gap-2 text-sm text-gray-600"
-                              >
-                                <svg
-                                  className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                  strokeWidth={2.5}
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                                {typeof course === "object"
-                                  ? getLocalizedField(course, "title", locale)
-                                  : course}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
                       {pkg.softwareExposure?.length > 0 && (
                         <div className="pt-2 border-t border-gray-100">
                           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
@@ -576,9 +561,38 @@ function Home() {
                 );
               })}
             </div>
-          </div>
-        </section>
-      )}
+          ) : (
+            <div className="mx-auto max-w-3xl rounded-3xl border border-gray-100 bg-white/90 px-6 py-10 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-2xl">
+                {packagesStatus === "loading" ? "⏳" : "📦"}
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">
+                {packagesStatus === "loading"
+                  ? (isRTL ? "جارِ تحميل الباقات" : "Loading packages")
+                  : (isRTL ? "تعذر تحميل الباقات الآن" : "Could not load packages right now")}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                {packagesStatus === "loading"
+                  ? (isRTL
+                    ? "يتم الآن جلب باقات الاشتراك."
+                    : "The subscription plans are being loaded now.")
+                  : (isRTL
+                    ? "الخدمة غير متاحة حاليًا أو أن الخادم المحلي غير يعمل. يمكنك إعادة المحاولة."
+                    : "The service is currently unavailable or the local backend is not running. You can retry.")}
+              </p>
+              {packagesStatus === "error" && (
+                <button
+                  type="button"
+                  onClick={loadPackages}
+                  className="mt-5 inline-flex items-center justify-center rounded-xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-600"
+                >
+                  {isRTL ? "إعادة المحاولة" : "Retry"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="content-auto relative py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

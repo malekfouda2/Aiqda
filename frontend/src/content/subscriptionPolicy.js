@@ -4,6 +4,6 @@ export const SUBSCRIPTION_DEVICE_LIMIT_TITLE = text('Account Access Policy', ' �
 
 export const SUBSCRIPTION_DEVICE_LIMIT_DISCLAIMER =
   text(
-    'Each account can be signed in on up to 2 devices at the same time. Signing in on a new device automatically signs out the oldest one.',
-    'يمكن تسجيل الدخول إلى الحساب على جهازين كحد أقصى في الوقت نفسه. تسجيل الدخول من جهاز جديد يؤدي تلقائيًا إلى تسجيل خروج الجهاز الأقدم.'
+    'Each account can be signed in on up to 4 devices at the same time.',
+    'يمكن تسجيل الدخول إلى الحساب على ما يصل إلى 4 أجهزة في الوقت نفسه.'
   );

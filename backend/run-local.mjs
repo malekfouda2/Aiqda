@@ -1,9 +1,14 @@
-// Boots an in-memory MongoDB, then starts the backend against it.
+// Boots an in-memory MongoDB bound to localhost, then starts the backend against it.
 // Used for local runs on machines without a mongod binary.
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { spawn } from 'node:child_process';
 
-const mongod = await MongoMemoryServer.create({ instance: { port: 27017 } });
+const mongod = await MongoMemoryServer.create({
+  instance: {
+    ip: '127.0.0.1',
+    port: 27017,
+  },
+});
 const uri = mongod.getUri();
 console.log(`[run-local] in-memory MongoDB up at ${uri}`);
 

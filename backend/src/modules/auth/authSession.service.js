@@ -3,7 +3,7 @@ import { generateToken, verifyToken } from '../../utils/jwt.js';
 import { getDeviceIdFromRequest } from '../../utils/authCookie.js';
 import { isBackofficeRole } from '../../utils/roles.js';
 
-export const DEFAULT_MAX_AUTH_DEVICES = 2;
+export const DEFAULT_MAX_AUTH_DEVICES = 4;
 const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
 
 const parsePositiveInteger = (value, fallback) => {
