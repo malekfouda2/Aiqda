@@ -4,8 +4,10 @@ const VISITOR_STORAGE_KEY = 'aiqda.analytics.visitorId';
 const SESSION_STORAGE_KEY = 'aiqda.analytics.sessionId';
 const SESSION_UTM_STORAGE_KEY = 'aiqda.analytics.utm';
 const SESSION_STARTED_STORAGE_KEY = 'aiqda.analytics.sessionStarted';
+const USER_CONTEXT_STORAGE_KEY = 'aiqda.analytics.userContext';
 const GTM_CONTAINER_ID = String(import.meta.env.VITE_GTM_CONTAINER_ID || '').trim();
 const META_PIXEL_ID = String(import.meta.env.VITE_META_PIXEL_ID || '').trim();
+const EXCLUDED_ANALYTICS_ROLES = new Set(['admin', 'applications_admin', 'instructor', 'creator']);
 
 let gtmInitializationPromise = null;
 let metaPixelInitializationPromise = null;
@@ -45,6 +47,14 @@ const getCurrentPath = () => {
 const readStoredFlag = (storage, key) => {
   const value = safeStorageRead(storage, key);
   return value === '1';
+};
+
+const safeStorageRemove = (storage, key) => {
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
 };
 
 const sanitizeEventValue = (value, maxLength = 200) => (
@@ -98,10 +108,63 @@ const getNavigationType = () => {
   return navigationEntries[0]?.type || '';
 };
 
+const getStoredUserContext = () => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  const stored = safeStorageRead(window.sessionStorage, USER_CONTEXT_STORAGE_KEY);
+  if (!stored) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const storeUserContext = (user = {}) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  safeStorageWrite(window.sessionStorage, USER_CONTEXT_STORAGE_KEY, JSON.stringify({
+    userId: sanitizeEventValue(user.userId || user.id || user._id || '', 120),
+    role: sanitizeEventValue(user.role || '', 80),
+    locale: sanitizeEventValue(user.locale || '', 16),
+    subscriptionStatus: sanitizeEventValue(user.subscriptionStatus || '', 80),
+  }));
+};
+
+const clearStoredUserContext = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  safeStorageRemove(window.sessionStorage, USER_CONTEXT_STORAGE_KEY);
+};
+
+export const isExcludedAnalyticsRole = (role) => EXCLUDED_ANALYTICS_ROLES.has(sanitizeEventValue(role || '', 80));
+
+export const isExcludedAnalyticsPath = (path = getCurrentPath()) => /^\/(?:admin|creator)(?:\/|$)/.test(String(path || '/'));
+
+const getEffectiveUserRole = (payload = {}) => (
+  sanitizeEventValue(payload.userRole || payload.metadata?.role || getStoredUserContext().role || '', 80)
+);
+
+const shouldSkipAnalyticsEvent = (eventType, payload = {}) => (
+  isExcludedAnalyticsRole(getEffectiveUserRole(payload))
+  || isExcludedAnalyticsPath(payload.path || getCurrentPath())
+);
+
 const buildDefaultEventPayload = (payload = {}) => ({
   path: payload.path || getCurrentPath(),
   title: payload.title || (typeof document !== 'undefined' ? document.title || '' : ''),
   locale: payload.locale || null,
+  userRole: getEffectiveUserRole(payload) || null,
   visitorId: getOrCreateVisitorId(),
   sessionId: getOrCreateSessionId(),
   referrer: payload.referrer || (typeof document !== 'undefined' ? document.referrer || '' : ''),
@@ -131,6 +194,7 @@ const buildDataLayerPayload = (eventType, payload = {}, options = {}) => {
     page_path: fullPayload.path || undefined,
     page_location: typeof window !== 'undefined' ? window.location.href : undefined,
     locale: fullPayload.locale || undefined,
+    user_role: fullPayload.userRole || undefined,
     visitor_id: fullPayload.visitorId || undefined,
     session_id: fullPayload.sessionId || undefined,
     referrer: fullPayload.referrer || undefined,
@@ -474,6 +538,10 @@ export const initAnalytics = async () => {
     return;
   }
 
+  if (shouldSkipAnalyticsEvent('session_start')) {
+    return;
+  }
+
   await initializeMetaPixel();
   await initializeGoogleTagManager();
 
@@ -497,6 +565,12 @@ export const setAnalyticsUserContext = async (user = {}) => {
     return;
   }
 
+  storeUserContext(user);
+
+  if (isExcludedAnalyticsRole(user.role)) {
+    return;
+  }
+
   await initializeMetaPixel();
   await initializeGoogleTagManager();
 
@@ -515,6 +589,8 @@ export const clearAnalyticsUserContext = async () => {
     return;
   }
 
+  clearStoredUserContext();
+
   await initializeMetaPixel();
   await initializeGoogleTagManager();
 
@@ -530,6 +606,10 @@ export const clearAnalyticsUserContext = async () => {
 
 export const trackAnalyticsEvent = async (eventType, payload = {}, options = {}) => {
   if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (shouldSkipAnalyticsEvent(eventType, payload)) {
     return;
   }
 

@@ -1638,9 +1638,9 @@ function AdminAnalyticsMeasurements() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-3xl bg-gradient-to-br from-gray-900 via-primary-700 to-cyan-500 p-5 text-white">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Internal Tracking</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Website Visits</p>
               <p className="mt-4 text-4xl font-bold">{formatInteger(internalSummary.sessions)}</p>
-              <p className="mt-2 text-sm text-white/80">Sessions captured inside Aiqda’s own event pipeline</p>
+              <p className="mt-2 text-sm text-white/80">All non-admin, non-creator sessions captured by Aiqda’s event pipeline</p>
             </div>
             <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-gray-400">GA4 Measurement</p>

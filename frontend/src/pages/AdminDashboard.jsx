@@ -51,12 +51,13 @@ function AdminDashboard() {
   }
 
   const overview = analytics?.overview || {};
+  const marketingKpis = overview.marketingKpis || {};
 
   const statsCards = [
-    { value: overview.totalMembers || 0, label: isRTL ? 'إجمالي الأعضاء' : 'Total Members', icon: '👥', iconClass: 'icon-box-success' },
-    { value: overview.activeSubscriptions || 0, label: isRTL ? 'الاشتراكات النشطة' : 'Active Subscriptions', icon: '💳', iconClass: 'icon-box-primary' },
-    { value: overview.totalCourses || 0, label: isRTL ? 'إجمالي الفصول' : 'Total Chapters', icon: '📚', iconClass: 'icon-box-accent' },
-    { value: overview.activeStudentsNow || 0, label: isRTL ? 'أعضاء نشطون الآن' : 'Active Members Now', icon: '📡', iconClass: 'icon-box-warning', sub: overview.activeWindowMinutes ? (isRTL ? `آخر ${overview.activeWindowMinutes} دقائق` : `last ${overview.activeWindowMinutes} min`) : null },
+    { value: marketingKpis.websiteVisits || 0, label: isRTL ? 'زيارات الموقع (30 يومًا)' : 'Website Visits (30d)', icon: '📈', iconClass: 'icon-box-success', sub: isRTL ? 'تشمل الزوار غير المسجلين' : 'Includes anonymous visitors' },
+    { value: marketingKpis.pageViews || 0, label: isRTL ? 'مشاهدات الصفحات (30 يومًا)' : 'Page Views (30d)', icon: '👁️', iconClass: 'icon-box-primary' },
+    { value: overview.totalMembers || 0, label: isRTL ? 'إجمالي الأعضاء' : 'Total Members', icon: '👥', iconClass: 'icon-box-accent' },
+    { value: overview.activeSubscriptions || 0, label: isRTL ? 'الاشتراكات النشطة' : 'Active Subscriptions', icon: '💳', iconClass: 'icon-box-warning' },
   ];
 
   const financeRows = [
@@ -78,6 +79,7 @@ function AdminDashboard() {
     { label: isRTL ? 'أعضاء جدد (30 يومًا)' : 'New members (30d)', value: overview.newMembers30d || 0, icon: '🆕' },
     { label: isRTL ? 'الاشتراكات النشطة' : 'Active subscriptions', value: overview.activeSubscriptions || 0, icon: '💳' },
     { label: isRTL ? 'المبدعون' : 'Creators', value: overview.totalInstructors || 0, icon: '👨‍🏫' },
+    { label: isRTL ? 'أعضاء نشطون الآن' : 'Active members now', value: overview.activeStudentsNow || 0, icon: '📡' },
     { label: isRTL ? 'التسجيلات' : 'Enrollments', value: overview.totalEnrollments || 0, icon: '📝' },
     { label: isRTL ? 'فصول مكتملة' : 'Completed chapters', value: overview.completedCourses || 0, icon: '✅' },
   ];

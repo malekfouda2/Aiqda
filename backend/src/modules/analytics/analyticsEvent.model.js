@@ -22,6 +22,12 @@ const analyticsEventSchema = new mongoose.Schema({
     enum: ['en', 'ar', null],
     default: null,
   },
+  userRole: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 80,
+  },
   visitorId: {
     type: String,
     default: '',

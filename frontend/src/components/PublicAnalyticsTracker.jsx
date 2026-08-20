@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLocale } from '../i18n/useLocale';
+import useAuthStore from '../store/authStore';
 import {
   initAnalytics,
+  isExcludedAnalyticsPath,
+  isExcludedAnalyticsRole,
   trackAnalyticsEvent,
   trackPageEngagement,
   trackPageView,
@@ -47,7 +50,12 @@ const getElementLabel = (element) => {
 function PublicAnalyticsTracker() {
   const location = useLocation();
   const { locale } = useLocale();
+  const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const routePath = getPathFromLocation(location);
+  const shouldTrack = hasHydrated
+    && !isExcludedAnalyticsRole(user?.role)
+    && !isExcludedAnalyticsPath(routePath);
   const pageStateRef = useRef({
     path: '',
     title: '',
@@ -85,10 +93,28 @@ function PublicAnalyticsTracker() {
   };
 
   useEffect(() => {
+    if (!shouldTrack) {
+      return;
+    }
+
     void initAnalytics();
-  }, []);
+  }, [shouldTrack]);
 
   useEffect(() => {
+    if (!shouldTrack) {
+      pageStateRef.current = {
+        path: '',
+        title: '',
+        locale: null,
+        enteredAt: 0,
+        activeStartedAt: 0,
+        activeDurationMs: 0,
+        maxScrollPercent: 0,
+        scrollMilestonesSent: new Set(),
+      };
+      return;
+    }
+
     const nextPath = routePath;
     const previousPath = pageStateRef.current.path || '';
 
@@ -129,9 +155,13 @@ function PublicAnalyticsTracker() {
         },
       });
     }
-  }, [locale, location.search, routePath]);
+  }, [locale, location.search, routePath, shouldTrack]);
 
   useEffect(() => {
+    if (!shouldTrack) {
+      return undefined;
+    }
+
     const handleVisibilityChange = () => {
       const pageState = pageStateRef.current;
       if (!pageState.path) {
@@ -163,9 +193,13 @@ function PublicAnalyticsTracker() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
     };
-  }, []);
+  }, [shouldTrack]);
 
   useEffect(() => {
+    if (!shouldTrack) {
+      return undefined;
+    }
+
     let ticking = false;
 
     const handleScroll = () => {
@@ -207,9 +241,13 @@ function PublicAnalyticsTracker() {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [shouldTrack]);
 
   useEffect(() => {
+    if (!shouldTrack) {
+      return undefined;
+    }
+
     const handleClick = (event) => {
       const targetElement = event.target instanceof Element
         ? event.target.closest('a,button,[role="button"],[data-analytics-click]')
@@ -265,7 +303,7 @@ function PublicAnalyticsTracker() {
     return () => {
       document.removeEventListener('click', handleClick, true);
     };
-  }, [locale, routePath]);
+  }, [locale, routePath, shouldTrack]);
 
   return null;
 }

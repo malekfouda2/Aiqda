@@ -86,6 +86,8 @@ const PUBLIC_ANALYTICS_EVENT_TYPES = new Set([
   'add_payment_info',
   'purchase',
 ]);
+const EXCLUDED_PUBLIC_ANALYTICS_ROLES = new Set(['admin', 'applications_admin', 'instructor', 'creator']);
+const EXCLUDED_PUBLIC_ANALYTICS_PATH_PATTERN = /^\/(?:admin|creator)(?:\/|$)/;
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -135,8 +137,15 @@ const normalizeLocale = (value) => (
   value === 'ar' || value === 'en' ? value : null
 );
 
+const normalizeUserRole = (value) => normalizeShortString(value, 80);
+
 const normalizeMetadata = (value) => (
   value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+);
+
+const shouldIgnorePublicAnalyticsEvent = ({ path = '/', userRole = '' } = {}) => (
+  EXCLUDED_PUBLIC_ANALYTICS_ROLES.has(normalizeUserRole(userRole))
+  || EXCLUDED_PUBLIC_ANALYTICS_PATH_PATTERN.test(normalizePath(path))
 );
 
 const normalizeUtmPayload = (value = {}) => ({
@@ -336,12 +345,20 @@ export const trackPublicEvent = async (payload = {}, req = {}) => {
   }
 
   const utm = normalizeUtmPayload(payload.utm);
+  const metadata = normalizeMetadata(payload.metadata);
+  const userRole = normalizeUserRole(payload.userRole || metadata.role);
+  const path = normalizePath(payload.path);
+
+  if (shouldIgnorePublicAnalyticsEvent({ path, userRole })) {
+    return;
+  }
 
   await AnalyticsEvent.create({
     eventType,
-    path: normalizePath(payload.path),
+    path,
     title: normalizeShortString(payload.title, 200),
     locale: normalizeLocale(payload.locale),
+    userRole,
     visitorId: normalizeShortString(payload.visitorId, 120),
     sessionId: normalizeShortString(payload.sessionId, 120),
     referrer: normalizeShortString(payload.referrer, 500),
@@ -351,7 +368,7 @@ export const trackPublicEvent = async (payload = {}, req = {}) => {
     utmCampaign: utm.campaign,
     utmTerm: utm.term,
     utmContent: utm.content,
-    metadata: normalizeMetadata(payload.metadata),
+    metadata,
   });
 };
 
@@ -1113,8 +1130,12 @@ export const getAdminAnalytics = async () => {
       .lean(),
     Subscription.countDocuments({ status: { $in: ['active', 'cancel_scheduled', 'grace_period'] } }),
     User.countDocuments({ role: 'instructor' }),
-    AnalyticsEvent.find({ createdAt: { $gte: analyticsWindowStart } })
-      .select('eventType sessionId visitorId path title locale referrer userAgent utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
+    AnalyticsEvent.find({
+      createdAt: { $gte: analyticsWindowStart },
+      path: { $not: EXCLUDED_PUBLIC_ANALYTICS_PATH_PATTERN },
+      userRole: { $nin: [...EXCLUDED_PUBLIC_ANALYTICS_ROLES] },
+    })
+      .select('eventType sessionId visitorId path title locale userRole referrer userAgent utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
       .sort({ createdAt: 1 })
       .lean(),
     ContactMessage.find({ createdAt: { $gte: last30Days } })
