@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import request from 'supertest';
 
+import AnalyticsEvent from '../src/modules/analytics/analyticsEvent.model.js';
 import Payment from '../src/modules/payments/payment.model.js';
 import {
   authHeader,
@@ -326,4 +327,68 @@ test('admin instructor detail returns summary, lesson metadata, and monthly enro
   assert.equal(detailCourseTwo.quizPassCount, 0);
   assert.equal(detailCourseTwo.estimatedRevenue, 250);
   assert.equal(detailCourseTwo.lessons[0].supportingFile, '/uploads/detail-studio.pdf');
+});
+
+test('public analytics captures production country headers and excludes staff traffic', async () => {
+  const admin = await createUser({ role: 'admin' });
+
+  const publicResponse = await request(suite.app)
+    .post('/api/analytics/public')
+    .set('CF-IPCountry', 'SA')
+    .set('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148')
+    .send({
+      eventType: 'page_view',
+      path: '/chapters',
+      title: 'Chapters',
+      locale: 'en',
+      visitorId: 'visitor_public_sa',
+      sessionId: 'session_public_sa',
+      referrer: 'https://google.com/search?q=aiqda',
+    });
+
+  const staffResponse = await request(suite.app)
+    .post('/api/analytics/public')
+    .set('CF-IPCountry', 'EG')
+    .send({
+      eventType: 'page_view',
+      path: '/admin/analytics',
+      title: 'Analytics',
+      userRole: 'admin',
+      visitorId: 'visitor_staff_eg',
+      sessionId: 'session_staff_eg',
+    });
+
+  assert.equal(publicResponse.status, 204);
+  assert.equal(staffResponse.status, 204);
+
+  const storedEvents = await AnalyticsEvent.find().lean();
+  assert.equal(storedEvents.length, 1);
+  assert.equal(storedEvents[0].countryCode, 'SA');
+  assert.equal(storedEvents[0].countryName, 'Saudi Arabia');
+
+  const response = await request(suite.app)
+    .get('/api/analytics/admin/measurement-center')
+    .set(authHeader(admin.token));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.internal.analytics.acquisition.countries, [
+    {
+      label: 'Saudi Arabia',
+      countryCode: 'SA',
+      sessions: 1,
+      activeUsers: 1,
+      uniqueVisitors: 1,
+      count: 1,
+    },
+  ]);
+});
+
+test('production content security policy allows analytics vendors', async () => {
+  const response = await request(suite.app).get('/api/health');
+
+  assert.equal(response.status, 200);
+  const csp = response.headers['content-security-policy'];
+  assert.match(csp, /https:\/\/www\.googletagmanager\.com/);
+  assert.match(csp, /https:\/\/www\.google-analytics\.com/);
+  assert.match(csp, /https:\/\/connect\.facebook\.net/);
 });

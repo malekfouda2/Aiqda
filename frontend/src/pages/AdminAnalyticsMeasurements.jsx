@@ -195,6 +195,53 @@ const useVisualRows = (rows, fallback, enabled) => (
   Array.isArray(rows) && rows.length > 0 ? rows : enabled ? fallback : []
 );
 
+const hasRows = (rows) => Array.isArray(rows) && rows.length > 0;
+
+const firstMetricValue = (...values) => {
+  for (const value of values) {
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue) && numberValue > 0) {
+      return numberValue;
+    }
+  }
+
+  return 0;
+};
+
+const toInternalTrendRows = (rows = []) => rows.map((row) => ({
+  ...row,
+  activeUsers: Number(row.activeUsers ?? row.uniqueVisitors ?? row.sessions ?? 0),
+  screenPageViews: Number(row.screenPageViews ?? row.pageViews ?? 0),
+  totalRevenue: Number(row.totalRevenue ?? row.revenue ?? 0),
+}));
+
+const toInternalChannelRows = (rows = []) => rows.map((row) => ({
+  label: row.label || 'Unassigned',
+  sessions: Number(row.sessions ?? row.count ?? 0),
+  activeUsers: Number(row.activeUsers ?? row.uniqueVisitors ?? row.count ?? 0),
+  newUsers: Number(row.newUsers ?? 0),
+  engagementRate: Number(row.engagementRate ?? 0),
+  totalRevenue: Number(row.totalRevenue ?? row.revenue ?? 0),
+}));
+
+const toInternalCountryRows = (rows = []) => rows.map((row) => ({
+  label: row.label || row.countryName || 'Unknown',
+  countryCode: row.countryCode || '',
+  sessions: Number(row.sessions ?? row.count ?? 0),
+  activeUsers: Number(row.activeUsers ?? row.uniqueVisitors ?? row.visitors ?? row.count ?? 0),
+  totalRevenue: Number(row.totalRevenue ?? row.revenue ?? 0),
+}));
+
+const toInternalTopPageRows = (rows = []) => rows.map((row) => ({
+  path: row.path || '/',
+  title: row.title || row.path || 'Untitled page',
+  screenPageViews: Number(row.screenPageViews ?? row.pageViews ?? 0),
+  activeUsers: Number(row.activeUsers ?? row.uniqueVisitors ?? 0),
+  engagementRate: Number(row.engagementRate ?? 0),
+  averageSessionDuration: Number(row.averageSessionDuration ?? row.avgEngagementTimeSeconds ?? 0),
+  eventCount: Number(row.eventCount ?? row.ctaClicks ?? 0),
+}));
+
 const createDisabledGa4Payload = (daysValue = 30, reason = 'GA4 analytics are not available right now.') => ({
   enabled: false,
   status: 'disabled',
@@ -672,9 +719,9 @@ function GeoAudienceMap({ rows = [], valueKey = 'activeUsers', title = 'Global p
                         stroke={isActive ? '#111827' : row ? '#0f172a' : '#ffffff'}
                         strokeWidth={row ? '1.8' : '1'}
                         opacity={row ? 1 : 0.42}
-                        transform={isActive ? 'translate(0 -2)' : undefined}
                         className={row ? 'cursor-pointer' : ''}
                         onPointerEnter={() => row && setHoverIfChanged(row.id)}
+                        onClick={() => row && setHoverIfChanged(row.id)}
                       >
                         {row ? <title>{`${row.label}: ${formatInteger(row.value)} users`}</title> : null}
                       </path>
@@ -888,15 +935,32 @@ function AdminAnalyticsMeasurements() {
   const internalFunnel = internal.analytics?.funnel || {};
   const internalOverview = internal.overview || {};
   const ga4Summary = ga4.overview?.summary || {};
-  const ga4Trend = ga4.overview?.trend || [];
+  const internalTrendRows = toInternalTrendRows(internal.analytics?.trends || []);
+  const ga4Trend = hasRows(ga4.overview?.trend) ? ga4.overview.trend : internalTrendRows;
+  const internalChannelRows = toInternalChannelRows(hasRows(internalAcquisition.sources) ? internalAcquisition.sources : internalAcquisition.referrers || []);
+  const internalCountryRows = toInternalCountryRows(internalAcquisition.countries || []);
+  const internalTopPageRows = toInternalTopPageRows(internalBehavior.topPages || []);
   const selectedMetric = TREND_METRICS.find((metric) => metric.key === selectedTrendMetric) || TREND_METRICS[0];
   const hasGa4 = Boolean(ga4.enabled);
-  const useDemoVisuals = import.meta.env.DEV && !hasGa4;
-  const visualChannels = useVisualRows(ga4.acquisition?.channels, VISUAL_DEMO_GA4.acquisition.channels, useDemoVisuals);
-  const visualCountries = useVisualRows(ga4.acquisition?.countries, VISUAL_DEMO_GA4.acquisition.countries, useDemoVisuals);
+  const useDemoVisuals = import.meta.env.DEV && !hasGa4 && !hasRows(internalTrendRows);
+  const visualChannels = hasRows(ga4.acquisition?.channels)
+    ? ga4.acquisition.channels
+    : useVisualRows(internalChannelRows, VISUAL_DEMO_GA4.acquisition.channels, useDemoVisuals);
+  const visualCountries = hasRows(ga4.acquisition?.countries)
+    ? ga4.acquisition.countries
+    : useVisualRows(internalCountryRows, VISUAL_DEMO_GA4.acquisition.countries, useDemoVisuals);
   const visualAudiences = useVisualRows(ga4.audiences?.audiences, VISUAL_DEMO_GA4.audiences.audiences, useDemoVisuals);
   const visualRealtimeByMinute = useVisualRows(ga4.realtime?.byMinute, VISUAL_DEMO_GA4.realtime.byMinute, useDemoVisuals);
-  const visualRealtimeCountries = useVisualRows(ga4.realtime?.countries, VISUAL_DEMO_GA4.realtime.countries, useDemoVisuals);
+  const visualRealtimeCountries = hasRows(ga4.realtime?.countries)
+    ? ga4.realtime.countries
+    : useVisualRows(internalCountryRows, VISUAL_DEMO_GA4.realtime.countries, useDemoVisuals);
+  const measuredActiveUsers = firstMetricValue(ga4Summary.activeUsers, internalSummary.uniqueVisitors, internalSummary.sessions);
+  const measuredSessions = firstMetricValue(ga4Summary.sessions, internalSummary.sessions);
+  const measuredEngagementRate = firstMetricValue(ga4Summary.engagementRate, internalSummary.engagementRate);
+  const measuredAverageSessionDuration = firstMetricValue(ga4Summary.averageSessionDuration, internalSummary.averageEngagementTimePerSessionSeconds);
+  const measuredViews = firstMetricValue(ga4Summary.screenPageViews, internalSummary.pageViews);
+  const measuredRevenue = firstMetricValue(ga4Summary.totalRevenue, internalSummary.revenue);
+  const measuredRefunds = firstMetricValue(ga4Summary.refundAmount, internalSummary.refunds);
 
   const financeSnapshot = [
     { label: 'Gross payments', value: formatCurrency(finance?.grossPaid) },
@@ -911,7 +975,7 @@ function AdminAnalyticsMeasurements() {
     ga4SourceMediums: ga4.acquisition?.sourceMediums || [],
     ga4Campaigns: ga4.acquisition?.campaigns || [],
     ga4Countries: visualCountries,
-    ga4TopPages: ga4.engagement?.topPages || [],
+    ga4TopPages: hasRows(ga4.engagement?.topPages) ? ga4.engagement.topPages : internalTopPageRows,
     ga4Events: ga4.engagement?.events || [],
     ga4Products: ga4.commerce?.products || [],
     ga4Currencies: ga4.commerce?.currencies || [],
@@ -922,7 +986,7 @@ function AdminAnalyticsMeasurements() {
     internalFlows: internalBehavior.navigationFlows || [],
     internalCtas: internalBehavior.ctaPerformance || [],
     internalCheckoutMethods: internalCommerce.checkoutMethods || [],
-  }), [ga4, internalBehavior, internalCommerce, ga4Trend, visualAudiences, visualChannels, visualCountries]);
+  }), [ga4, internalBehavior, internalCommerce, ga4Trend, visualAudiences, visualChannels, visualCountries, internalTopPageRows]);
 
   if (loading) {
     return (
@@ -936,16 +1000,16 @@ function AdminAnalyticsMeasurements() {
     <div className="space-y-8">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="GA4 Active Users"
-          value={formatInteger(ga4Summary.activeUsers)}
-          sublabel={`${formatInteger(ga4Summary.sessions)} sessions in the selected window`}
+          label={hasGa4 ? 'GA4 Active Users' : 'Measured Visitors'}
+          value={formatInteger(measuredActiveUsers)}
+          sublabel={`${formatInteger(measuredSessions)} sessions in the selected window`}
           icon="🌐"
           tone="soft"
         />
         <KpiCard
-          label="GA4 Engagement"
-          value={formatPercent(ga4Summary.engagementRate)}
-          sublabel={`${formatSeconds(ga4Summary.averageSessionDuration)} avg session duration`}
+          label={hasGa4 ? 'GA4 Engagement' : 'Internal Engagement'}
+          value={formatPercent(measuredEngagementRate)}
+          sublabel={`${formatSeconds(measuredAverageSessionDuration)} avg session duration`}
           icon="⏱️"
         />
         <KpiCard
@@ -956,8 +1020,8 @@ function AdminAnalyticsMeasurements() {
         />
         <KpiCard
           label="Revenue"
-          value={formatCurrency(ga4Summary.totalRevenue || internalSummary.revenue)}
-          sublabel={`${formatCurrency(ga4Summary.refundAmount || internalSummary.refunds)} refunds tracked`}
+          value={formatCurrency(measuredRevenue)}
+          sublabel={`${formatCurrency(measuredRefunds)} refunds tracked`}
           icon="💳"
           tone="dark"
         />
@@ -965,8 +1029,8 @@ function AdminAnalyticsMeasurements() {
 
       <div className="grid gap-6 2xl:grid-cols-[1.35fr_0.65fr]">
         <Card
-          title="GA4 Executive Trend"
-          subtitle={`Selected Google Analytics metric over the last ${ga4.range?.days || days} days`}
+          title={hasGa4 ? 'GA4 Executive Trend' : 'Internal Executive Trend'}
+          subtitle={`Selected ${hasGa4 ? 'Google Analytics' : 'Aiqda internal'} metric over the last ${ga4.range?.days || days} days`}
           actions={TREND_METRICS.map((metric) => (
             <ActionButton key={metric.key} onClick={() => setSelectedTrendMetric(metric.key)} primary={metric.key === selectedTrendMetric}>
               {metric.label}
@@ -977,7 +1041,7 @@ function AdminAnalyticsMeasurements() {
           <TrendChart
             data={ga4Trend}
             metric={selectedMetric}
-            emptyLabel="GA4 trend data will appear here when the property is connected and traffic is available."
+            emptyLabel="Trend data will appear here after traffic is captured."
           />
         </Card>
 
@@ -1136,7 +1200,7 @@ function AdminAnalyticsMeasurements() {
         </Card>
 
         <Card
-          title="GA4 Countries"
+          title={hasGa4 ? 'GA4 Countries' : 'Internal Countries'}
           subtitle="Top traffic and revenue geographies"
           actions={(
             <ActionButton onClick={() => exportCsv(
@@ -1193,8 +1257,8 @@ function AdminAnalyticsMeasurements() {
     <div className="space-y-8">
       <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
         <Card
-          title="GA4 Top Pages"
-          subtitle="Official page engagement from Google Analytics"
+          title={hasGa4 ? 'GA4 Top Pages' : 'Internal Top Pages'}
+          subtitle={hasGa4 ? 'Official page engagement from Google Analytics' : 'Page engagement captured by Aiqda internal tracking'}
           actions={(
             <ActionButton onClick={() => exportCsv(
               `ga4-top-pages-${formatCsvDate(new Date())}`,
@@ -1214,7 +1278,7 @@ function AdminAnalyticsMeasurements() {
           )}
         >
           <DataTable
-            emptyLabel="GA4 page performance will appear here."
+            emptyLabel="Page performance will appear here after traffic is captured."
             columns={[
               {
                 key: 'path',
@@ -1231,7 +1295,7 @@ function AdminAnalyticsMeasurements() {
               { key: 'engagementRate', label: 'Engagement', render: (value) => formatPercent(value) },
               { key: 'averageSessionDuration', label: 'Avg Time', render: (value) => formatSeconds(value) },
             ]}
-            rows={ga4.engagement?.topPages || []}
+            rows={exportRows.ga4TopPages}
           />
         </Card>
 
@@ -1548,7 +1612,7 @@ function AdminAnalyticsMeasurements() {
         <KpiCard label="Active Users Right Now" value={formatInteger(ga4.realtime?.activeUsers)} sublabel="Live user count reported by GA4 Realtime" icon="🟢" tone="dark" />
         <KpiCard label="Internal Active Members" value={formatInteger(internalOverview.activeStudentsNow)} sublabel={`${formatInteger(internalOverview.activeLessonsNow)} active lessons in the last 2 minutes`} icon="📡" tone="soft" />
         <KpiCard label="Member Engagement" value={formatPercent(internalSummary.engagementRate)} sublabel={`${formatPercent(internalSummary.averageScrollDepth)} average scroll depth`} icon="🧭" />
-        <KpiCard label="Views in Window" value={formatInteger(ga4Summary.screenPageViews)} sublabel={`${ga4.range?.days || days}-day GA4 measurement window`} icon="👁️" />
+        <KpiCard label="Views in Window" value={formatInteger(measuredViews)} sublabel={`${ga4.range?.days || days}-day measurement window`} icon="👁️" />
       </div>
 
       <div className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
@@ -1644,7 +1708,7 @@ function AdminAnalyticsMeasurements() {
             </div>
             <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-gray-400">GA4 Measurement</p>
-              <p className="mt-4 text-4xl font-bold text-gray-900">{formatInteger(ga4Summary.activeUsers)}</p>
+              <p className="mt-4 text-4xl font-bold text-gray-900">{formatInteger(measuredActiveUsers)}</p>
               <p className="mt-2 text-sm text-gray-500">Active users reported by the connected Google Analytics property</p>
             </div>
             <div className="rounded-3xl border border-primary-100 bg-primary-50 p-5">
@@ -1654,7 +1718,7 @@ function AdminAnalyticsMeasurements() {
             </div>
             <div className="rounded-3xl border border-gray-200 bg-white p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Commerce Pulse</p>
-              <p className="mt-4 text-3xl font-bold text-gray-900">{formatCurrency(ga4Summary.totalRevenue || internalSummary.revenue)}</p>
+              <p className="mt-4 text-3xl font-bold text-gray-900">{formatCurrency(measuredRevenue)}</p>
               <p className="mt-2 text-sm text-gray-500">Revenue measured across the selected reporting range</p>
             </div>
           </div>

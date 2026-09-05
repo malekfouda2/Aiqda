@@ -88,6 +88,51 @@ const PUBLIC_ANALYTICS_EVENT_TYPES = new Set([
 ]);
 const EXCLUDED_PUBLIC_ANALYTICS_ROLES = new Set(['admin', 'applications_admin', 'instructor', 'creator']);
 const EXCLUDED_PUBLIC_ANALYTICS_PATH_PATTERN = /^\/(?:admin|creator)(?:\/|$)/;
+const COUNTRY_NAMES_BY_CODE = {
+  AE: 'United Arab Emirates',
+  AR: 'Argentina',
+  AU: 'Australia',
+  BH: 'Bahrain',
+  BD: 'Bangladesh',
+  BE: 'Belgium',
+  BR: 'Brazil',
+  CA: 'Canada',
+  CH: 'Switzerland',
+  CL: 'Chile',
+  CN: 'China',
+  DE: 'Germany',
+  EG: 'Egypt',
+  ES: 'Spain',
+  FR: 'France',
+  GB: 'United Kingdom',
+  IE: 'Ireland',
+  IN: 'India',
+  IQ: 'Iraq',
+  IT: 'Italy',
+  JO: 'Jordan',
+  JP: 'Japan',
+  KE: 'Kenya',
+  KR: 'South Korea',
+  KW: 'Kuwait',
+  LB: 'Lebanon',
+  MX: 'Mexico',
+  MY: 'Malaysia',
+  NG: 'Nigeria',
+  NL: 'Netherlands',
+  NO: 'Norway',
+  OM: 'Oman',
+  PK: 'Pakistan',
+  PL: 'Poland',
+  QA: 'Qatar',
+  RU: 'Russia',
+  SA: 'Saudi Arabia',
+  SE: 'Sweden',
+  SG: 'Singapore',
+  TR: 'Turkey',
+  US: 'United States',
+  ZA: 'South Africa',
+};
+const UNKNOWN_COUNTRY_CODES = new Set(['', 'XX', 'T1', 'A1', 'A2', 'O1']);
 
 const createEmptyCourseMetrics = () => ({
   lessons: [],
@@ -142,6 +187,50 @@ const normalizeUserRole = (value) => normalizeShortString(value, 80);
 const normalizeMetadata = (value) => (
   value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 );
+
+const normalizeCountryCode = (value) => {
+  const normalized = normalizeShortString(value, 8).toUpperCase();
+
+  if (!/^[A-Z]{2}$/.test(normalized) || UNKNOWN_COUNTRY_CODES.has(normalized)) {
+    return '';
+  }
+
+  return normalized;
+};
+
+const resolveCountryName = (countryCode, ...nameCandidates) => {
+  for (const candidate of nameCandidates) {
+    const normalized = normalizeShortString(candidate, 120);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return COUNTRY_NAMES_BY_CODE[countryCode] || '';
+};
+
+const getRequestCountryContext = (payload = {}, req = {}) => {
+  const headers = req.headers || {};
+  const metadata = normalizeMetadata(payload.metadata);
+  const countryCode = normalizeCountryCode(
+    headers['cf-ipcountry']
+    || headers['cloudfront-viewer-country']
+    || headers['x-vercel-ip-country']
+    || headers['x-country-code']
+    || headers['x-appengine-country']
+    || payload.countryCode
+    || metadata.countryCode
+  );
+  const countryName = resolveCountryName(
+    countryCode,
+    payload.countryName,
+    payload.country,
+    metadata.countryName,
+    metadata.country
+  );
+
+  return { countryCode, countryName };
+};
 
 const shouldIgnorePublicAnalyticsEvent = ({ path = '/', userRole = '' } = {}) => (
   EXCLUDED_PUBLIC_ANALYTICS_ROLES.has(normalizeUserRole(userRole))
@@ -348,6 +437,7 @@ export const trackPublicEvent = async (payload = {}, req = {}) => {
   const metadata = normalizeMetadata(payload.metadata);
   const userRole = normalizeUserRole(payload.userRole || metadata.role);
   const path = normalizePath(payload.path);
+  const country = getRequestCountryContext(payload, req);
 
   if (shouldIgnorePublicAnalyticsEvent({ path, userRole })) {
     return;
@@ -363,6 +453,8 @@ export const trackPublicEvent = async (payload = {}, req = {}) => {
     sessionId: normalizeShortString(payload.sessionId, 120),
     referrer: normalizeShortString(payload.referrer, 500),
     userAgent: normalizeShortString(req.headers?.['user-agent'], 400),
+    countryCode: country.countryCode,
+    countryName: country.countryName,
     utmSource: utm.source,
     utmMedium: utm.medium,
     utmCampaign: utm.campaign,
@@ -1135,7 +1227,7 @@ export const getAdminAnalytics = async () => {
       path: { $not: EXCLUDED_PUBLIC_ANALYTICS_PATH_PATTERN },
       userRole: { $nin: [...EXCLUDED_PUBLIC_ANALYTICS_ROLES] },
     })
-      .select('eventType sessionId visitorId path title locale userRole referrer userAgent utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
+      .select('eventType sessionId visitorId path title locale userRole referrer userAgent countryCode countryName utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
       .sort({ createdAt: 1 })
       .lean(),
     ContactMessage.find({ createdAt: { $gte: last30Days } })
@@ -1195,6 +1287,7 @@ export const getAdminAnalytics = async () => {
   const sourceMap = new Map();
   const campaignMap = new Map();
   const localeMap = new Map();
+  const countryMap = new Map();
   const landingPageMap = new Map();
   const deviceMap = new Map();
   const browserMap = new Map();
@@ -1249,6 +1342,8 @@ export const getAdminAnalytics = async () => {
         utmMedium: '',
         utmCampaign: '',
         userAgent: '',
+        countryCode: '',
+        countryName: '',
         visitedPaths: new Set(),
       });
 
@@ -1273,6 +1368,15 @@ export const getAdminAnalytics = async () => {
       }
       if (!sessionStats.userAgent) {
         sessionStats.userAgent = entry.userAgent || '';
+      }
+      if (!sessionStats.countryCode) {
+        sessionStats.countryCode = normalizeCountryCode(entry.countryCode);
+      }
+      if (!sessionStats.countryName) {
+        sessionStats.countryName = resolveCountryName(
+          sessionStats.countryCode,
+          entry.countryName
+        );
       }
       if (!sessionStats.firstPath && entry.eventType === 'page_view') {
         sessionStats.firstPath = normalizedPath;
@@ -1420,6 +1524,23 @@ export const getAdminAnalytics = async () => {
     incrementMapCount(browserMap, getBrowserFromUserAgent(sessionStats.userAgent));
     incrementMapCount(osMap, getOsFromUserAgent(sessionStats.userAgent));
 
+    const countryName = resolveCountryName(sessionStats.countryCode, sessionStats.countryName);
+    if (countryName) {
+      const countryStats = incrementMapObject(countryMap, countryName, {
+        label: countryName,
+        countryCode: sessionStats.countryCode,
+        sessions: 0,
+        visitors: new Set(),
+      });
+      countryStats.sessions += 1;
+      if (sessionStats.visitorId) {
+        countryStats.visitors.add(sessionStats.visitorId);
+      }
+      if (!countryStats.countryCode && sessionStats.countryCode) {
+        countryStats.countryCode = sessionStats.countryCode;
+      }
+    }
+
     const landingPagePath = sessionStats.firstPath || sessionStats.lastPath || '/';
     const landingPageStats = incrementMapObject(landingPageMap, landingPagePath, {
       path: landingPagePath,
@@ -1522,6 +1643,17 @@ export const getAdminAnalytics = async () => {
   const topSources = mapCountsToRows(sourceMap, 'label');
   const topCampaigns = mapCountsToRows(campaignMap, 'label');
   const localeDistribution = mapCountsToRows(localeMap, 'label');
+  const countryDistribution = [...countryMap.values()]
+    .map((row) => ({
+      label: row.label,
+      countryCode: row.countryCode,
+      sessions: row.sessions,
+      activeUsers: row.visitors.size,
+      uniqueVisitors: row.visitors.size,
+      count: row.sessions,
+    }))
+    .sort((left, right) => right.sessions - left.sessions)
+    .slice(0, ANALYTICS_TOP_LIST_LIMIT);
   const deviceDistribution = mapCountsToRows(deviceMap, 'label');
   const browserDistribution = mapCountsToRows(browserMap, 'label');
   const operatingSystemDistribution = mapCountsToRows(osMap, 'label');
@@ -1625,6 +1757,7 @@ export const getAdminAnalytics = async () => {
         referrers: topReferrers,
         sources: topSources,
         campaigns: topCampaigns,
+        countries: countryDistribution,
         locales: localeDistribution,
         landingPages,
       },

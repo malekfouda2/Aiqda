@@ -48,6 +48,19 @@ const analyticsEventSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
+  countryCode: {
+    type: String,
+    default: '',
+    trim: true,
+    uppercase: true,
+    maxlength: 2,
+  },
+  countryName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 120,
+  },
   utmSource: {
     type: String,
     default: '',
@@ -85,5 +98,6 @@ analyticsEventSchema.index({ eventType: 1, createdAt: -1 });
 analyticsEventSchema.index({ sessionId: 1, createdAt: -1 });
 analyticsEventSchema.index({ visitorId: 1, createdAt: -1 });
 analyticsEventSchema.index({ path: 1, createdAt: -1 });
+analyticsEventSchema.index({ countryCode: 1, createdAt: -1 });
 
 export default mongoose.model('AnalyticsEvent', analyticsEventSchema);
