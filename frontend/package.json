@@ -11,12 +11,15 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@vimeo/player": "^2.30.3",
     "axios": "^1.15.2",
+    "d3-geo": "^3.1.1",
     "follow-redirects": "^1.16.0",
     "framer-motion": "^12.31.0",
     "picomatch": "^2.3.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

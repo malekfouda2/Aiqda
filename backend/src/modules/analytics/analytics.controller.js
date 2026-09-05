@@ -43,7 +43,7 @@ export const getInstructorAnalytics = async (req, res) => {
 
 export const getAdminAnalytics = async (req, res) => {
   try {
-    const analytics = await analyticsService.getAdminAnalytics();
+    const analytics = await analyticsService.getAdminAnalytics({ days: req.query.days });
     res.json(analytics);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -54,7 +54,7 @@ export const getAdminAnalyticsCenter = async (req, res) => {
   try {
     const days = Number.parseInt(req.query.days, 10) || 30;
     const [internal, ga4] = await Promise.all([
-      analyticsService.getAdminAnalytics(),
+      analyticsService.getAdminAnalytics({ days }),
       getGa4AnalyticsCenter({ days }),
     ]);
 

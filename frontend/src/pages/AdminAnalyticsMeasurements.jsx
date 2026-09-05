@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { geoEqualEarth, geoGraticule10, geoPath } from 'd3-geo';
+import { feature as topojsonFeature } from 'topojson-client';
+import worldCountries from 'world-atlas/countries-50m.json';
 import { analyticsAPI, financeAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import useUIStore from '../store/uiStore';
@@ -116,55 +119,28 @@ const COUNTRY_GEO_ALIASES = {
   china: 'China',
   'south korea': 'South Korea',
 };
-const WORLD_MAP_BASE_PATHS = [
-  'M69 170C92 129 148 106 211 117C253 124 280 150 284 184C290 221 260 255 214 263C169 271 114 259 86 226C72 209 61 189 69 170Z',
-  'M230 284C267 276 306 297 318 335C332 378 303 443 266 466C238 483 209 469 205 430C199 377 203 308 230 284Z',
-  'M386 128C425 96 493 95 535 125C562 143 589 155 629 150C691 142 741 164 764 205C782 238 759 276 714 281C661 288 624 254 581 263C537 272 507 301 458 288C411 276 372 239 365 196C361 170 368 144 386 128Z',
-  'M508 299C548 280 600 291 626 333C652 377 633 434 589 459C553 480 509 460 492 416C474 368 477 316 508 299Z',
-  'M704 309C733 293 779 300 812 329C843 356 857 395 839 424C817 459 763 452 732 423C701 394 681 329 704 309Z',
-  'M789 382C831 363 903 382 928 424C950 461 921 500 870 501C824 501 782 472 774 431C770 411 772 392 789 382Z',
-];
-const COUNTRY_MAP_FEATURES = {
-  'United States': { name: 'United States', path: 'M126 197L219 181L266 205L246 250L176 257L106 227Z' },
-  Canada: { name: 'Canada', path: 'M96 118L218 103L283 136L253 178L166 186L82 162Z' },
-  Mexico: { name: 'Mexico', path: 'M153 258L237 256L263 292L225 316L170 293Z' },
-  Brazil: { name: 'Brazil', path: 'M259 313L320 337L310 421L263 468L218 432L224 356Z' },
-  Argentina: { name: 'Argentina', path: 'M250 415L285 427L274 501L238 498L231 447Z' },
-  Chile: { name: 'Chile', path: 'M222 394L241 403L232 504L212 499L211 438Z' },
-  'United Kingdom': { name: 'United Kingdom', path: 'M453 151L479 146L491 172L471 193L446 180Z' },
-  Ireland: { name: 'Ireland', path: 'M431 159L450 152L453 178L434 184Z' },
-  France: { name: 'France', path: 'M467 194L505 188L517 227L486 250L456 226Z' },
-  Germany: { name: 'Germany', path: 'M507 166L544 171L551 215L517 225L501 189Z' },
-  Spain: { name: 'Spain', path: 'M444 239L488 246L501 277L462 292L430 268Z' },
-  Italy: { name: 'Italy', path: 'M526 225L552 241L561 291L543 303L519 249Z' },
-  Sweden: { name: 'Sweden', path: 'M526 78L561 86L553 153L521 157L512 116Z' },
-  Norway: { name: 'Norway', path: 'M488 78L523 74L514 153L484 145Z' },
-  Poland: { name: 'Poland', path: 'M551 173L588 178L589 215L553 215Z' },
-  Russia: { name: 'Russia', path: 'M589 101L779 95L860 139L834 205L678 197L601 165Z' },
-  Turkey: { name: 'Turkey', path: 'M566 231L630 228L653 251L601 269L553 256Z' },
-  Egypt: { name: 'Egypt', path: 'M538 276L579 273L594 323L553 330Z' },
-  'Saudi Arabia': { name: 'Saudi Arabia', path: 'M596 294L660 292L691 342L664 389L601 361L579 319Z' },
-  'United Arab Emirates': { name: 'United Arab Emirates', path: 'M684 337L712 341L705 361L679 355Z' },
-  Qatar: { name: 'Qatar', path: 'M674 333L684 338L678 353L669 344Z' },
-  Kuwait: { name: 'Kuwait', path: 'M652 289L671 291L669 306L651 304Z' },
-  Bahrain: { name: 'Bahrain', path: 'M672 320L680 323L676 333L668 328Z' },
-  Oman: { name: 'Oman', path: 'M687 362L723 359L712 399L675 389Z' },
-  Jordan: { name: 'Jordan', path: 'M580 268L607 266L607 289L586 299Z' },
-  Lebanon: { name: 'Lebanon', path: 'M586 247L596 248L594 267L582 264Z' },
-  Iraq: { name: 'Iraq', path: 'M609 247L654 253L657 291L608 289Z' },
-  Nigeria: { name: 'Nigeria', path: 'M495 348L548 347L556 393L511 405L485 375Z' },
-  Kenya: { name: 'Kenya', path: 'M587 396L626 395L638 440L601 460L577 430Z' },
-  'South Africa': { name: 'South Africa', path: 'M555 459L628 460L646 500L594 520L542 499Z' },
-  India: { name: 'India', path: 'M722 307L780 324L790 391L752 443L710 382Z' },
-  Pakistan: { name: 'Pakistan', path: 'M679 282L726 291L727 333L694 344L669 315Z' },
-  Bangladesh: { name: 'Bangladesh', path: 'M792 343L815 347L809 371L788 364Z' },
-  China: { name: 'China', path: 'M728 219L833 211L887 266L853 330L774 326L719 289Z' },
-  Japan: { name: 'Japan', path: 'M916 229L943 253L933 307L905 279Z' },
-  'South Korea': { name: 'South Korea', path: 'M882 277L904 283L898 307L876 300Z' },
-  Indonesia: { name: 'Indonesia', path: 'M811 399L905 402L933 430L858 438L794 422Z' },
-  Malaysia: { name: 'Malaysia', path: 'M795 378L835 386L829 409L789 397Z' },
-  Singapore: { name: 'Singapore', path: 'M828 409L839 412L833 420L823 416Z' },
-  Australia: { name: 'Australia', path: 'M815 402L910 414L958 461L925 514L831 504L784 455Z' },
+
+const WORLD_MAP_WIDTH = 1000;
+const WORLD_MAP_HEIGHT = 540;
+const WORLD_FEATURE_COLLECTION = topojsonFeature(worldCountries, worldCountries.objects.countries);
+const WORLD_PROJECTION = geoEqualEarth().fitSize([WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT], WORLD_FEATURE_COLLECTION);
+const WORLD_PATH = geoPath(WORLD_PROJECTION);
+const WORLD_GRATICULE_PATH = WORLD_PATH(geoGraticule10());
+const WORLD_COUNTRY_FEATURES = (WORLD_FEATURE_COLLECTION.features || [])
+  .map((geoFeature) => ({
+    id: geoFeature.id || geoFeature.properties?.name,
+    name: geoFeature.properties?.name || '',
+    path: WORLD_PATH(geoFeature),
+  }))
+  .filter((entry) => entry.name && entry.path);
+const MAP_FEATURE_ROW_ALIASES = {
+  'United States of America': 'United States',
+  Czechia: 'Czech Republic',
+  'Dem. Rep. Congo': 'Democratic Republic of the Congo',
+  Congo: 'Republic of the Congo',
+  Korea: 'South Korea',
+  'S. Korea': 'South Korea',
+  'W. Sahara': 'Western Sahara',
 };
 
 const formatInteger = (value) => Number(value || 0).toLocaleString();
@@ -183,6 +159,11 @@ const formatSeconds = (value) => {
 };
 const normalizeCountryKey = (value) => String(value || '').trim().toLowerCase();
 const toGeoCountryName = (value) => COUNTRY_GEO_ALIASES[normalizeCountryKey(value)] || String(value || '').trim();
+const resolveMapFeatureRow = (rowByCountry, featureName) => (
+  rowByCountry[normalizeCountryKey(featureName)]
+  || rowByCountry[normalizeCountryKey(MAP_FEATURE_ROW_ALIASES[featureName])]
+  || null
+);
 const toChartPercent = (value, maxValue) => {
   if (!maxValue) {
     return 0;
@@ -637,7 +618,7 @@ function GeoAudienceMap({ rows = [], valueKey = 'activeUsers', title = 'Global p
     .filter((row) => row.value > 0)
     .sort((left, right) => right.value - left.value), [rows, valueKey]);
   const rowByCountry = normalizedRows.reduce((acc, row) => {
-    acc[row.geoLabel] = row;
+    acc[normalizeCountryKey(row.geoLabel)] = row;
     return acc;
   }, {});
   const maxValue = Math.max(...normalizedRows.map((row) => row.value), 1);
@@ -690,37 +671,39 @@ function GeoAudienceMap({ rows = [], valueKey = 'activeUsers', title = 'Global p
             {normalizedRows.length ? (
               <>
                 <svg
-                  viewBox="0 0 1000 540"
+                  viewBox={`0 0 ${WORLD_MAP_WIDTH} ${WORLD_MAP_HEIGHT}`}
                   className="block aspect-[1.85/1] w-full"
                   role="img"
                   aria-label="World map with country activity"
                   onPointerLeave={() => setHoverIfChanged(null)}
                 >
-                  <rect width="1000" height="540" fill="transparent" />
-                  {WORLD_MAP_BASE_PATHS.map((path, index) => (
+                  <rect width={WORLD_MAP_WIDTH} height={WORLD_MAP_HEIGHT} fill="#f8fafc" />
+                  {WORLD_GRATICULE_PATH ? (
                     <path
-                      key={`base-${index}`}
-                      d={path}
-                      fill="#e2e8f0"
+                      d={WORLD_GRATICULE_PATH}
+                      fill="none"
                       stroke="#cbd5e1"
-                      strokeWidth="1.5"
+                      strokeOpacity="0.55"
+                      strokeWidth="0.8"
                     />
-                  ))}
-
-                  {Object.values(COUNTRY_MAP_FEATURES).map((feature) => {
-                    const row = rowByCountry[feature.name];
-                    const isActive = activeRow?.geoLabel === feature.name;
+                  ) : null}
+                  {WORLD_COUNTRY_FEATURES.map((feature) => {
+                    const row = resolveMapFeatureRow(rowByCountry, feature.name);
+                    const isActive = activeRow?.id === row?.id;
                     return (
                       <path
-                        key={feature.name}
+                        key={`${feature.id}-${feature.name}`}
                         d={feature.path}
                         fill={getCountryFill(row)}
                         stroke={isActive ? '#111827' : row ? '#0f172a' : '#ffffff'}
-                        strokeWidth={row ? '1.8' : '1'}
-                        opacity={row ? 1 : 0.42}
-                        className={row ? 'cursor-pointer' : ''}
+                        strokeWidth={isActive ? '1.25' : row ? '0.85' : '0.45'}
+                        opacity={row ? 1 : 0.62}
+                        className={row ? 'cursor-pointer outline-none transition-colors duration-150' : 'transition-colors duration-150'}
                         onPointerEnter={() => row && setHoverIfChanged(row.id)}
+                        onFocus={() => row && setHoverIfChanged(row.id)}
                         onClick={() => row && setHoverIfChanged(row.id)}
+                        tabIndex={row ? 0 : undefined}
+                        aria-label={row ? `${row.label}: ${formatInteger(row.value)} measured users` : feature.name}
                       >
                         {row ? <title>{`${row.label}: ${formatInteger(row.value)} users`}</title> : null}
                       </path>
@@ -904,7 +887,7 @@ function AdminAnalyticsMeasurements() {
         centerRes = await analyticsAPI.getAdminAnalyticsCenter({ days: nextDays });
       } catch (centerError) {
         console.warn('Analytics center endpoint failed, falling back to legacy admin analytics:', centerError);
-        const legacyRes = await analyticsAPI.getAdminAnalytics();
+        const legacyRes = await analyticsAPI.getAdminAnalytics({ days: nextDays });
         centerRes = {
           data: buildLegacyCenterPayload(
             legacyRes.data,

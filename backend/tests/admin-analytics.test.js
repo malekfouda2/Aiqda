@@ -383,6 +383,60 @@ test('public analytics captures production country headers and excludes staff tr
   ]);
 });
 
+test('admin analytics applies the selected reporting range to internal metrics', async () => {
+  const admin = await createUser({ role: 'admin' });
+  const now = Date.now();
+
+  await AnalyticsEvent.create([
+    {
+      eventType: 'page_view',
+      path: '/recent',
+      title: 'Recent Page',
+      visitorId: 'visitor_recent',
+      sessionId: 'session_recent',
+      countryCode: 'SA',
+      countryName: 'Saudi Arabia',
+      createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+    },
+    {
+      eventType: 'page_view',
+      path: '/older',
+      title: 'Older Page',
+      visitorId: 'visitor_older',
+      sessionId: 'session_older',
+      countryCode: 'EG',
+      countryName: 'Egypt',
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+    },
+  ]);
+
+  const sevenDayResponse = await request(suite.app)
+    .get('/api/analytics/admin/measurement-center?days=7')
+    .set(authHeader(admin.token));
+  const ninetyDayResponse = await request(suite.app)
+    .get('/api/analytics/admin/measurement-center?days=90')
+    .set(authHeader(admin.token));
+
+  assert.equal(sevenDayResponse.status, 200);
+  assert.equal(ninetyDayResponse.status, 200);
+  assert.equal(sevenDayResponse.body.internal.analytics.windowDays, 7);
+  assert.equal(ninetyDayResponse.body.internal.analytics.windowDays, 90);
+  assert.equal(sevenDayResponse.body.internal.analytics.summary.sessions, 1);
+  assert.equal(sevenDayResponse.body.internal.analytics.summary.pageViews, 1);
+  assert.equal(ninetyDayResponse.body.internal.analytics.summary.sessions, 2);
+  assert.equal(ninetyDayResponse.body.internal.analytics.summary.pageViews, 2);
+  assert.equal(
+    sevenDayResponse.body.internal.analytics.behavior.topPages.some((row) => row.path === '/older'),
+    false
+  );
+  assert.equal(
+    ninetyDayResponse.body.internal.analytics.behavior.topPages.some((row) => row.path === '/older'),
+    true
+  );
+});
+
 test('production content security policy allows analytics vendors', async () => {
   const response = await request(suite.app).get('/api/health');
 

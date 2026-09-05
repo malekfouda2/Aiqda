@@ -29,7 +29,7 @@ const MEMBER_REWARD_ACTIVITY_WINDOW_DAYS = 14;
 const MEMBER_REWARD_ACTIVITY_WINDOW_MS = MEMBER_REWARD_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const MEMBER_LEADERBOARD_LIMIT = 5;
 const KPI_WINDOW_DAYS = 30;
-const KPI_WINDOW_MS = KPI_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const ANALYTICS_WINDOW_OPTIONS = new Set([7, 30, 90]);
 const VIMEO_ENTERPRISE_ONLY_ANALYTICS_METRICS = [
   'impressions',
   'finishes',
@@ -314,6 +314,11 @@ const averageOrZero = (sum, count, precision = 1) => {
 
   const factor = 10 ** precision;
   return Math.round((sum / count) * factor) / factor;
+};
+
+const normalizeAnalyticsWindowDays = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  return ANALYTICS_WINDOW_OPTIONS.has(parsed) ? parsed : KPI_WINDOW_DAYS;
 };
 
 const normalizeReferrerHost = (value) => {
@@ -1180,9 +1185,9 @@ export const getInstructorAnalytics = async (instructorId) => {
   };
 };
 
-export const getAdminAnalytics = async () => {
-  const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const analyticsWindowStart = new Date(Date.now() - KPI_WINDOW_MS);
+export const getAdminAnalytics = async ({ days = KPI_WINDOW_DAYS } = {}) => {
+  const windowDays = normalizeAnalyticsWindowDays(days);
+  const analyticsWindowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
   const [
     totalCourses,
     publishedCourses,
@@ -1217,7 +1222,7 @@ export const getAdminAnalytics = async () => {
       .select('user lesson watchPercentage lastWatchedAt')
       .lean(),
     User.countDocuments({ role: 'student' }),
-    User.find({ role: 'student', createdAt: { $gte: last30Days } })
+    User.find({ role: 'student', createdAt: { $gte: analyticsWindowStart } })
       .select('createdAt')
       .lean(),
     Subscription.countDocuments({ status: { $in: ['active', 'cancel_scheduled', 'grace_period'] } }),
@@ -1230,19 +1235,19 @@ export const getAdminAnalytics = async () => {
       .select('eventType sessionId visitorId path title locale userRole referrer userAgent countryCode countryName utmSource utmMedium utmCampaign utmTerm utmContent metadata createdAt')
       .sort({ createdAt: 1 })
       .lean(),
-    ContactMessage.find({ createdAt: { $gte: last30Days } })
+    ContactMessage.find({ createdAt: { $gte: analyticsWindowStart } })
       .select('createdAt')
       .lean(),
-    InstructorApplication.find({ createdAt: { $gte: last30Days } })
+    InstructorApplication.find({ createdAt: { $gte: analyticsWindowStart } })
       .select('createdAt')
       .lean(),
-    StudioApplication.find({ createdAt: { $gte: last30Days } })
+    StudioApplication.find({ createdAt: { $gte: analyticsWindowStart } })
       .select('createdAt')
       .lean(),
-    ConsultationBooking.find({ createdAt: { $gte: last30Days } })
+    ConsultationBooking.find({ createdAt: { $gte: analyticsWindowStart } })
       .select('createdAt amount currency status paidAt')
       .lean(),
-    Payment.find({ createdAt: { $gte: last30Days } })
+    Payment.find({ createdAt: { $gte: analyticsWindowStart } })
       .select('amount currency status paymentType checkoutMethod refundStatus refundAmount refundedAt createdAt consultationBooking subscription')
       .lean(),
   ]);
@@ -1261,7 +1266,7 @@ export const getAdminAnalytics = async () => {
   const studioApplications30d = studioApplications30dEntries.length;
   const consultationRequests30d = consultationRequests30dEntries.length;
 
-  const daySeries = buildRollingDaySeries(KPI_WINDOW_DAYS);
+  const daySeries = buildRollingDaySeries(windowDays);
   const trendByDayKey = new Map(
     daySeries.map(({ key, label }) => [
       key,
@@ -1716,7 +1721,7 @@ export const getAdminAnalytics = async () => {
       activeSubscriptions,
       totalInstructors,
       marketingKpis: {
-        windowDays: KPI_WINDOW_DAYS,
+        windowDays,
         websiteVisits: websiteVisits30d,
         uniqueVisitors: uniqueVisitors30d,
         pageViews: totalPageViews30d,
@@ -1735,7 +1740,7 @@ export const getAdminAnalytics = async () => {
       },
     },
     analytics: {
-      windowDays: KPI_WINDOW_DAYS,
+      windowDays,
       summary: {
         sessions: websiteVisits30d,
         uniqueVisitors: uniqueVisitors30d,
