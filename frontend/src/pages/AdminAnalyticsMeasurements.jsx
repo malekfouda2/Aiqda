@@ -20,7 +20,6 @@ const TABS = [
   { key: 'retention', label: 'Retention' },
   { key: 'audiences', label: 'Audiences' },
   { key: 'realtime', label: 'Realtime' },
-  { key: 'embedded', label: 'Embedded' },
 ];
 const VISUAL_DEMO_GA4 = {
   acquisition: {
@@ -843,7 +842,7 @@ function RetentionGrid({ rows }) {
   if (!rows.length) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-16 text-center text-sm text-gray-500">
-        Retention data will appear here after GA4 credentials are connected and enough time has passed to build cohorts.
+        Retention data will appear here after Google Analytics has enough measured traffic to build cohorts.
       </div>
     );
   }
@@ -885,6 +884,12 @@ function AdminAnalyticsMeasurements() {
   useEffect(() => {
     void fetchData(days);
   }, [days]);
+
+  useEffect(() => {
+    if (activeTab === 'embedded' && center && !center.ga4?.embed?.available) {
+      setActiveTab('executive');
+    }
+  }, [activeTab, center]);
 
   const fetchData = async (nextDays = days) => {
     try {
@@ -961,6 +966,7 @@ function AdminAnalyticsMeasurements() {
   const measuredViews = firstMetricValue(ga4Summary.screenPageViews, internalSummary.pageViews);
   const measuredRevenue = firstMetricValue(ga4Summary.totalRevenue, internalSummary.revenue);
   const measuredRefunds = firstMetricValue(ga4Summary.refundAmount, internalSummary.refunds);
+  const availableTabs = ga4.embed?.available ? [...TABS, { key: 'embedded', label: 'Embedded' }] : TABS;
 
   const financeSnapshot = [
     { label: 'Gross payments', value: formatCurrency(finance?.grossPaid) },
@@ -1119,7 +1125,7 @@ function AdminAnalyticsMeasurements() {
     <div className="space-y-8">
       {useDemoVisuals ? (
         <StatusBanner title="Development preview visuals are active" tone="info">
-          Premium acquisition and audience illustrations are currently showing local preview data because GA4 is not connected in this environment yet.
+          Premium acquisition and audience illustrations are showing local preview data for design review.
         </StatusBanner>
       ) : null}
 
@@ -1534,7 +1540,7 @@ function AdminAnalyticsMeasurements() {
     <div className="space-y-8">
       {useDemoVisuals ? (
         <StatusBanner title="Development preview visuals are active" tone="info">
-          Audience illustration cards are currently rendered from local preview data so you can review the design before GA4 audience reporting is connected.
+          Audience illustration cards are showing local preview data for design review.
         </StatusBanner>
       ) : null}
 
@@ -1696,7 +1702,7 @@ function AdminAnalyticsMeasurements() {
             </div>
             <p className="mt-4 text-xs text-gray-400">
               Generated {center?.generatedAt ? new Date(center.generatedAt).toLocaleString() : 'just now'}
-              {hasGa4 ? ` • GA4 property ${ga4.propertyId}` : ' • GA4 reports pending secure connection'}
+              {hasGa4 ? ` • GA4 property ${ga4.propertyId}` : ' • Using internal analytics data'}
             </p>
           </div>
 
@@ -1726,7 +1732,7 @@ function AdminAnalyticsMeasurements() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {TABS.map((tab) => (
+        {availableTabs.map((tab) => (
           <TabButton key={tab.key} active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
             {tab.label}
           </TabButton>
@@ -1743,7 +1749,7 @@ function AdminAnalyticsMeasurements() {
       {activeTab === 'retention' ? renderRetentionTab() : null}
       {activeTab === 'audiences' ? renderAudiencesTab() : null}
       {activeTab === 'realtime' ? renderRealtimeTab() : null}
-      {activeTab === 'embedded' ? renderEmbeddedTab() : null}
+      {activeTab === 'embedded' && ga4.embed?.available ? renderEmbeddedTab() : null}
     </div>
   );
 }
