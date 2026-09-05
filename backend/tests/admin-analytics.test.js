@@ -392,3 +392,17 @@ test('production content security policy allows analytics vendors', async () => 
   assert.match(csp, /https:\/\/www\.google-analytics\.com/);
   assert.match(csp, /https:\/\/connect\.facebook\.net/);
 });
+
+test('production cors allows apex and www website origins', async () => {
+  const apexResponse = await request(suite.app)
+    .get('/api/health')
+    .set('Origin', 'https://aiqda.pro');
+  const wwwResponse = await request(suite.app)
+    .get('/api/health')
+    .set('Origin', 'https://www.aiqda.pro');
+
+  assert.equal(apexResponse.status, 200);
+  assert.equal(apexResponse.headers['access-control-allow-origin'], 'https://aiqda.pro');
+  assert.equal(wwwResponse.status, 200);
+  assert.equal(wwwResponse.headers['access-control-allow-origin'], 'https://www.aiqda.pro');
+});

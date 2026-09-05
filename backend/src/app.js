@@ -100,6 +100,8 @@ app.use(helmet({
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://aiqda.pro',
+  'https://www.aiqda.pro',
   'http://localhost:5000',
   'http://127.0.0.1:5000',
   'http://localhost:5001',
