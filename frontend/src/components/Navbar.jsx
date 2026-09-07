@@ -38,49 +38,49 @@ function Navbar() {
   return (
     <nav dir={isRTL ? 'rtl' : 'ltr'} className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-5 xl:px-8 2xl:px-12">
-        <div className="flex h-20 items-center justify-between gap-3 lg:h-24 xl:gap-5">
-          <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-4 xl:gap-6">
+        <div className="flex h-24 items-center justify-between gap-3 lg:h-28 xl:gap-5">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-2 xl:gap-4">
             <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-              <img src="/logo.png" alt={brandName} className="h-14 w-auto sm:h-16 lg:h-[4.5rem] xl:h-20" />
+              <img src="/logo.png" alt={brandName} className="h-20 w-auto lg:h-24" />
             </Link>
 
-            <div className="hidden min-w-0 flex-1 items-center gap-3 overflow-x-auto whitespace-nowrap [scrollbar-width:none] lg:flex xl:gap-5 2xl:gap-6 [&::-webkit-scrollbar]:hidden">
+            <div className="hidden min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] lg:flex xl:gap-3 2xl:gap-5 [&::-webkit-scrollbar]:hidden">
               {navLinks.map((link) => (
-                <Link key={link.to} to={link.to} className="shrink-0 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 xl:text-base">
+                <Link key={link.to} to={link.to} className="shrink-0 text-[0.72rem] font-medium text-gray-600 transition-colors hover:text-gray-900 xl:text-xs 2xl:text-sm">
                   {link.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 xl:gap-3">
+          <div className="flex flex-shrink-0 items-center gap-1.5 xl:gap-2.5">
             <div className="hidden lg:block">
-              <LanguageToggle />
+              <LanguageToggle className="px-2 py-2 text-[0.72rem] xl:px-2.5 xl:text-xs" />
             </div>
 
             {user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="hidden w-28 lg:block xl:w-44 2xl:w-56">
+              <div className="flex items-center gap-1.5 xl:gap-2.5">
+                <div className="hidden w-20 lg:block xl:w-32 2xl:w-48">
                   <GlobalSearch />
                 </div>
                 <NotificationBell />
-                <div className={`${isRTL ? 'text-left' : 'text-right'} hidden max-w-[7rem] lg:block xl:max-w-[9rem]`}>
-                  <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
+                <div className={`${isRTL ? 'text-left' : 'text-right'} hidden max-w-[5.75rem] lg:block xl:max-w-[7rem] 2xl:max-w-[9rem]`}>
+                  <p className="truncate text-[0.72rem] font-medium text-gray-900 xl:text-xs 2xl:text-sm">{user.name}</p>
+                  <p className="text-[11px] text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="btn-secondary hidden text-sm lg:inline-flex"
+                  className="btn-secondary hidden px-2.5 py-2 text-[0.72rem] lg:inline-flex xl:px-3 xl:text-xs 2xl:text-sm"
                 >
                   {t('common.logout')}
                 </button>
               </div>
             ) : (
               <div className="hidden items-center gap-2 lg:flex xl:gap-3">
-                <Link to="/login" className="btn-secondary text-sm">
+                <Link to="/login" className="btn-secondary px-3 py-2 text-[0.72rem] xl:text-xs 2xl:text-sm">
                   {t('common.login')}
                 </Link>
-                <Link to="/register" className="btn-primary text-sm">
+                <Link to="/register" className="btn-primary px-3 py-2 text-[0.72rem] xl:text-xs 2xl:text-sm">
                   {t('navbar.getStarted')}
                 </Link>
               </div>
@@ -105,7 +105,7 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 top-20 z-40 lg:hidden"
+            className="fixed inset-0 top-24 z-40 lg:hidden"
           >
             <div className="absolute inset-0 bg-black/20" onClick={closeSidebar} />
             <motion.div
