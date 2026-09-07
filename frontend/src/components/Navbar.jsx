@@ -37,46 +37,46 @@ function Navbar() {
 
   return (
     <nav dir={isRTL ? 'rtl' : 'ltr'} className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-10 xl:px-14">
-        <div className="flex items-center justify-between gap-6 h-24 lg:h-28">
-          <div className="flex items-center gap-6 xl:gap-10 min-w-0">
+      <div className="max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-5 xl:px-8 2xl:px-12">
+        <div className="flex h-20 items-center justify-between gap-3 lg:h-24 xl:gap-5">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-4 xl:gap-6">
             <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-              <img src="/logo.png" alt={brandName} className="h-20 lg:h-24 w-auto" />
+              <img src="/logo.png" alt={brandName} className="h-14 w-auto sm:h-16 lg:h-[4.5rem] xl:h-20" />
             </Link>
 
-            <div className="hidden xl:flex items-center gap-6 flex-nowrap whitespace-nowrap">
+            <div className="hidden min-w-0 flex-1 items-center gap-3 overflow-x-auto whitespace-nowrap [scrollbar-width:none] lg:flex xl:gap-5 2xl:gap-6 [&::-webkit-scrollbar]:hidden">
               {navLinks.map((link) => (
-                <Link key={link.to} to={link.to} className="text-base font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                <Link key={link.to} to={link.to} className="shrink-0 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 xl:text-base">
                   {link.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <div className="hidden xl:block">
+          <div className="flex flex-shrink-0 items-center gap-2 xl:gap-3">
+            <div className="hidden lg:block">
               <LanguageToggle />
             </div>
 
             {user ? (
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="hidden md:block w-40 lg:w-48 xl:w-56">
+                <div className="hidden w-28 lg:block xl:w-44 2xl:w-56">
                   <GlobalSearch />
                 </div>
                 <NotificationBell />
-                <div className={`hidden 2xl:block ${isRTL ? 'text-left' : 'text-right'}`}>
-                  <p className="text-sm font-medium text-gray-900 truncate max-w-[9rem]">{user.name}</p>
+                <div className={`${isRTL ? 'text-left' : 'text-right'} hidden max-w-[7rem] lg:block xl:max-w-[9rem]`}>
+                  <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
                   <p className="text-xs text-gray-500 capitalize">{t(`auth.role.${user.role}`, user.role)}</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="hidden sm:inline-flex btn-secondary text-sm"
+                  className="btn-secondary hidden text-sm lg:inline-flex"
                 >
                   {t('common.logout')}
                 </button>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-3">
+              <div className="hidden items-center gap-2 lg:flex xl:gap-3">
                 <Link to="/login" className="btn-secondary text-sm">
                   {t('common.login')}
                 </Link>
@@ -88,7 +88,8 @@ function Navbar() {
 
             <button
               onClick={toggleSidebar}
-              className="xl:hidden p-2 text-gray-500 hover:text-gray-900"
+              className="p-2 text-gray-500 hover:text-gray-900 lg:hidden"
+              aria-label="Open navigation menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -104,7 +105,7 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="xl:hidden fixed inset-0 top-24 lg:top-28 z-40"
+            className="fixed inset-0 top-20 z-40 lg:hidden"
           >
             <div className="absolute inset-0 bg-black/20" onClick={closeSidebar} />
             <motion.div
