@@ -120,6 +120,46 @@ test('login sets an auth cookie, profile reads from it, and logout clears it', a
   assert.equal(afterLogoutProfileResponse.status, 401);
 });
 
+test('demoting an invited creator to member clears pending password setup lockout', async () => {
+  const admin = await createUser({ role: 'admin' });
+  const creator = await createUser({
+    email: 'demoted-invite@example.com',
+    password: 'Password123!',
+    role: 'instructor',
+    mustChangePassword: true,
+  });
+
+  const blockedLoginResponse = await request(suite.app)
+    .post('/api/auth/login')
+    .send({
+      email: 'demoted-invite@example.com',
+      password: 'Password123!',
+    });
+  assert.equal(blockedLoginResponse.status, 401);
+  assert.match(blockedLoginResponse.body.error, /account setup is still pending/i);
+
+  const roleResponse = await request(suite.app)
+    .patch(`/api/users/${creator.user._id}/role`)
+    .set(authHeader(admin.token))
+    .send({ role: 'student' });
+  assert.equal(roleResponse.status, 200);
+  assert.equal(roleResponse.body.role, 'student');
+  assert.equal(roleResponse.body.mustChangePassword, false);
+
+  const loginResponse = await request(suite.app)
+    .post('/api/auth/login')
+    .send({
+      email: 'demoted-invite@example.com',
+      password: 'Password123!',
+    });
+  assert.equal(loginResponse.status, 200);
+  assert.equal(loginResponse.body.user.role, 'student');
+  assert.equal(loginResponse.body.user.mustChangePassword, false);
+
+  const storedUser = await User.findById(creator.user._id);
+  assert.equal(storedUser.mustChangePassword, false);
+});
+
 test('accounts can stay signed in on two approved devices at the same time', async () => {
   await createUser({
     email: 'concurrent-device-user@example.com',
@@ -158,7 +198,7 @@ test('accounts can stay signed in on two approved devices at the same time', asy
   });
 });
 
-test('a third device signs in and kicks out the oldest signed-in device', async () => {
+test('a fifth device signs in and kicks out the oldest signed-in device', async () => {
   await createUser({
     email: 'device-eviction-user@example.com',
     password: 'Password123!',
@@ -167,45 +207,48 @@ test('a third device signs in and kicks out the oldest signed-in device', async 
   const firstDevice = request.agent(suite.app);
   const secondDevice = request.agent(suite.app);
   const thirdDevice = request.agent(suite.app);
+  const fourthDevice = request.agent(suite.app);
+  const fifthDevice = request.agent(suite.app);
+  const devices = [firstDevice, secondDevice, thirdDevice, fourthDevice];
 
-  const firstLoginResponse = await firstDevice
+  const loginResponses = await Promise.all(devices.map((device) => device
+    .post('/api/auth/login')
+    .send({
+      email: 'device-eviction-user@example.com',
+      password: 'Password123!',
+    })));
+
+  loginResponses.forEach((response) => {
+    assert.equal(response.status, 200);
+  });
+
+  const activeProfiles = await Promise.all(devices.map((device) => device.get('/api/auth/profile')));
+  activeProfiles.forEach((response) => {
+    assert.equal(response.status, 200);
+  });
+
+  const fifthLoginResponse = await fifthDevice
     .post('/api/auth/login')
     .send({
       email: 'device-eviction-user@example.com',
       password: 'Password123!',
     });
 
-  assert.equal(firstLoginResponse.status, 200);
+  assert.equal(fifthLoginResponse.status, 200);
 
-  const secondLoginResponse = await secondDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'device-eviction-user@example.com',
-      password: 'Password123!',
-    });
-
-  assert.equal(secondLoginResponse.status, 200);
-
-  const thirdLoginResponse = await thirdDevice
-    .post('/api/auth/login')
-    .send({
-      email: 'device-eviction-user@example.com',
-      password: 'Password123!',
-    });
-
-  // Third device is allowed in instead of being rejected.
-  assert.equal(thirdLoginResponse.status, 200);
-
-  const [firstProfile, secondProfile, thirdProfile] = await Promise.all([
+  const [firstProfile, secondProfile, thirdProfile, fourthProfile, fifthProfile] = await Promise.all([
     firstDevice.get('/api/auth/profile'),
     secondDevice.get('/api/auth/profile'),
     thirdDevice.get('/api/auth/profile'),
+    fourthDevice.get('/api/auth/profile'),
+    fifthDevice.get('/api/auth/profile'),
   ]);
 
-  // Oldest (first) device is kicked out; the two most recent stay active.
   assert.equal(firstProfile.status, 401);
   assert.equal(secondProfile.status, 200);
   assert.equal(thirdProfile.status, 200);
+  assert.equal(fourthProfile.status, 200);
+  assert.equal(fifthProfile.status, 200);
 });
 
 test('admin-side accounts can sign in on multiple devices without device or concurrency limits', async () => {

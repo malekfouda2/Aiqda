@@ -238,7 +238,7 @@ const upsertUserFromSocialProfile = async (profile) => {
       throw new Error('Account is deactivated');
     }
 
-    if (user.mustChangePassword) {
+    if (user.mustChangePassword && user.role === 'instructor') {
       throw new Error('Account setup is still pending. Use your invitation link to finish setting your password.');
     }
 
@@ -448,7 +448,7 @@ export const completeSocialLogin = async ({ token, deviceContext }) => {
     throw new Error('Unable to complete social login for this account');
   }
 
-  if (user.mustChangePassword) {
+  if (user.mustChangePassword && user.role === 'instructor') {
     throw new Error('Account setup is still pending. Use your invitation link to finish setting your password.');
   }
 

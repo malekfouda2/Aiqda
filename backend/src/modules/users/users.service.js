@@ -220,6 +220,7 @@ export const updateUserRole = async (userId, newRole) => {
   user.role = newRole;
   if (newRole !== 'instructor') {
     user.assignedPackages = [];
+    user.mustChangePassword = false;
   }
   await user.save();
 

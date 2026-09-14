@@ -113,7 +113,7 @@ export const login = async ({ email, password, deviceContext }) => {
     throw new Error('Account is deactivated');
   }
 
-  if (user.mustChangePassword) {
+  if (user.mustChangePassword && user.role === 'instructor') {
     throw new Error('Account setup is still pending. Use your invitation link to finish setting your password.');
   }
 
