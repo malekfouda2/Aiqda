@@ -295,9 +295,12 @@ export const LESSON_ALLOWED_EXTENSIONS = [
   '.ppt', '.pptx', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.iso',
 ];
 
+export const LESSON_FILE_MAX_BYTES = 25 * 1024 * 1024;
+
 export const uploadLessonFile = createValidatedUpload({
   storage: lessonStorage,
-  limits: { fileSize: 25 * 1024 * 1024 },
+  // Busboy rejects at the threshold, so allow the advertised maximum inclusively.
+  limits: { fileSize: LESSON_FILE_MAX_BYTES + 1 },
   allowedExtensions: LESSON_ALLOWED_EXTENSIONS,
   mode: 'single',
   fields: [{ name: 'file' }],
