@@ -244,3 +244,140 @@ test('statement routes reject invalid input and non-admin access', async () => {
   const notCreator = await request(suite.app).get(statementUrl(member, LAST_PERIOD)).set(authHeader(admin.token));
   assert.equal(notCreator.status, 400);
 });
+
+test('month boundaries follow Riyadh time and only real members are counted', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  const first = await addMember(scenario, { completed: 5, name: 'Edge One' });
+  const second = await addMember(scenario, { completed: 5, name: 'Edge Two' });
+  // 1 Sep 00:00 Riyadh is 31 Aug 21:00 UTC: the last second before it belongs to August.
+  await InstructorEarning.updateMany({ user: first.user._id }, { $set: { eligibilityAt: new Date('2025-08-31T20:59:59.999Z') } });
+  await InstructorEarning.updateMany({ user: second.user._id }, { $set: { eligibilityAt: new Date('2025-08-31T21:00:00.000Z') } });
+
+  // An admin and another creator who enrolled to preview the chapter are not members.
+  const previewer = await createUser({ role: 'instructor' });
+  course.enrolledStudents.push(admin.user._id, previewer.user._id);
+  await course.save();
+
+  const august = await request(suite.app).get(statementUrl(creator, '2025-08')).set(authHeader(admin.token));
+  const september = await request(suite.app).get(statementUrl(creator, '2025-09')).set(authHeader(admin.token));
+  const october = await request(suite.app).get(statementUrl(creator, '2025-10')).set(authHeader(admin.token));
+  assert.equal(august.body.calculatedTotal, 149.7);
+  assert.equal(september.body.calculatedTotal, 149.7);
+  assert.equal(october.body.calculatedTotal, 0);
+  assert.equal(september.body.chapters[0].enrolled, 2);
+  assert.equal(september.body.chapters[0].reached, 2);
+  assert.equal(september.body.chapters[0].notYet, 0);
+});
+
+test('every earning lands in exactly one month and totals match the ledger to the halala', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator } = scenario;
+  const months = ['2025-03', '2025-04', '2025-05'];
+  for (let i = 0; i < 7; i += 1) {
+    const member = await addMember(scenario, { completed: 4 + (i % 2), name: `Ledger ${i}` });
+    await InstructorEarning.updateMany(
+      { user: member.user._id },
+      { $set: { eligibilityAt: new Date(`${months[i % 3]}-1${i}T10:00:00.000Z`) } },
+    );
+  }
+  await addMember(scenario, { completed: 3, name: 'Still Pending' });
+
+  let statementMinor = 0;
+  for (const month of months) {
+    const res = await request(suite.app).get(statementUrl(creator, month)).set(authHeader(admin.token));
+    statementMinor += Math.round(res.body.calculatedTotal * 100);
+  }
+  const ledger = await InstructorEarning.find({ instructor: creator.user._id, status: 'eligible' }).lean();
+  assert.equal(ledger.length, 7);
+  assert.equal(statementMinor, ledger.reduce((sum, earning) => sum + earning.eligibleMinor, 0));
+  assert.equal(statementMinor, 7 * 14970);
+});
+
+test('held earnings are excluded, and refunds after finalization are flagged for review', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator } = scenario;
+  const kept = await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate(), name: 'Kept' });
+  const held = await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate(), name: 'Held' });
+  const heldEarning = await InstructorEarning.findOne({ user: held.user._id });
+  await request(suite.app)
+    .patch('/api/finance/earnings/bulk')
+    .set(authHeader(admin.token))
+    .send({ earningIds: [heldEarning._id.toString()], action: 'hold', reason: 'Under dispute' });
+
+  const draft = await request(suite.app).get(statementUrl(creator, LAST_PERIOD)).set(authHeader(admin.token));
+  assert.equal(draft.body.calculatedTotal, 149.7);
+  assert.equal(draft.body.heldTotal, 149.7);
+
+  const finalized = await request(suite.app)
+    .post(statementUrl(creator, LAST_PERIOD, 'finalize'))
+    .set(authHeader(admin.token))
+    .send({ expectedTotal: 149.7 });
+  assert.equal(finalized.status, 200);
+  assert.equal(finalized.body.calculationChanged, false);
+
+  // Half of the kept member's payment is refunded after the statement was published.
+  const keptEarning = await InstructorEarning.findOne({ user: kept.user._id }).populate('financeTransaction');
+  const refund = await request(suite.app)
+    .post('/api/finance/chargebacks')
+    .set(authHeader(admin.token))
+    .send({ paymentId: keptEarning.financeTransaction.payment.toString(), amount: 249.5 });
+  assert.equal(refund.status, 200);
+
+  const after = await request(suite.app).get(statementUrl(creator, LAST_PERIOD)).set(authHeader(admin.token));
+  assert.equal(after.body.status, 'finalized');
+  assert.equal(after.body.finalTotal, 149.7);
+  assert.equal(after.body.calculationChanged, true);
+  assert.equal(after.body.currentCalculatedTotal, 74.85);
+  // The creator's published statement never changes on its own.
+  const creatorView = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.equal(creatorView.body[0].total, 149.7);
+});
+
+test('finalize refuses a stale total, a double submit, and amounts it would have to round', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate() });
+
+  const stale = await request(suite.app)
+    .post(statementUrl(creator, LAST_PERIOD, 'finalize'))
+    .set(authHeader(admin.token))
+    .send({ expectedTotal: 100 });
+  assert.equal(stale.status, 400);
+  assert.match(stale.body.error, /changed since you opened it/i);
+  assert.equal(await CreatorStatement.countDocuments({ status: 'finalized' }), 0);
+
+  const rounded = await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: course._id.toString(), final: 10.005 }] });
+  assert.equal(rounded.status, 400);
+  assert.match(rounded.body.error, /two decimal places/i);
+
+  // The suite drops the database between tests, which also drops the unique index that
+  // production always has; rebuild it so the race is tested under real conditions.
+  await CreatorStatement.createIndexes();
+  const send = () => request(suite.app)
+    .post(statementUrl(creator, LAST_PERIOD, 'finalize'))
+    .set(authHeader(admin.token))
+    .send({ expectedTotal: 149.7 });
+  const results = await Promise.all([send(), send(), send()]);
+  assert.equal(results.filter((res) => res.status === 200).length, 1);
+  assert.equal(await CreatorStatement.countDocuments({ instructor: creator.user._id }), 1);
+  assert.equal(await Notification.countDocuments({ recipient: creator.user._id }), 1);
+  const stored = await CreatorStatement.findOne({ instructor: creator.user._id }).lean();
+  assert.equal(stored.revision, 1);
+  assert.equal(stored.published.finalTotalMinor, 14970);
+});
+
+test('statement keeps the revenue of a chapter that was deleted afterwards', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate() });
+  const deleted = await request(suite.app).delete(`/api/courses/${course._id}`).set(authHeader(admin.token));
+  assert.equal(deleted.status, 200);
+
+  const res = await request(suite.app).get(statementUrl(creator, LAST_PERIOD)).set(authHeader(admin.token));
+  assert.equal(res.body.calculatedTotal, 149.7);
+  assert.equal(res.body.chapters[0].title, 'Chapter A (deleted)');
+});

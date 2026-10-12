@@ -4,6 +4,7 @@ import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
 import { LessonProgress } from '../analytics/progress.model.js';
 import InstructorEarning from './instructorEarning.model.js';
+import ChapterEntitlement from './chapterEntitlement.model.js';
 import CreatorStatement from './creatorStatement.model.js';
 import {
   toMinor, fromMinor, FULL_BPS, COMPLETION_THRESHOLD_BPS,
@@ -15,7 +16,9 @@ import { buildCreatorStatementFinalizedEmail } from '../../utils/emailTemplates.
 
 // Statement months follow the platform's business timezone (Asia/Riyadh, UTC+3, no DST).
 const BUSINESS_UTC_OFFSET_MS = 3 * 60 * 60 * 1000;
-const EXCLUDED_EARNING_STATUSES = ['pending_completion', 'voided', 'reversed'];
+// Earnings that are not revenue for the creator: not unlocked yet, cancelled by a refund or
+// chargeback, or put on hold by an admin (held amounts are reported to the admin separately).
+const EXCLUDED_EARNING_STATUSES = ['pending_completion', 'voided', 'reversed', 'on_hold'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_NAMES_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
@@ -51,7 +54,11 @@ const assertInstructorId = (instructorId) => {
 // Enrolled / reached-80% / not-yet counts for one chapter, as of now. Uses the same
 // completion maths as eligibility.service.js. Returns numbers only.
 const countChapterMembers = async (course) => {
-  const enrolledIds = course.enrolledStudents || [];
+  // Admins and creators can enrol to preview a chapter; only real members are counted.
+  const members = await User.find({ _id: { $in: course.enrolledStudents || [] }, role: 'student' })
+    .select('_id')
+    .lean();
+  const enrolledIds = members.map((member) => member._id);
   const enrolledCount = enrolledIds.length;
   if (enrolledCount === 0) return { enrolledCount: 0, reachedCount: 0, notYetCount: 0 };
 
@@ -110,9 +117,12 @@ const computeChapters = async (instructorId, period) => {
   }
   // Earnings of chapters that were deleted since still belong on the statement.
   for (const [courseId, calculatedMinor] of calculatedByCourse) {
+    const entitlement = await ChapterEntitlement.findOne({ course: courseId, courseTitleSnapshot: { $ne: '' } })
+      .select('courseTitleSnapshot')
+      .lean();
     chapters.push({
       course: new mongoose.Types.ObjectId(courseId),
-      courseTitleSnapshot: 'Deleted chapter',
+      courseTitleSnapshot: entitlement ? `${entitlement.courseTitleSnapshot} (deleted)` : 'Deleted chapter',
       calculatedMinor,
       enrolledCount: 0,
       reachedCount: 0,
@@ -120,6 +130,22 @@ const computeChapters = async (instructorId, period) => {
     });
   }
   return chapters;
+};
+
+// Amount an admin has put on hold for this creator's month. Not part of the statement.
+const computeHeldMinor = async (instructorId, period) => {
+  const { start, end } = periodBounds(period);
+  const rows = await InstructorEarning.aggregate([
+    {
+      $match: {
+        instructor: new mongoose.Types.ObjectId(toId(instructorId)),
+        eligibilityAt: { $gte: start, $lt: end },
+        status: 'on_hold',
+      },
+    },
+    { $group: { _id: null, heldMinor: { $sum: '$eligibleMinor' } } },
+  ]);
+  return rows[0]?.heldMinor || 0;
 };
 
 const applyOverrides = (chapters, overrides = []) => {
@@ -148,9 +174,12 @@ const serializeChapter = (chapter) => ({
 // Admin view of one creator's month. Finalized statements are returned exactly as frozen.
 const buildAdminView = async (instructor, period, doc) => {
   const finalized = doc?.status === 'finalized';
-  const chapters = finalized
-    ? doc.published.chapters
-    : applyOverrides(await computeChapters(instructor._id, period), doc?.overrides);
+  const liveChapters = await computeChapters(instructor._id, period);
+  const chapters = finalized ? doc.published.chapters : applyOverrides(liveChapters, doc?.overrides);
+  // A refund, chargeback or hold after finalization changes the calculation behind a frozen
+  // statement. Surface it so the admin can reopen and correct instead of it going unnoticed.
+  const liveCalculatedMinor = sumMinor(liveChapters, 'calculatedMinor');
+  const calculationChanged = finalized && liveCalculatedMinor !== sumMinor(chapters, 'calculatedMinor');
 
   return {
     instructorId: toId(instructor._id),
@@ -165,6 +194,9 @@ const buildAdminView = async (instructor, period, doc) => {
     finalizedAt: finalized ? doc.finalizedAt : null,
     hasPublishedVersion: Boolean(doc?.published),
     canFinalize: !finalized && hasPeriodEnded(period),
+    calculationChanged,
+    currentCalculatedTotal: fromMinor(liveCalculatedMinor),
+    heldTotal: fromMinor(await computeHeldMinor(instructor._id, period)),
     chapters: chapters.map(serializeChapter),
     calculatedTotal: fromMinor(sumMinor(chapters, 'calculatedMinor')),
     finalTotal: fromMinor(sumMinor(chapters, 'finalMinor')),
@@ -229,6 +261,10 @@ export const saveStatementDraft = async (instructorId, period, { chapters = [], 
     if (entry.final === '' || entry.final == null || !Number.isFinite(amount) || amount < 0) {
       throw new Error('Chapter amounts must be zero or a positive number.');
     }
+    // Never round an admin's figure silently.
+    if (Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) {
+      throw new Error('Chapter amounts can have at most two decimal places.');
+    }
     const finalMinor = toMinor(amount);
     if (finalMinor !== calculatedByCourse.get(courseId)) {
       overrides.push({ course: courseId, finalMinor });
@@ -291,34 +327,55 @@ const announceStatement = async (instructor, period, totalMinor, currency, updat
   }
 };
 
-// Freeze the month and publish it to the creator.
-export const finalizeStatement = async (instructorId, period, actor = null) => {
+// Freeze the month and publish it to the creator. `expectedTotal` (decimal SAR) is the total the
+// admin confirmed on screen: if the figures moved since then, nothing is finalized.
+export const finalizeStatement = async (instructorId, period, actor = null, { expectedTotal = null } = {}) => {
   const instructor = await findInstructor(instructorId);
   if (!hasPeriodEnded(period)) {
     throw new Error('A statement can only be finalized after its month has ended.');
   }
 
-  const doc = await CreatorStatement.findOne({ instructor: instructorId, period })
-    || new CreatorStatement({ instructor: instructorId, period });
-  if (doc.status === 'finalized') throw new Error('This statement is already finalized.');
+  const existing = await CreatorStatement.findOne({ instructor: instructorId, period }).lean();
+  if (existing?.status === 'finalized') throw new Error('This statement is already finalized.');
 
-  const chapters = applyOverrides(await computeChapters(instructorId, period), doc.overrides);
+  const chapters = applyOverrides(await computeChapters(instructorId, period), existing?.overrides);
   const finalTotalMinor = sumMinor(chapters, 'finalMinor');
-  const updated = Boolean(doc.published);
-  const previousTotalMinor = doc.published?.finalTotalMinor ?? null;
+  if (expectedTotal != null && toMinor(expectedTotal) !== finalTotalMinor) {
+    throw new Error('The figures for this statement changed since you opened it. Review it again before finalizing.');
+  }
 
-  doc.status = 'finalized';
-  doc.revision = (doc.revision || 0) + 1;
-  doc.finalizedAt = new Date();
-  doc.finalizedBy = actorIdOf(actor);
-  doc.published = {
-    chapters,
-    finalTotalMinor,
-    note: doc.note,
-    finalizedAt: doc.finalizedAt,
-    revision: doc.revision,
-  };
-  await doc.save();
+  const updated = Boolean(existing?.published);
+  const previousTotalMinor = existing?.published?.finalTotalMinor ?? null;
+  const previousRevision = existing?.revision || 0;
+  const revision = previousRevision + 1;
+  const finalizedAt = new Date();
+  const note = existing?.note || '';
+
+  // Atomic claim: only one request can move this exact draft revision to finalized, so a
+  // double submit can never publish twice or notify the creator twice.
+  let doc;
+  try {
+    doc = await CreatorStatement.findOneAndUpdate(
+      {
+        instructor: instructorId, period, status: 'draft', revision: previousRevision,
+      },
+      {
+        $set: {
+          status: 'finalized',
+          revision,
+          finalizedAt,
+          finalizedBy: actorIdOf(actor),
+          published: {
+            chapters, finalTotalMinor, note, finalizedAt, revision,
+          },
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+  } catch (error) {
+    if (error?.code === 11000) throw new Error('This statement was just changed by someone else. Reload and try again.');
+    throw error;
+  }
 
   await recordFinanceAudit({
     actorType: actor ? 'admin' : 'system',
@@ -328,10 +385,13 @@ export const finalizeStatement = async (instructorId, period, actor = null) => {
     targetId: doc._id,
     oldState: updated ? { finalTotalMinor: previousTotalMinor } : null,
     newState: {
-      revision: doc.revision,
+      revision,
       finalTotalMinor,
       calculatedTotalMinor: sumMinor(chapters, 'calculatedMinor'),
-      note: doc.note,
+      chapters: chapters.map((chapter) => ({
+        course: toId(chapter.course), calculatedMinor: chapter.calculatedMinor, finalMinor: chapter.finalMinor,
+      })),
+      note,
     },
     relatedRef: period,
   });

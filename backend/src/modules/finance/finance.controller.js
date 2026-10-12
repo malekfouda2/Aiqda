@@ -136,7 +136,12 @@ export const saveStatement = handle(async (req, res) => {
 });
 
 export const finalizeStatement = handle(async (req, res) => {
-  res.json(await statement.finalizeStatement(req.params.instructorId, req.params.period, req.user));
+  res.json(await statement.finalizeStatement(
+    req.params.instructorId,
+    req.params.period,
+    req.user,
+    { expectedTotal: req.body?.expectedTotal ?? null },
+  ));
 });
 
 export const reopenStatement = handle(async (req, res) => {

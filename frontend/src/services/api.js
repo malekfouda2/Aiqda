@@ -181,7 +181,7 @@ export const financeAPI = {
   getAudit: (params) => api.get('/finance/audit', { params }),
   getStatements: (period) => api.get('/finance/statements', { params: { period } }),
   saveStatement: (instructorId, period, payload) => api.put(`/finance/statements/${instructorId}/${period}`, payload),
-  finalizeStatement: (instructorId, period) => api.post(`/finance/statements/${instructorId}/${period}/finalize`),
+  finalizeStatement: (instructorId, period, expectedTotal) => api.post(`/finance/statements/${instructorId}/${period}/finalize`, { expectedTotal }),
   reopenStatement: (instructorId, period) => api.post(`/finance/statements/${instructorId}/${period}/reopen`),
   getMyStatements: () => api.get('/finance/my-statements'),
 };
