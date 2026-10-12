@@ -553,9 +553,12 @@ function AdminCourses() {
     }
   }, [fetchData, showSuccess, showError]);
 
-  // Deletion is restricted to draft items (enforced on the backend too).
-  const handleDeleteCourse = useCallback(async (courseId) => {
-    if (!confirm('Delete this draft chapter and all its content? This cannot be undone.')) return;
+  // Admins can delete in any state; live items get a stronger warning.
+  const handleDeleteCourse = useCallback(async (courseId, isLive = false) => {
+    const warning = isLive
+      ? 'This chapter is LIVE. Deleting it removes it for all members, together with its content, quizzes and member progress. This cannot be undone. Delete it?'
+      : 'Delete this chapter and all its content, quizzes and member progress? This cannot be undone.';
+    if (!confirm(warning)) return;
     try {
       await coursesAPI.delete(courseId);
       showSuccess('Chapter deleted');
@@ -565,8 +568,11 @@ function AdminCourses() {
     }
   }, [fetchData, showSuccess, showError]);
 
-  const handleDeleteLesson = useCallback(async (lessonId) => {
-    if (!confirm('Delete this draft content? This cannot be undone.')) return;
+  const handleDeleteLesson = useCallback(async (lessonId, isLive = false) => {
+    const warning = isLive
+      ? 'This content is LIVE. Deleting it removes it for all members, together with its quiz and member progress. This cannot be undone. Delete it?'
+      : 'Delete this content with its quiz and member progress? This cannot be undone.';
+    if (!confirm(warning)) return;
     try {
       await lessonsAPI.delete(lessonId);
       showSuccess('Content deleted');
@@ -873,15 +879,13 @@ function AdminCourses() {
                                         {course.reviewStatus === 'pending_review' ? 'Approve & Publish' : 'Publish'}
                                       </button>
                                     )}
-                                    {!course.isPublished && course.reviewStatus === 'draft' && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course._id); }}
-                                        className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
-                                        title="Delete draft chapter"
-                                      >
-                                        Delete
-                                      </button>
-                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course._id, course.isPublished); }}
+                                      className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                                      title="Delete chapter"
+                                    >
+                                      Delete
+                                    </button>
                                   </div>
                                   <p className="mb-2 text-xs text-gray-400">
                                     {course.category} · Created {new Date(course.createdAt).toLocaleDateString()}
@@ -1023,15 +1027,13 @@ function AdminCourses() {
                                                       {lesson.reviewStatus === 'pending_review' ? 'Approve' : 'Publish'}
                                                     </button>
                                                   )}
-                                                  {!lesson.isPublished && lesson.reviewStatus === 'draft' && (
-                                                    <button
-                                                      onClick={() => handleDeleteLesson(lesson._id)}
-                                                      className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
-                                                      title="Delete draft content"
-                                                    >
-                                                      Delete
-                                                    </button>
-                                                  )}
+                                                  <button
+                                                    onClick={() => handleDeleteLesson(lesson._id, lesson.isPublished)}
+                                                    className="rounded-full border border-red-200 px-2 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                                                    title="Delete content"
+                                                  >
+                                                    Delete
+                                                  </button>
                                                   <span>Min watch {lesson.minimumWatchPercentage}%</span>
                                                   <motion.span
                                                     animate={{ rotate: expandedLesson === lesson._id ? 180 : 0 }}

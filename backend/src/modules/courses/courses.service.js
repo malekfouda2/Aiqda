@@ -1,10 +1,12 @@
 import Course from './course.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
-import { CourseProgress } from '../analytics/progress.model.js';
+import Quiz from '../quizzes/quiz.model.js';
+import { CourseProgress, LessonProgress } from '../analytics/progress.model.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
 import { SubscriptionPackage, Subscription } from '../subscriptions/subscription.model.js';
 import { notify } from '../notifications/notify.js';
+import { deleteUploadPathIfExists } from '../../utils/uploadPaths.js';
 
 const MEMBER_ACCESS_SUBSCRIPTION_STATUSES = ['active', 'grace_period', 'cancel_scheduled'];
 
@@ -471,11 +473,19 @@ export const deleteCourse = async (courseId, userId, userRole) => {
     throw new Error('Not authorized to delete this course');
   }
 
-  if (course.isPublished || course.reviewStatus !== 'draft') {
+  // Creators may only delete drafts; admins can delete a chapter in any state.
+  if (userRole !== 'admin' && (course.isPublished || course.reviewStatus !== 'draft')) {
     throw new Error('Only draft chapters can be deleted. Return it to draft first.');
   }
 
+  const lessons = await Lesson.find({ course: courseId }).select('_id supportingFile').lean();
+  const lessonIds = lessons.map((lesson) => lesson._id);
+
+  await Quiz.deleteMany({ lesson: { $in: lessonIds } });
+  await LessonProgress.deleteMany({ course: courseId });
+  await CourseProgress.deleteMany({ course: courseId });
   await Lesson.deleteMany({ course: courseId });
+  await Promise.all(lessons.map((lesson) => deleteUploadPathIfExists(lesson.supportingFile)));
   await SubscriptionPackage.updateMany(
     { courses: courseId },
     { $pull: { courses: courseId } }

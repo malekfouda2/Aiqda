@@ -7,7 +7,8 @@ import {
   getProgressTrackingContext,
 } from '../analytics/progressTracking.js';
 import { getSubscriptionAccessContext } from '../subscriptions/subscriptions.service.js';
-import { ensureUploadPathExists } from '../../utils/uploadPaths.js';
+import Quiz from '../quizzes/quiz.model.js';
+import { deleteUploadPathIfExists, ensureUploadPathExists } from '../../utils/uploadPaths.js';
 import { notify } from '../notifications/notify.js';
 import { onCourseProgressChanged } from '../finance/financeHooks.js';
 
@@ -268,12 +269,16 @@ export const deleteLesson = async (lessonId, userId = null, userRole = null) => 
     throw new Error('Not authorized to delete this lesson');
   }
 
-  if (lesson.isPublished || lesson.reviewStatus !== 'draft') {
+  // Creators may only delete drafts; admins can delete content in any state.
+  if (userRole !== 'admin' && (lesson.isPublished || lesson.reviewStatus !== 'draft')) {
     throw new Error('Only draft content can be deleted. Return it to draft first.');
   }
 
   const courseId = lesson.course._id || lesson.course;
+  await Quiz.deleteMany({ lesson: lessonId });
+  await LessonProgress.deleteMany({ lesson: lessonId });
   await Lesson.findByIdAndDelete(lessonId);
+  await deleteUploadPathIfExists(lesson.supportingFile);
   await updateLessonCount(courseId);
 
   return { message: 'Lesson deleted successfully' };
