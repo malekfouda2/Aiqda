@@ -12,6 +12,7 @@ export const FINANCE_ACTIONS = {
   MARK_PAYOUTS_PAID: 'finance.mark_payouts_paid',
   MANAGE_ALLOCATION_SETTINGS: 'finance.manage_allocation_settings',
   MANAGE_ADJUSTMENTS: 'finance.manage_adjustments',
+  MANAGE_STATEMENTS: 'finance.manage_statements',
   EXPORT_REPORTS: 'finance.export_reports',
   VIEW_AUDIT_LOGS: 'finance.view_audit_logs',
 };

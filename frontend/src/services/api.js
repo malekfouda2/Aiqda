@@ -179,6 +179,11 @@ export const financeAPI = {
   recordChargeback: (payload) => api.post('/finance/chargebacks', payload),
   getRecoveries: () => api.get('/finance/recoveries'),
   getAudit: (params) => api.get('/finance/audit', { params }),
+  getStatements: (period) => api.get('/finance/statements', { params: { period } }),
+  saveStatement: (instructorId, period, payload) => api.put(`/finance/statements/${instructorId}/${period}`, payload),
+  finalizeStatement: (instructorId, period) => api.post(`/finance/statements/${instructorId}/${period}/finalize`),
+  reopenStatement: (instructorId, period) => api.post(`/finance/statements/${instructorId}/${period}/reopen`),
+  getMyStatements: () => api.get('/finance/my-statements'),
 };
 
 export const contactMessagesAPI = {

@@ -534,3 +534,20 @@ export const buildConsultationBookingAdminNotificationEmail = ({
     paymentReference ? `Payment reference: ${paymentReference}` : null,
   ].filter(Boolean),
 });
+
+export const buildCreatorStatementFinalizedEmail = ({ fullName, periodLabel, totalLabel, updated = false }) => buildEmailTemplate({
+  subject: updated
+    ? `Your Aiqda Revenue Statement for ${periodLabel} Was Updated`
+    : `Your Aiqda Revenue for ${periodLabel} Is Finalized`,
+  greeting: `Hello ${fullName},`,
+  headline: updated ? 'Your Revenue Statement Was Updated' : 'Your Revenue Statement Is Ready',
+  bodyLines: [
+    updated
+      ? `We have updated the calculation of your revenue for ${periodLabel}.`
+      : `We have finalized the calculation of your revenue for ${periodLabel}.`,
+    `Finalized revenue: ${totalLabel}.`,
+    'Your statement also shows, for each chapter, how many members are enrolled and how many have reached the 80% completion mark.',
+  ],
+  ctaLabel: 'View My Statement',
+  ctaUrl: `${getPublicBaseUrl()}/creator`,
+});

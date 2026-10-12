@@ -87,7 +87,7 @@ test('requesting a subscription with a sale stores the discounted purchase amoun
   assert.equal(subscriptionResponse.body.durationDaysSnapshot, 180);
 });
 
-test('instructor analytics returns allocated revenue from successful subscription payments', async () => {
+test('instructor analytics never exposes a live revenue estimate', async () => {
   const instructor = await createUser({ role: 'instructor' });
   const student = await createUser({ role: 'student' });
   const course = await createCourse({
@@ -127,7 +127,9 @@ test('instructor analytics returns allocated revenue from successful subscriptio
     .set(authHeader(instructor.token));
 
   assert.equal(analyticsResponse.status, 200);
-  assert.equal(analyticsResponse.body.totalRevenue, 750);
+  // Creators never see a live revenue estimate; revenue only arrives through finalized statements.
+  assert.equal(analyticsResponse.body.totalRevenue, undefined);
+  assert.equal(analyticsResponse.body.revenueCalculation, undefined);
   assert.equal(analyticsResponse.body.publishedCourses, 1);
   assert.equal(analyticsResponse.body.draftCourses, 0);
   assert.equal(analyticsResponse.body.totalLessons, 0);
@@ -135,13 +137,8 @@ test('instructor analytics returns allocated revenue from successful subscriptio
   assert.equal(analyticsResponse.body.videosPending, 0);
   assert.equal(analyticsResponse.body.avgWatchPercentage, 0);
   assert.equal(analyticsResponse.body.quizPassRate, 0);
-  assert.equal(analyticsResponse.body.revenueCalculation.placeholder, false);
-  assert.match(
-    analyticsResponse.body.revenueCalculation.methodology,
-    /successful subscription payments/i
-  );
   assert.equal(analyticsResponse.body.courseStats.length, 1);
-  assert.equal(analyticsResponse.body.courseStats[0].estimatedRevenue, 750);
+  assert.equal(analyticsResponse.body.courseStats[0].estimatedRevenue, undefined);
   assert.equal(analyticsResponse.body.courseStats[0].isPublished, true);
   assert.equal(analyticsResponse.body.courseStats[0].avgWatchPercentage, 0);
   assert.equal(analyticsResponse.body.courseStats[0].videosAssigned, 0);

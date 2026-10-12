@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { analyticsAPI } from '../services/api';
+import { analyticsAPI, financeAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import InfoTooltip from '../components/InfoTooltip';
 import {
@@ -14,8 +14,12 @@ import { useLocale } from '../i18n/useLocale';
 
 const clampPercentage = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
-function formatCurrency(value, formatNumber, isRTL) {
-  return `${isRTL ? 'ر.س ' : 'SAR '}${formatNumber(Math.round(Number(value) || 0))}`;
+function formatMoney(value, isRTL) {
+  const amount = (Number(value) || 0).toLocaleString(isRTL ? 'ar-SA' : 'en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${isRTL ? 'ر.س ' : 'SAR '}${amount}`;
 }
 
 function SectionHeader({ eyebrow, title, description, align = 'start' }) {
@@ -192,56 +196,6 @@ function TrendChart({ title, description, data, monthLabel, formatNumber, accent
   );
 }
 
-function HorizontalBars({ title, description, items, emptyText, formatNumber, isRTL }) {
-  if (!items.length) {
-    return (
-      <div className="card border border-slate-100 bg-white shadow-[0_24px_70px_-48px_rgba(15,23,42,0.32)]">
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <p className="mt-1 text-sm text-slate-500">{description}</p>
-        <div className="mt-6">
-          <ChartEmptyState message={emptyText} />
-        </div>
-      </div>
-    );
-  }
-
-  const maxValue = Math.max(...items.map((item) => item.estimatedRevenue), 1);
-
-  return (
-    <div className="card border border-slate-100 bg-white shadow-[0_24px_70px_-48px_rgba(15,23,42,0.32)]">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1 text-sm text-slate-500">{description}</p>
-
-      <div className="mt-6 space-y-4">
-        {items.map((item) => {
-          const width = Math.max((item.estimatedRevenue / maxValue) * 100, item.estimatedRevenue > 0 ? 7 : 0);
-          return (
-            <div key={item.courseId} className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-4">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {formatNumber(item.enrolledCount)} {isRTL ? 'عضو' : 'members'} • {formatNumber(item.qualifiedViews)} {isRTL ? 'مشاهدة مؤهلة' : 'qualified views'}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-slate-700">{formatCurrency(item.estimatedRevenue, formatNumber, isRTL)}</p>
-              </div>
-              <div className="h-3 overflow-hidden rounded-full bg-white">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${width}%` }}
-                  transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="h-full rounded-full bg-gradient-to-r from-primary-500 via-fuchsia-500 to-cyan-400"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function WatchQualityChart({ title, description, items, emptyText, formatNumber, isRTL }) {
   if (!items.length) {
     return (
@@ -335,21 +289,18 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
     );
   }
 
-  const maxRevenue = Math.max(...items.map((item) => item.estimatedRevenue), 1);
-
   return (
     <div className="card border border-slate-100 bg-white shadow-[0_24px_70px_-48px_rgba(15,23,42,0.32)]">
       <SectionHeader
         eyebrow={isRTL ? 'الفصول' : 'Chapters'}
         title={isRTL ? 'استخبارات الفصول' : 'Chapter Intelligence'}
         description={isRTL
-          ? 'نظرة أعمق على كل فصل من حيث المتابعة، الإيراد، وجاهزية الأصول.'
-          : 'A deeper read on every chapter across audience traction, revenue, and asset readiness.'}
+          ? 'نظرة أعمق على كل فصل من حيث المتابعة وجاهزية الأصول.'
+          : 'A deeper read on every chapter across audience traction and asset readiness.'}
       />
 
       <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-8 grid gap-5 xl:grid-cols-2">
         {items.map((item) => {
-          const revenueStrength = Math.max((item.estimatedRevenue / maxRevenue) * 100, item.estimatedRevenue > 0 ? 8 : 0);
           const watchPercentage = clampPercentage(item.avgWatchPercentage);
           const videoCoverage = item.lessonsCount > 0
             ? clampPercentage((item.videosAssigned / item.lessonsCount) * 100)
@@ -383,10 +334,6 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
                       {formatNumber(item.enrolledCount)} {isRTL ? 'عضو' : 'members'} • {formatNumber(item.lessonsCount)} {isRTL ? 'محتوى' : 'lessons'}
                     </p>
                   </div>
-                  <div className="rounded-2xl bg-primary-50 px-3 py-2 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'الإيراد' : 'Revenue'}</p>
-                    <p className="mt-1 text-sm font-semibold text-primary-700">{formatCurrency(item.estimatedRevenue, formatNumber, isRTL)}</p>
-                  </div>
                 </div>
 
                 <div className="mt-5 grid grid-cols-3 gap-3">
@@ -405,15 +352,6 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
                 </div>
 
                 <div className="mt-5 space-y-3">
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                      <span>{isRTL ? 'قوة الإيراد' : 'Revenue strength'}</span>
-                      <span className="font-semibold text-slate-700">{formatCurrency(item.estimatedRevenue, formatNumber, isRTL)}</span>
-                    </div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-gradient-to-r from-primary-500 via-fuchsia-500 to-cyan-400" style={{ width: `${revenueStrength}%` }} />
-                    </div>
-                  </div>
                   <div>
                     <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
                       <span>{isRTL ? 'جودة المشاهدة' : 'Watch quality'}</span>
@@ -442,9 +380,90 @@ function ChapterIntelligence({ items, formatNumber, isRTL }) {
   );
 }
 
+function RevenueStatements({ statements, formatNumber, formatDate, isRTL }) {
+  return (
+    <div className="card border border-slate-100 bg-white shadow-[0_24px_70px_-48px_rgba(15,23,42,0.32)]">
+      <SectionHeader
+        eyebrow={isRTL ? 'الإيرادات' : 'Revenue'}
+        title={isRTL ? 'كشوف الإيرادات' : 'Revenue Statements'}
+        description={isRTL
+          ? 'يظهر إيراد كل شهر هنا بعد أن تراجعه الإدارة وتعتمده. الأرقام الخاصة بالأعضاء أعداد فقط.'
+          : 'Each month appears here once our team has reviewed and finalized it. Member figures are counts only.'}
+      />
+
+      {statements.length === 0 ? (
+        <div className="mt-6">
+          <ChartEmptyState
+            message={isRTL
+              ? 'لا توجد كشوف معتمدة بعد. سنخبرك فور اعتماد إيراد أول شهر.'
+              : 'No finalized statements yet. We will notify you as soon as your first month is finalized.'}
+          />
+        </div>
+      ) : (
+        <div className="mt-8 space-y-5">
+          {statements.map((statement) => (
+            <div key={statement.period} className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {isRTL ? statement.periodLabelAr : statement.periodLabel}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {statement.updated
+                      ? (isRTL ? 'تم التحديث في' : 'Updated on')
+                      : (isRTL ? 'تم الاعتماد في' : 'Finalized on')}{' '}
+                    {formatDate(new Date(statement.finalizedAt), { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-primary-50 px-4 py-2 text-right">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'الإيراد المعتمد' : 'Finalized revenue'}</p>
+                  <p className="mt-1 text-lg font-semibold text-primary-700">{formatMoney(statement.total, isRTL)}</p>
+                </div>
+              </div>
+
+              {statement.note ? (
+                <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <span className="font-semibold">{isRTL ? 'ملاحظة الإدارة: ' : 'Note from Aiqda: '}</span>
+                  {statement.note}
+                </p>
+              ) : null}
+
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-100 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs text-slate-500">
+                    <tr>
+                      <th className="px-4 py-2 text-start font-medium">{isRTL ? 'الفصل' : 'Chapter'}</th>
+                      <th className="px-4 py-2 text-end font-medium">{isRTL ? 'الأعضاء المسجلون' : 'Enrolled members'}</th>
+                      <th className="px-4 py-2 text-end font-medium">{isRTL ? 'وصلوا إلى 80%' : 'Reached 80%'}</th>
+                      <th className="px-4 py-2 text-end font-medium">{isRTL ? 'لم يصلوا بعد' : 'Not yet'}</th>
+                      <th className="px-4 py-2 text-end font-medium">{isRTL ? 'الإيراد' : 'Revenue'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statement.chapters.map((chapter) => (
+                      <tr key={chapter.courseId} className="border-t border-slate-100">
+                        <td className="px-4 py-2 font-medium text-slate-900">{chapter.title}</td>
+                        <td className="px-4 py-2 text-end text-slate-700">{formatNumber(chapter.enrolled)}</td>
+                        <td className="px-4 py-2 text-end text-emerald-600">{formatNumber(chapter.reached)}</td>
+                        <td className="px-4 py-2 text-end text-slate-500">{formatNumber(chapter.notYet)}</td>
+                        <td className="px-4 py-2 text-end font-semibold text-slate-900">{formatMoney(chapter.amount, isRTL)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InstructorDashboard() {
   const { isRTL, formatDate, formatNumber } = useLocale();
   const [analytics, setAnalytics] = useState(null);
+  const [statements, setStatements] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -453,8 +472,13 @@ function InstructorDashboard() {
 
   const fetchData = async () => {
     try {
-      const analyticsRes = await analyticsAPI.getInstructorAnalytics();
+      // Statements load independently so a failure there never hides the analytics.
+      const [analyticsRes, statementsRes] = await Promise.all([
+        analyticsAPI.getInstructorAnalytics(),
+        financeAPI.getMyStatements().catch(() => ({ data: [] })),
+      ]);
       setAnalytics(analyticsRes.data);
+      setStatements(statementsRes.data || []);
     } catch (error) {
       console.error('Failed to fetch instructor analytics:', error);
     } finally {
@@ -468,12 +492,6 @@ function InstructorDashboard() {
       .slice(-6)
   ), [analytics]);
 
-  const revenueLeaders = useMemo(() => (
-    [...(analytics?.courseStats || [])]
-      .sort((a, b) => b.estimatedRevenue - a.estimatedRevenue)
-      .slice(0, 6)
-  ), [analytics]);
-
   const watchLeaders = useMemo(() => (
     [...(analytics?.courseStats || [])]
       .sort((a, b) => {
@@ -485,6 +503,8 @@ function InstructorDashboard() {
       })
       .slice(0, 6)
   ), [analytics]);
+
+  const latestStatement = statements[0] || null;
 
   const stats = useMemo(() => ([
     {
@@ -514,12 +534,14 @@ function InstructorDashboard() {
     {
       icon: '💰',
       accent: 'from-sky-400/25 to-indigo-400/25',
-      value: formatCurrency(analytics?.totalRevenue || 0, formatNumber, isRTL),
-      label: isRTL ? 'الإيراد' : 'Revenue',
-      sublabel: isRTL ? 'مقدر من الاشتراكات المعتمدة' : 'Estimated from approved subscriptions',
-      info: isRTL ? 'تقدير لحصتك من إيراد الاشتراكات بناءً على مشاهدات فصولك المعتمدة.' : 'An estimate of your share of subscription revenue, based on approved views of your chapters.',
+      value: latestStatement ? formatMoney(latestStatement.total, isRTL) : '—',
+      label: isRTL ? 'آخر إيراد معتمد' : 'Latest Finalized Revenue',
+      sublabel: latestStatement
+        ? (isRTL ? latestStatement.periodLabelAr : latestStatement.periodLabel)
+        : (isRTL ? 'لا يوجد كشف معتمد بعد' : 'No finalized statement yet'),
+      info: isRTL ? 'يظهر إيرادك بعد أن تراجع الإدارة حساب الشهر وتعتمده.' : 'Your revenue appears once our team has reviewed and finalized the month.',
     },
-  ]), [analytics, formatNumber, isRTL]);
+  ]), [analytics, latestStatement, formatNumber, isRTL]);
 
   const ringMetrics = useMemo(() => {
     const publishRate = analytics?.totalCourses
@@ -584,16 +606,9 @@ function InstructorDashboard() {
             eyebrow={isRTL ? 'لوحة المتابعة' : 'Performance Studio'}
             title={isRTL ? 'تحليلات صانع المحتوى' : 'Creator Analytics'}
             description={isRTL
-              ? 'لوحة أكثر احترافية لمتابعة الإيراد، الأداء، وجودة المشاهدة عبر فصولك.'
-              : 'A more professional view of your revenue, audience traction, and watch quality across every chapter.'}
+              ? 'لوحة أكثر احترافية لمتابعة الأداء وجودة المشاهدة عبر فصولك.'
+              : 'A more professional view of your audience traction and watch quality across every chapter.'}
           />
-          {analytics?.revenueCalculation?.methodology ? (
-            <p className="mt-4 max-w-3xl text-xs leading-6 text-slate-400">
-              {isRTL
-                ? 'يتم تقدير الإيراد من المدفوعات الناجحة للاشتراكات، ثم توزيعه بالتساوي على الفصول المضمنة في كل باقة.'
-                : 'Revenue is estimated from successful subscription payments allocated evenly across each package\'s included chapters.'}
-            </p>
-          ) : null}
         </div>
       </motion.section>
 
@@ -662,18 +677,16 @@ function InstructorDashboard() {
         </motion.div>
       </motion.div>
 
-      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid gap-8 xl:grid-cols-2">
-        <motion.div variants={cardVariants}>
-          <HorizontalBars
-            title={isRTL ? 'الإيراد حسب الفصل' : 'Revenue by Chapter'}
-            description={isRTL ? 'أي الفصول تحقق أعلى عائد حاليًا.' : 'See which chapters are driving the strongest current revenue contribution.'}
-            items={revenueLeaders}
-            emptyText={isRTL ? 'لن يظهر هذا الرسم حتى يتم ربط الفصول بباقة ومدفوعات معتمدة.' : 'This chart will fill in once your chapters are connected to approved package payments.'}
-            formatNumber={formatNumber}
-            isRTL={isRTL}
-          />
-        </motion.div>
+      <motion.div variants={fadeInUp}>
+        <RevenueStatements
+          statements={statements}
+          formatNumber={formatNumber}
+          formatDate={formatDate}
+          isRTL={isRTL}
+        />
+      </motion.div>
 
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible">
         <motion.div variants={cardVariants}>
           <WatchQualityChart
             title={isRTL ? 'جودة المتابعة لكل فصل' : 'Watch Quality by Chapter'}

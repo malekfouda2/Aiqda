@@ -1,0 +1,246 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import request from 'supertest';
+
+import {
+  authHeader, createUser, createCourse, createLesson, createLessonProgress,
+  createSubscriptionPackage, createSubscription, createPayment,
+  setupIntegrationSuite,
+} from './helpers/integration.js';
+
+import { generateEarningsForPayment } from '../src/modules/finance/earnings.service.js';
+import { evaluateEligibilityForUserCourse } from '../src/modules/finance/eligibility.service.js';
+import InstructorEarning from '../src/modules/finance/instructorEarning.model.js';
+import CreatorStatement from '../src/modules/finance/creatorStatement.model.js';
+import FinanceAudit from '../src/modules/finance/financeAudit.model.js';
+import Notification from '../src/modules/notifications/notification.model.js';
+
+const suite = setupIntegrationSuite();
+
+const FUTURE = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+
+const toPeriod = (date) => {
+  const riyadh = new Date(date.getTime() + 3 * 3600 * 1000);
+  return `${riyadh.getUTCFullYear()}-${String(riyadh.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+const CURRENT_PERIOD = toPeriod(new Date());
+const lastMonthDate = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15, 12));
+};
+const LAST_PERIOD = toPeriod(lastMonthDate());
+
+// One creator chapter with 5 published content items inside a 499 SAR tier (pool = 149.70 SAR).
+const setupCreator = async () => {
+  const admin = await createUser({ role: 'admin' });
+  const creator = await createUser({ role: 'instructor', name: 'Creator One' });
+  const course = await createCourse({ instructorId: creator.user._id, isPublished: true, title: 'Chapter A' });
+  const lessons = [];
+  for (let i = 0; i < 5; i += 1) {
+    lessons.push(await createLesson({ course: course._id, isPublished: true, order: i + 1 }));
+  }
+  const pkg = await createSubscriptionPackage({ courses: [course._id] });
+  return { admin, creator, course, lessons, pkg };
+};
+
+// A paying member enrolled in the chapter who qualified `completed` content items.
+// When they reach 80% the earning's eligibility date is moved to `eligibleOn`.
+const addMember = async ({ course, lessons, pkg }, { completed, eligibleOn = null, name = 'Secret Member' }) => {
+  const member = await createUser({ role: 'student', name, email: `${name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}-${Math.random()}@example.com` });
+  const sub = await createSubscription({
+    user: member.user._id, package: pkg._id, status: 'active', startDate: new Date(), endDate: FUTURE,
+  });
+  const payment = await createPayment({ user: member.user._id, subscription: sub._id, amount: 499 });
+  await generateEarningsForPayment(payment._id);
+  course.enrolledStudents.push(member.user._id);
+  await course.save();
+  for (let i = 0; i < completed; i += 1) {
+    await createLessonProgress({ user: member.user._id, lesson: lessons[i]._id, course: course._id, isQualified: true });
+  }
+  await evaluateEligibilityForUserCourse(member.user._id, course._id);
+  if (eligibleOn) {
+    await InstructorEarning.updateMany({ user: member.user._id, status: 'eligible' }, { $set: { eligibilityAt: eligibleOn } });
+  }
+  return member;
+};
+
+const statementUrl = (creator, period, action = '') => (
+  `/api/finance/statements/${creator.user._id}/${period}${action ? `/${action}` : ''}`
+);
+
+test('statement counts revenue in the month the member reached 80% and reports member numbers only', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  await addMember(scenario, { completed: 4, eligibleOn: lastMonthDate(), name: 'Reached Last Month' });
+  await addMember(scenario, { completed: 5, name: 'Reached This Month' });
+  await addMember(scenario, { completed: 1, name: 'Barely Started' });
+
+  const last = await request(suite.app).get(statementUrl(creator, LAST_PERIOD)).set(authHeader(admin.token));
+  assert.equal(last.status, 200);
+  assert.equal(last.body.status, 'draft');
+  assert.equal(last.body.canFinalize, true);
+  assert.equal(last.body.chapters.length, 1);
+  assert.deepEqual(
+    {
+      courseId: last.body.chapters[0].courseId,
+      enrolled: last.body.chapters[0].enrolled,
+      reached: last.body.chapters[0].reached,
+      notYet: last.body.chapters[0].notYet,
+      calculated: last.body.chapters[0].calculated,
+      final: last.body.chapters[0].final,
+    },
+    { courseId: course._id.toString(), enrolled: 3, reached: 2, notYet: 1, calculated: 149.7, final: 149.7 },
+  );
+
+  // The member who reached 80% this month belongs to this month's statement, which cannot be finalized yet.
+  const current = await request(suite.app).get(statementUrl(creator, CURRENT_PERIOD)).set(authHeader(admin.token));
+  assert.equal(current.body.calculatedTotal, 149.7);
+  assert.equal(current.body.canFinalize, false);
+  const tooEarly = await request(suite.app).post(statementUrl(creator, CURRENT_PERIOD, 'finalize')).set(authHeader(admin.token));
+  assert.equal(tooEarly.status, 400);
+  assert.match(tooEarly.body.error, /after its month has ended/i);
+
+  const list = await request(suite.app).get(`/api/finance/statements?period=${LAST_PERIOD}`).set(authHeader(admin.token));
+  assert.equal(list.status, 200);
+  assert.equal(list.body.statements.length, 1);
+  assert.equal(list.body.statements[0].name, 'Creator One');
+  assert.equal(list.body.statements[0].calculatedTotal, 149.7);
+});
+
+test('creator sees no revenue until the admin edits and finalizes, then is notified', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  await addMember(scenario, { completed: 4, eligibleOn: lastMonthDate(), name: 'Hidden Person' });
+  await addMember(scenario, { completed: 0, name: 'Another Hidden Person' });
+
+  const before = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.equal(before.status, 200);
+  assert.deepEqual(before.body, []);
+
+  const saved = await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: course._id.toString(), final: 120 }], note: 'Adjusted after review.' });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.chapters[0].calculated, 149.7);
+  assert.equal(saved.body.chapters[0].final, 120);
+  assert.equal(saved.body.chapters[0].edited, true);
+
+  // Saving a draft publishes nothing.
+  const stillHidden = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.deepEqual(stillHidden.body, []);
+  assert.equal(await Notification.countDocuments({ recipient: creator.user._id }), 0);
+
+  const finalized = await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'finalize')).set(authHeader(admin.token));
+  assert.equal(finalized.status, 200);
+  assert.equal(finalized.body.status, 'finalized');
+  assert.equal(finalized.body.finalTotal, 120);
+  assert.equal(finalized.body.calculatedTotal, 149.7);
+
+  const visible = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.equal(visible.body.length, 1);
+  assert.equal(visible.body[0].period, LAST_PERIOD);
+  assert.equal(visible.body[0].total, 120);
+  assert.equal(visible.body[0].note, 'Adjusted after review.');
+  assert.deepEqual(visible.body[0].chapters, [{
+    courseId: course._id.toString(), title: 'Chapter A', amount: 120, enrolled: 2, reached: 1, notYet: 1,
+  }]);
+  // No member identities and no pre-edit figure leak to the creator.
+  const payload = JSON.stringify(visible.body);
+  assert.doesNotMatch(payload, /Hidden Person|@example\.com|calculated|149\.7/);
+
+  const notifications = await Notification.find({ recipient: creator.user._id }).lean();
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].type, 'creator_statement_finalized');
+  assert.match(notifications[0].message, /finalized the calculation of your revenue/i);
+  assert.equal(notifications[0].link, '/creator');
+
+  // A finalized statement is locked.
+  const locked = await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: course._id.toString(), final: 1 }] });
+  assert.equal(locked.status, 400);
+  assert.match(locked.body.error, /reopen it before editing/i);
+  const twice = await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'finalize')).set(authHeader(admin.token));
+  assert.equal(twice.status, 400);
+
+  const audits = await FinanceAudit.find({ targetType: 'CreatorStatement' }).sort({ createdAt: 1 }).lean();
+  assert.deepEqual(audits.map((entry) => entry.action), ['statement.edited', 'statement.finalized']);
+  assert.equal(audits[1].actorId.toString(), admin.user._id.toString());
+});
+
+test('reopened statement keeps the published version until it is finalized again', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate() });
+
+  await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'finalize')).set(authHeader(admin.token));
+  const reopened = await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'reopen')).set(authHeader(admin.token));
+  assert.equal(reopened.status, 200);
+  assert.equal(reopened.body.status, 'draft');
+  assert.equal(reopened.body.hasPublishedVersion, true);
+  assert.equal(reopened.body.finalTotal, 149.7);
+
+  await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: course._id.toString(), final: 200 }], note: 'Bonus added.' });
+
+  const whileReopened = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.equal(whileReopened.body.length, 1);
+  assert.equal(whileReopened.body[0].total, 149.7);
+  assert.equal(whileReopened.body[0].note, '');
+
+  const again = await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'finalize')).set(authHeader(admin.token));
+  assert.equal(again.status, 200);
+  assert.equal(again.body.revision, 2);
+
+  const afterUpdate = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.equal(afterUpdate.body[0].total, 200);
+  assert.equal(afterUpdate.body[0].note, 'Bonus added.');
+  assert.equal(afterUpdate.body[0].updated, true);
+
+  const types = (await Notification.find({ recipient: creator.user._id }).sort({ createdAt: 1 }).lean()).map((n) => n.type);
+  assert.deepEqual(types, ['creator_statement_finalized', 'creator_statement_updated']);
+  assert.equal(await CreatorStatement.countDocuments({ instructor: creator.user._id }), 1);
+
+  const cannotReopenDraft = await request(suite.app).post(statementUrl(creator, CURRENT_PERIOD, 'reopen')).set(authHeader(admin.token));
+  assert.equal(cannotReopenDraft.status, 400);
+});
+
+test('statement routes reject invalid input and non-admin access', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator } = scenario;
+  const otherCreator = await createUser({ role: 'instructor' });
+  const otherCourse = await createCourse({ instructorId: otherCreator.user._id, isPublished: true });
+  const member = await createUser({ role: 'student' });
+
+  for (const token of [creator.token, member.token]) {
+    const list = await request(suite.app).get(`/api/finance/statements?period=${LAST_PERIOD}`).set(authHeader(token));
+    assert.equal(list.status, 403);
+    const finalize = await request(suite.app).post(statementUrl(creator, LAST_PERIOD, 'finalize')).set(authHeader(token));
+    assert.equal(finalize.status, 403);
+  }
+  const memberOwn = await request(suite.app).get('/api/finance/my-statements').set(authHeader(member.token));
+  assert.equal(memberOwn.status, 403);
+
+  const badPeriod = await request(suite.app).get('/api/finance/statements?period=2026-13').set(authHeader(admin.token));
+  assert.equal(badPeriod.status, 400);
+
+  const foreignChapter = await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: otherCourse._id.toString(), final: 50 }] });
+  assert.equal(foreignChapter.status, 400);
+  assert.match(foreignChapter.body.error, /does not belong to this creator/i);
+
+  const negative = await request(suite.app)
+    .put(statementUrl(creator, LAST_PERIOD))
+    .set(authHeader(admin.token))
+    .send({ chapters: [{ courseId: scenario.course._id.toString(), final: -5 }] });
+  assert.equal(negative.status, 400);
+
+  const notCreator = await request(suite.app).get(statementUrl(member, LAST_PERIOD)).set(authHeader(admin.token));
+  assert.equal(notCreator.status, 400);
+});

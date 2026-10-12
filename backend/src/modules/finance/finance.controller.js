@@ -4,6 +4,7 @@ import * as payout from './payout.service.js';
 import * as recovery from './recovery.service.js';
 import { getAuditLog } from './audit.service.js';
 import * as financeSettings from './financeSettings.service.js';
+import * as statement from './statement.service.js';
 import InstructorEarning from './instructorEarning.model.js';
 import { fromMinor } from './finance.money.js';
 
@@ -111,4 +112,33 @@ export const exportEarnings = handle(async (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="earnings.csv"');
   res.send(csv);
+});
+
+export const getMyStatements = handle(async (req, res) => {
+  res.json(await statement.listPublishedForInstructor(req.user.id));
+});
+
+export const getStatements = handle(async (req, res) => {
+  res.json(await statement.listStatements(req.query.period));
+});
+
+export const getStatement = handle(async (req, res) => {
+  res.json(await statement.getStatement(req.params.instructorId, req.params.period));
+});
+
+export const saveStatement = handle(async (req, res) => {
+  res.json(await statement.saveStatementDraft(
+    req.params.instructorId,
+    req.params.period,
+    { chapters: req.body.chapters, note: req.body.note },
+    req.user,
+  ));
+});
+
+export const finalizeStatement = handle(async (req, res) => {
+  res.json(await statement.finalizeStatement(req.params.instructorId, req.params.period, req.user));
+});
+
+export const reopenStatement = handle(async (req, res) => {
+  res.json(await statement.reopenStatement(req.params.instructorId, req.params.period, req.user));
 });

@@ -1,6 +1,6 @@
 import express from 'express';
 import * as controller from './finance.controller.js';
-import { authenticate } from '../../middlewares/auth.middleware.js';
+import { authenticate, isInstructor } from '../../middlewares/auth.middleware.js';
 import { canDoFinance, FINANCE_ACTIONS } from '../../utils/financePermissions.js';
 
 const router = express.Router();
@@ -13,6 +13,9 @@ const requireFinance = (action) => (req, res, next) => {
 };
 
 router.use(authenticate);
+
+// Creator-facing: finalized statements only, never the admin ledger.
+router.get('/my-statements', isInstructor, controller.getMyStatements);
 
 router.get('/overview', requireFinance(FINANCE_ACTIONS.VIEW_DASHBOARD), controller.getOverview);
 
@@ -32,6 +35,12 @@ router.post('/payout-batches', requireFinance(FINANCE_ACTIONS.CREATE_PAYOUT_BATC
 router.patch('/payout-batches/:id/approve', requireFinance(FINANCE_ACTIONS.APPROVE_PAYOUTS), controller.approvePayoutBatch);
 router.patch('/payout-batches/:id/settle', requireFinance(FINANCE_ACTIONS.MARK_PAYOUTS_PAID), controller.settlePayoutBatch);
 router.patch('/payout-batches/:id/cancel', requireFinance(FINANCE_ACTIONS.CREATE_PAYOUT_BATCHES), controller.cancelPayoutBatch);
+
+router.get('/statements', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.getStatements);
+router.get('/statements/:instructorId/:period', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.getStatement);
+router.put('/statements/:instructorId/:period', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.saveStatement);
+router.post('/statements/:instructorId/:period/finalize', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.finalizeStatement);
+router.post('/statements/:instructorId/:period/reopen', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.reopenStatement);
 
 router.post('/chargebacks', requireFinance(FINANCE_ACTIONS.MANAGE_ADJUSTMENTS), controller.recordChargeback);
 router.get('/recoveries', requireFinance(FINANCE_ACTIONS.VIEW_DASHBOARD), controller.getRecoveries);

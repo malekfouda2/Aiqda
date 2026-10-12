@@ -1135,13 +1135,9 @@ export const getInstructorAnalytics = async (instructorId) => {
       quizPassRate: courseMetrics.progressCount > 0
         ? Math.round((courseMetrics.quizPassCount / courseMetrics.progressCount) * 100)
         : 0,
-      estimatedRevenue: courseMetrics.estimatedRevenue,
     };
   });
 
-  const totalRevenue = roundCurrency(
-    courseStats.reduce((sum, course) => sum + course.estimatedRevenue, 0)
-  );
   const totalQualifiedViews = courseStats.reduce((sum, course) => sum + course.qualifiedViews, 0);
   const totalLessons = courseStats.reduce((sum, course) => sum + course.lessonsCount, 0);
   const videosAssigned = courseStats.reduce((sum, course) => sum + course.videosAssigned, 0);
@@ -1175,13 +1171,10 @@ export const getInstructorAnalytics = async (instructorId) => {
     quizPassRate: totalProgressEntries > 0
       ? Math.round((totalQuizPassCount / totalProgressEntries) * 100)
       : 0,
-    totalRevenue,
     monthlyStats,
+    // Revenue is deliberately absent: creators only see admin-finalized monthly statements
+    // (finance/statement.service.js), never a live estimate.
     courseStats,
-    revenueCalculation: {
-      placeholder: false,
-      methodology: 'Successful subscription payments are allocated evenly across all courses included in each package.'
-    }
   };
 };
 
