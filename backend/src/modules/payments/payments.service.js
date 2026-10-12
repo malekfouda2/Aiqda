@@ -58,6 +58,9 @@ const DEFAULT_REFUND_WINDOW_HOURS = 24;
 // no charge id yet and is younger than this is still being created.
 const CHARGE_CREATION_IN_FLIGHT_MS = 2 * 60 * 1000;
 const SUPERSEDED_PAYMENT_REASON = 'Superseded by a newer checkout attempt.';
+const DUPLICATE_PAYMENT_REFUND_REASON = 'Automatic refund: this checkout was already paid by another payment.';
+// Comfortably longer than Tap's 30 minute hosted checkout expiry.
+const DUPLICATE_CHECKOUT_WINDOW_MS = 2 * 60 * 60 * 1000;
 const TAP_BNPL_SOURCE_IDS = {
   tabby: 'src_tabby.installement',
   tamara: 'src_tamara',
@@ -744,6 +747,7 @@ export const refundSuccessfulPayment = async (paymentId, {
   reason,
   refundedBy = null,
   amount = null,
+  revokeAccess = true,
 } = {}) => {
   const payment = await populatePaymentQuery(Payment.findById(paymentId));
   if (!payment) {
@@ -789,7 +793,9 @@ export const refundSuccessfulPayment = async (paymentId, {
       tapRefundStatus: refund.status || null,
       refundSnapshot: refund,
     });
-    await revokeSubscriptionAccessAfterRefund(payment);
+    if (revokeAccess) {
+      await revokeSubscriptionAccessAfterRefund(payment);
+    }
     await onPaymentReversed(payment, { reversedAmount: refundAmount, kind: 'refund' });
 
     const recipientId = payment.user?._id || payment.user;
@@ -1113,7 +1119,106 @@ const finalizeBillingProfileSetupPayment = async (payment) => {
   return populatePaymentQuery(Payment.findById(paymentRecord._id));
 };
 
-const applyTapChargeSnapshotToPayment = async (payment, charge, {
+// A member can end up with two open hosted checkouts for the same purchase (an
+// abandoned attempt that was superseded, then both pages completed). Tap cannot
+// cancel an initiated charge, so the second capture is detected here instead.
+const isDuplicateCheckoutPayment = async (payment) => {
+  const userId = payment.user?._id || payment.user;
+  const siblingQuery = {
+    _id: { $ne: payment._id },
+    user: userId,
+    paymentType: payment.paymentType,
+    status: { $in: SUCCESSFUL_PAYMENT_STATUSES },
+    refundStatus: { $ne: 'refunded' },
+  };
+  const createdAt = new Date(payment.createdAt).getTime();
+  const sameCheckoutWindow = {
+    $gte: new Date(createdAt - DUPLICATE_CHECKOUT_WINDOW_MS),
+    $lte: new Date(createdAt + DUPLICATE_CHECKOUT_WINDOW_MS),
+  };
+
+  if (payment.paymentType === 'initial' && payment.subscription) {
+    return Boolean(await Payment.exists({
+      ...siblingQuery,
+      subscription: payment.subscription._id || payment.subscription,
+    }));
+  }
+
+  if (payment.paymentType === 'recovery' && payment.subscription) {
+    return Boolean(await Payment.exists({
+      ...siblingQuery,
+      subscription: payment.subscription._id || payment.subscription,
+      createdAt: sameCheckoutWindow,
+    }));
+  }
+
+  if (payment.paymentType === 'consultation' && payment.consultationBooking) {
+    const booking = await ConsultationBooking.findById(
+      payment.consultationBooking._id || payment.consultationBooking
+    ).select('consultation');
+    if (!booking) {
+      return false;
+    }
+
+    const siblingBookingIds = await ConsultationBooking.find({
+      _id: { $ne: booking._id },
+      user: userId,
+      consultation: booking.consultation,
+    }).distinct('_id');
+
+    return Boolean(await Payment.exists({
+      ...siblingQuery,
+      consultationBooking: { $in: siblingBookingIds },
+      createdAt: sameCheckoutWindow,
+    }));
+  }
+
+  return false;
+};
+
+const refundDuplicateCheckoutPayment = async (payment) => {
+  console.error(
+    `[payments] Duplicate capture: payment ${payment._id} (charge ${payment.tapChargeId}) paid for a checkout that was already paid. Refunding it.`
+  );
+
+  try {
+    return await refundSuccessfulPayment(payment._id, {
+      reason: DUPLICATE_PAYMENT_REFUND_REASON,
+      revokeAccess: false,
+    });
+  } catch (error) {
+    console.error(`[payments] Automatic duplicate refund failed for payment ${payment._id}:`, error.message);
+    await notify.admins({
+      type: 'payment.duplicate_refund_failed',
+      title: 'Duplicate payment needs a manual refund',
+      titleAr: 'دفعة مكررة تحتاج إلى استرداد يدوي',
+      message: `A member paid twice for the same checkout and the automatic refund failed (${error.message}). Refund it from the payments page.`,
+      messageAr: 'دفع أحد الأعضاء مرتين لنفس الطلب وفشل الاسترداد التلقائي. يرجى الاسترداد من صفحة المدفوعات.',
+      link: '/admin/payments',
+      metadata: { paymentId: payment._id },
+    });
+    return populatePaymentQuery(Payment.findById(payment._id));
+  }
+};
+
+// Serialises charge updates per member so two captures arriving together cannot
+// both pass the duplicate check. In-process only: the API runs as one instance.
+const chargeUpdateQueues = new Map();
+
+const applyTapChargeSnapshotToPayment = (payment, charge, options = {}) => {
+  const key = String(payment.user?._id || payment.user || payment._id);
+  const previous = chargeUpdateQueues.get(key) || Promise.resolve();
+  const run = previous.catch(() => {}).then(() => applyTapChargeSnapshot(payment, charge, options));
+  const tail = run.catch(() => {}).finally(() => {
+    if (chargeUpdateQueues.get(key) === tail) {
+      chargeUpdateQueues.delete(key);
+    }
+  });
+  chargeUpdateQueues.set(key, tail);
+  return run;
+};
+
+const applyTapChargeSnapshot = async (payment, charge, {
   verifiedWebhook = false,
   activationSource = 'tap_capture',
   phoneDetails = null,
@@ -1166,6 +1271,14 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
   await payment.save();
 
   await updateUserTapBillingProfile(payment.user, charge, phoneDetails);
+
+  if (
+    !isSuccessfulPaymentStatus(previousStatus)
+    && isSuccessfulPaymentStatus(nextStatus)
+    && await isDuplicateCheckoutPayment(payment)
+  ) {
+    return refundDuplicateCheckoutPayment(payment);
+  }
 
   if (payment.paymentType === 'renewal' && nextStatus === 'initiated') {
     payment.status = 'failed';

@@ -94,6 +94,7 @@ const sendWebhook = (charge) => {
 const installTapMock = () => {
   const charges = new Map();
   const createdBodies = [];
+  const refunds = [];
 
   globalThis.fetch = async (url, options = {}) => {
     if (url === 'https://api.tap.company/v2/tokens/') {
@@ -108,6 +109,12 @@ const installTapMock = () => {
       return createTextResponse(charge);
     }
 
+    if (url === 'https://api.tap.company/v2/refunds') {
+      const requestBody = JSON.parse(options.body);
+      refunds.push(requestBody);
+      return createTextResponse({ id: `ref_${refunds.length}`, status: 'REFUNDED', ...requestBody });
+    }
+
     if (url.startsWith(`${TAP_CHARGES_URL}/`)) {
       const charge = charges.get(url.slice(TAP_CHARGES_URL.length + 1));
       return charge ? createTextResponse(charge) : createTextResponse({ errors: [{ description: 'Not found' }] }, 404);
@@ -116,7 +123,7 @@ const installTapMock = () => {
     throw new Error(`Unexpected fetch URL: ${url}`);
   };
 
-  return { charges, createdBodies };
+  return { charges, createdBodies, refunds };
 };
 
 const createPendingCheckout = async (name) => {
@@ -330,4 +337,64 @@ test('each automatic renewal retry sends a new charge to Tap', async () => {
   const renewedSubscription = await Subscription.findById(subscription._id);
   assert.equal(renewedSubscription.status, 'active');
   assert.equal(renewedSubscription.renewalFailureCount, 0);
+});
+
+const payTwiceScenario = async (name) => {
+  configureTap();
+  const tap = installTapMock();
+  const checkout = await createPendingCheckout(name);
+
+  await checkout.startCheckout({ checkoutMethod: 'tabby' });
+  await checkout.startCheckout({ checkoutMethod: 'card', tokenId: 'tok_card_retry' });
+
+  const capture = (chargeId) => sendWebhook({ ...tap.charges.get(chargeId), status: 'CAPTURED' });
+  return { tap, capture, subscriptionId: checkout.subscription._id };
+};
+
+const assertSinglePaidPeriod = async ({ tap, subscriptionId }, keptChargeId, refundedChargeId) => {
+  assert.deepEqual(tap.refunds.map((refund) => refund.charge_id), [refundedChargeId]);
+  assert.equal(tap.refunds[0].amount, 299);
+
+  const refundedPayment = await Payment.findOne({ tapChargeId: refundedChargeId });
+  assert.equal(refundedPayment.status, 'captured');
+  assert.equal(refundedPayment.refundStatus, 'refunded');
+  assert.equal(refundedPayment.refundAmount, 299);
+
+  const keptPayment = await Payment.findOne({ tapChargeId: keptChargeId });
+  assert.equal(keptPayment.status, 'captured');
+  assert.equal(keptPayment.refundStatus, 'none');
+
+  const subscription = await Subscription.findById(subscriptionId);
+  assert.equal(subscription.status, 'active');
+  const paidDays = (subscription.endDate - subscription.startDate) / (24 * 60 * 60 * 1000);
+  assert.ok(paidDays < 32, `expected one paid period, got ${paidDays} days`);
+};
+
+test('completing a superseded checkout after the new one was paid refunds the duplicate', async () => {
+  const scenario = await payTwiceScenario('Late Old Tab Student');
+
+  assert.equal((await scenario.capture('chg_2')).status, 200);
+  assert.equal((await scenario.capture('chg_1')).status, 200);
+
+  await assertSinglePaidPeriod(scenario, 'chg_2', 'chg_1');
+});
+
+test('completing the new checkout after the superseded one was paid refunds the duplicate', async () => {
+  const scenario = await payTwiceScenario('Early Old Tab Student');
+
+  assert.equal((await scenario.capture('chg_1')).status, 200);
+  assert.equal((await scenario.capture('chg_2')).status, 200);
+
+  await assertSinglePaidPeriod(scenario, 'chg_1', 'chg_2');
+});
+
+test('two captures arriving at the same moment still leave exactly one paid period', async () => {
+  const scenario = await payTwiceScenario('Simultaneous Capture Student');
+
+  const responses = await Promise.all([scenario.capture('chg_1'), scenario.capture('chg_2')]);
+  assert.deepEqual(responses.map((response) => response.status), [200, 200]);
+
+  assert.equal(scenario.tap.refunds.length, 1);
+  const refundedChargeId = scenario.tap.refunds[0].charge_id;
+  await assertSinglePaidPeriod(scenario, refundedChargeId === 'chg_1' ? 'chg_2' : 'chg_1', refundedChargeId);
 });
