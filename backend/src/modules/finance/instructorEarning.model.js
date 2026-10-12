@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
-// The instructor earning ledger. One row per (payment, chapter, instructor). Amounts integer minor units.
+// The instructor earning ledger. One row per win: a member completing 80% of a chapter, funded by
+// the member's latest payment at that moment. Amounts integer minor units.
 const instructorEarningSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -39,6 +40,10 @@ const instructorEarningSchema = new mongoose.Schema({
   completedRequired: { type: Number, default: 0 },
   totalRequired: { type: Number, default: 0 },
   eligibilityAt: { type: Date, default: null },
+  // Number of chapters the member was enrolled in when the pool was split, and whether that
+  // number is final (it locks once the month of the win has ended). See shares.service.js.
+  enrolledChaptersSnapshot: { type: Number, default: 1 },
+  shareBasisLocked: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ['pending_completion', 'eligible', 'on_hold', 'approved_for_payout', 'partially_paid', 'paid', 'voided', 'reversed'],

@@ -381,3 +381,82 @@ test('statement keeps the revenue of a chapter that was deleted afterwards', asy
   assert.equal(res.body.calculatedTotal, 149.7);
   assert.equal(res.body.chapters[0].title, 'Chapter A (deleted)');
 });
+
+test('end to end through the real endpoints: watching a second earns nothing, finishing earns once', async () => {
+  const { createQuiz } = await import('./helpers/integration.js');
+  const admin = await createUser({ role: 'admin' });
+  const creator = await createUser({ role: 'instructor', name: 'E2E Creator' });
+  const other = await createUser({ role: 'instructor' });
+  const member = await createUser({ role: 'student', name: 'E2E Member' });
+
+  const makeChapter = async (owner, title) => {
+    const course = await createCourse({ instructorId: owner.user._id, isPublished: true, title });
+    const lessons = [];
+    for (let i = 0; i < 5; i += 1) {
+      const lesson = await createLesson({ course: course._id, isPublished: true, order: i + 1, vimeoVideoId: `vid-${i}` });
+      await createQuiz({ lesson: lesson._id });
+      lessons.push(lesson);
+    }
+    return { course, lessons };
+  };
+  const mine = await makeChapter(creator, 'E2E Chapter');
+  const theirs = await makeChapter(other, 'Other Chapter');
+  const pkg = await createSubscriptionPackage({ courses: [mine.course._id, theirs.course._id] });
+  const sub = await createSubscription({
+    user: member.user._id, package: pkg._id, status: 'active', startDate: new Date(), endDate: FUTURE,
+  });
+  const payment = await createPayment({ user: member.user._id, subscription: sub._id, amount: 1000 });
+  await generateEarningsForPayment(payment._id);
+
+  for (const chapter of [mine, theirs]) {
+    const enrolled = await request(suite.app).post(`/api/courses/${chapter.course._id}/enroll`).set(authHeader(member.token));
+    assert.equal(enrolled.status, 200, JSON.stringify(enrolled.body));
+  }
+
+  const watch = (lesson, watchPercentage) => request(suite.app)
+    .post(`/api/lessons/${lesson._id}/progress`).set(authHeader(member.token)).send({ watchPercentage });
+  const passQuiz = (lesson) => request(suite.app)
+    .post(`/api/quizzes/lesson/${lesson._id}/submit`).set(authHeader(member.token)).send({ answers: [1] });
+
+  // The original complaint: one second of watching must not produce any revenue.
+  assert.equal((await watch(mine.lessons[0], 1)).status, 200);
+  assert.equal(await InstructorEarning.countDocuments({}), 0);
+
+  // Three of five content items fully done: 60%, still nothing.
+  for (const lesson of mine.lessons.slice(0, 3)) {
+    assert.equal((await watch(lesson, 100)).status, 200);
+    assert.equal((await passQuiz(lesson)).status, 200);
+  }
+  assert.equal(await InstructorEarning.countDocuments({}), 0);
+
+  // The fourth takes the member to 80%: one earning, half the pool (two enrolled chapters).
+  await watch(mine.lessons[3], 100);
+  await passQuiz(mine.lessons[3]);
+  let earnings = await InstructorEarning.find({}).lean();
+  assert.equal(earnings.length, 1);
+  assert.equal(earnings[0].instructor.toString(), creator.user._id.toString());
+  assert.equal(earnings[0].eligibleMinor, 15000);
+
+  // Member-facing chapter progress counts the content that was just completed.
+  const { CourseProgress } = await import('../src/modules/analytics/progress.model.js');
+  assert.equal((await CourseProgress.findOne({ user: member.user._id, course: mine.course._id })).completedLessons, 4);
+
+  // Finishing the chapter and rewatching it changes nothing.
+  await watch(mine.lessons[4], 100);
+  await passQuiz(mine.lessons[4]);
+  await watch(mine.lessons[0], 100);
+  earnings = await InstructorEarning.find({}).lean();
+  assert.equal(earnings.length, 1);
+  assert.equal(earnings[0].eligibleMinor, 15000);
+
+  // Admin sees it as a draft for the current month; the creator still sees no money anywhere.
+  const draft = await request(suite.app).get(statementUrl(creator, CURRENT_PERIOD)).set(authHeader(admin.token));
+  assert.equal(draft.body.calculatedTotal, 150);
+  assert.equal(draft.body.chapters[0].wins, 1);
+  assert.equal(draft.body.chapters[0].enrolled, 1);
+  assert.equal(draft.body.chapters[0].reached, 1);
+  const creatorStatements = await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token));
+  assert.deepEqual(creatorStatements.body, []);
+  const analytics = await request(suite.app).get('/api/analytics/instructor').set(authHeader(creator.token));
+  assert.doesNotMatch(JSON.stringify(analytics.body), /revenue/i);
+});

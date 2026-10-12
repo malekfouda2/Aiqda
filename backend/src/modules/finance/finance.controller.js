@@ -1,5 +1,4 @@
 import * as report from './financeReport.service.js';
-import * as allocation from './allocation.service.js';
 import * as payout from './payout.service.js';
 import * as recovery from './recovery.service.js';
 import { getAuditLog } from './audit.service.js';
@@ -49,15 +48,6 @@ export const bulkEarnings = handle(async (req, res) => {
   const { earningIds, action, reason } = req.body;
   const touched = await payout.bulkUpdateEarnings(earningIds, action, req.user, reason);
   res.json({ updated: touched.length });
-});
-
-export const getAllocations = handle(async (req, res) => {
-  res.json(await allocation.listAllocations(req.query.package || null));
-});
-
-export const saveAllocations = handle(async (req, res) => {
-  const created = await allocation.saveAllocations(req.body.package, req.body.entries, req.user);
-  res.json({ created: created.length });
 });
 
 export const getPayoutBatches = handle(async (req, res) => {

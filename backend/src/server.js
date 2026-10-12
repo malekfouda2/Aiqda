@@ -6,6 +6,7 @@ import { backfillLegacyLessonPublishState } from './startup/legacyLessonPublishB
 import { backfillContentReviewState } from './startup/contentReviewStateBackfill.js';
 import { backfillCourseOrder } from './startup/courseOrderBackfill.js';
 import { removeLegacyCourseLevels } from './startup/removeLegacyCourseLevels.js';
+import { removeLegacyPendingEarnings } from './startup/removeLegacyPendingEarnings.js';
 import { syncSubscriptionPackageRoadmap } from './startup/subscriptionPackageRoadmapMigration.js';
 import { startSubscriptionRenewalWorker } from './startup/subscriptionRenewalWorker.js';
 import { validateRuntimeConfig } from './startup/validateRuntimeConfig.js';
@@ -51,6 +52,10 @@ mongoose.connect(MONGODB_URI)
     const levelRemovalResult = await removeLegacyCourseLevels();
     if (levelRemovalResult.updatedCourses > 0) {
       console.log(`Removed legacy chapter level values from ${levelRemovalResult.updatedCourses} chapters.`);
+    }
+    const legacyEarningsResult = await removeLegacyPendingEarnings();
+    if (legacyEarningsResult.removedEarnings > 0) {
+      console.log(`Removed ${legacyEarningsResult.removedEarnings} legacy pending creator earnings.`);
     }
     const renewalWorker = startSubscriptionRenewalWorker();
     if (renewalWorker.started) {

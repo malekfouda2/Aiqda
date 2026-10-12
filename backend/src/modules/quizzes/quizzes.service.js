@@ -273,6 +273,9 @@ export const submitQuiz = async (lessonId, userId, answers, userRole = null) => 
       if (!progress.completedAt) {
         progress.completedAt = new Date();
       }
+      // Persist first: the chapter progress count and the creator earning check below both read
+      // qualified content from the database and must see this one.
+      await progress.save();
 
       const courseId = lesson.course._id;
       const courseProgress = await CourseProgress.findOne({ user: userId, course: courseId });

@@ -10,14 +10,14 @@ import {
   toMinor, fromMinor, FULL_BPS, COMPLETION_THRESHOLD_BPS,
 } from './finance.money.js';
 import { recordFinanceAudit } from './audit.service.js';
+import { syncMemberShares } from './shares.service.js';
+import { parsePeriod, periodBounds, hasPeriodEnded } from './finance.period.js';
 import { notify } from '../notifications/notify.js';
 import { sendEmail } from '../../utils/email.js';
 import { buildCreatorStatementFinalizedEmail } from '../../utils/emailTemplates.js';
 
-// Statement months follow the platform's business timezone (Asia/Riyadh, UTC+3, no DST).
-const BUSINESS_UTC_OFFSET_MS = 3 * 60 * 60 * 1000;
-// Earnings that are not revenue for the creator: not unlocked yet, cancelled by a refund or
-// chargeback, or put on hold by an admin (held amounts are reported to the admin separately).
+// Earnings that are not revenue for the creator: cancelled by a refund or chargeback, or put
+// on hold by an admin (held amounts are reported to the admin separately).
 const EXCLUDED_EARNING_STATUSES = ['pending_completion', 'voided', 'reversed', 'on_hold'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_NAMES_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -25,27 +25,10 @@ const MONTH_NAMES_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 
 const toId = (value) => (value?._id || value)?.toString();
 const actorIdOf = (actor) => actor?.id || actor?._id || null;
 
-const parsePeriod = (period) => {
-  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(String(period || ''));
-  if (!match) throw new Error('Period must be a month in YYYY-MM format.');
-  return { year: Number(match[1]), month: Number(match[2]) };
-};
-
-// [start, end) of a statement month as UTC instants.
-export const periodBounds = (period) => {
-  const { year, month } = parsePeriod(period);
-  return {
-    start: new Date(Date.UTC(year, month - 1, 1) - BUSINESS_UTC_OFFSET_MS),
-    end: new Date(Date.UTC(year, month, 1) - BUSINESS_UTC_OFFSET_MS),
-  };
-};
-
 export const periodLabel = (period, arabic = false) => {
   const { year, month } = parsePeriod(period);
   return `${(arabic ? MONTH_NAMES_AR : MONTH_NAMES)[month - 1]} ${year}`;
 };
-
-const hasPeriodEnded = (period, now = new Date()) => periodBounds(period).end <= now;
 
 const assertInstructorId = (instructorId) => {
   if (!mongoose.isValidObjectId(instructorId)) throw new Error('Creator not found.');
@@ -88,6 +71,12 @@ const countChapterMembers = async (course) => {
 // completion threshold inside the month, plus current member counts per chapter.
 const computeChapters = async (instructorId, period) => {
   const { start, end } = periodBounds(period);
+  // Bring every involved member's shares up to date before reading amounts.
+  const members = await InstructorEarning.distinct('user', {
+    instructor: instructorId, eligibilityAt: { $gte: start, $lt: end },
+  });
+  for (const memberId of members) await syncMemberShares(memberId);
+
   const earningRows = await InstructorEarning.aggregate([
     {
       $match: {
@@ -96,8 +85,17 @@ const computeChapters = async (instructorId, period) => {
         status: { $nin: EXCLUDED_EARNING_STATUSES },
       },
     },
-    { $group: { _id: '$course', calculatedMinor: { $sum: '$eligibleMinor' } } },
+    {
+      $group: {
+        _id: '$course',
+        calculatedMinor: { $sum: '$eligibleMinor' },
+        wins: { $sum: 1 },
+        // Money a win lost because the member's payment had no pool left.
+        cappedMinor: { $sum: { $subtract: ['$maxPotentialMinor', '$eligibleMinor'] } },
+      },
+    },
   ]);
+  const statsByCourse = new Map(earningRows.map((row) => [toId(row._id), row]));
   const calculatedByCourse = new Map(earningRows.map((row) => [toId(row._id), row.calculatedMinor]));
 
   const courses = await Course.find({
@@ -111,6 +109,8 @@ const computeChapters = async (instructorId, period) => {
       course: course._id,
       courseTitleSnapshot: course.title || '',
       calculatedMinor: calculatedByCourse.get(courseId) || 0,
+      winsCount: statsByCourse.get(courseId)?.wins || 0,
+      cappedMinor: statsByCourse.get(courseId)?.cappedMinor || 0,
       ...(await countChapterMembers(course)),
     });
     calculatedByCourse.delete(courseId);
@@ -124,6 +124,8 @@ const computeChapters = async (instructorId, period) => {
       course: new mongoose.Types.ObjectId(courseId),
       courseTitleSnapshot: entitlement ? `${entitlement.courseTitleSnapshot} (deleted)` : 'Deleted chapter',
       calculatedMinor,
+      winsCount: statsByCourse.get(courseId)?.wins || 0,
+      cappedMinor: statsByCourse.get(courseId)?.cappedMinor || 0,
       enrolledCount: 0,
       reachedCount: 0,
       notYetCount: 0,
@@ -166,6 +168,8 @@ const serializeChapter = (chapter) => ({
   enrolled: chapter.enrolledCount,
   reached: chapter.reachedCount,
   notYet: chapter.notYetCount,
+  wins: chapter.winsCount || 0,
+  capped: fromMinor(chapter.cappedMinor || 0),
   calculated: fromMinor(chapter.calculatedMinor),
   final: fromMinor(chapter.finalMinor),
   edited: chapter.finalMinor !== chapter.calculatedMinor,

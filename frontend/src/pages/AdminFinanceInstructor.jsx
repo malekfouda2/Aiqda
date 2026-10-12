@@ -68,7 +68,7 @@ function AdminFinanceInstructor() {
               <th className="text-left px-4 py-2">Learner</th>
               <th className="text-left px-4 py-2">Chapter</th>
               <th className="text-right px-4 py-2">Max</th>
-              <th className="text-right px-4 py-2">Alloc%</th>
+              <th className="text-right px-4 py-2">Share of pool</th>
               <th className="text-right px-4 py-2">Completion</th>
               <th className="text-right px-4 py-2">Paid</th>
               <th className="text-right px-4 py-2">Remaining</th>

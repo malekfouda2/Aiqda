@@ -27,9 +27,6 @@ router.get('/earnings', requireFinance(FINANCE_ACTIONS.VIEW_EARNINGS), controlle
 router.patch('/earnings/bulk', requireFinance(FINANCE_ACTIONS.MANAGE_EARNINGS), controller.bulkEarnings);
 router.get('/export/earnings.csv', requireFinance(FINANCE_ACTIONS.EXPORT_REPORTS), controller.exportEarnings);
 
-router.get('/allocations', requireFinance(FINANCE_ACTIONS.MANAGE_ALLOCATION_SETTINGS), controller.getAllocations);
-router.post('/allocations', requireFinance(FINANCE_ACTIONS.MANAGE_ALLOCATION_SETTINGS), controller.saveAllocations);
-
 router.get('/payout-batches', requireFinance(FINANCE_ACTIONS.APPROVE_PAYOUTS), controller.getPayoutBatches);
 router.post('/payout-batches', requireFinance(FINANCE_ACTIONS.CREATE_PAYOUT_BATCHES), controller.createPayoutBatch);
 router.patch('/payout-batches/:id/approve', requireFinance(FINANCE_ACTIONS.APPROVE_PAYOUTS), controller.approvePayoutBatch);

@@ -38,7 +38,6 @@ function DashboardSidebar({ type }) {
     { to: '/admin/finance/statements', icon: '📑', label: 'Statements' },
     { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
     { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
-    { to: '/admin/finance/allocations', icon: '⚖️', label: 'Allocations' },
   ];
 
   const reviewerLinks = [
@@ -154,7 +153,6 @@ function DashboardMobileNav({ type }) {
     { to: '/admin/finance/statements', icon: '📑', label: 'Statements' },
     { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
     { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
-    { to: '/admin/finance/allocations', icon: '⚖️', label: 'Allocations' },
   ];
   const reviewerLinks = [
     { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications', end: true },

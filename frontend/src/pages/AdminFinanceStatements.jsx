@@ -125,7 +125,8 @@ function AdminFinanceStatements() {
         <h1 className="text-2xl font-bold text-gray-900">Creator statements</h1>
         <p className="mt-1 text-sm text-gray-500">
           Revenue is calculated automatically, but creators only see a month after you finalize it here.
-          Revenue counts in the month a member completed 80% of the chapter.
+          A creator earns once per member per chapter, in the month the member completed 80% of it: 30% of the
+          member's latest payment, split equally over the chapters that member was enrolled in by the end of that month.
         </p>
       </div>
 
@@ -191,19 +192,28 @@ function AdminFinanceStatements() {
                               <th className="text-right px-3 py-2">Enrolled</th>
                               <th className="text-right px-3 py-2">Reached 80%</th>
                               <th className="text-right px-3 py-2">Not yet</th>
+                              <th className="text-right px-3 py-2">Reached 80% this month</th>
                               <th className="text-right px-3 py-2">Calculated</th>
                               <th className="text-right px-3 py-2">Final amount (SAR)</th>
                             </tr>
                           </thead>
                           <tbody>
                             {statement.chapters.length === 0 ? (
-                              <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">No chapters</td></tr>
+                              <tr><td colSpan={7} className="px-3 py-4 text-center text-gray-400">No chapters</td></tr>
                             ) : statement.chapters.map((chapter) => (
                               <tr key={chapter.courseId} className="border-t">
                                 <td className="px-3 py-2 text-gray-900">{chapter.title}</td>
                                 <td className="px-3 py-2 text-right">{chapter.enrolled}</td>
                                 <td className="px-3 py-2 text-right">{chapter.reached}</td>
                                 <td className="px-3 py-2 text-right">{chapter.notYet}</td>
+                                <td className="px-3 py-2 text-right">
+                                  {chapter.wins} {chapter.wins === 1 ? 'member' : 'members'}
+                                  {chapter.capped > 0 && (
+                                    <span className="block text-xs text-amber-700" title="A member's payment had no creator share left for this chapter">
+                                      {sar(chapter.capped)} not covered
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="px-3 py-2 text-right text-gray-500">{sar(chapter.calculated)}</td>
                                 <td className="px-3 py-2 text-right">
                                   {finalized ? (

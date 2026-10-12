@@ -14,7 +14,6 @@ const FIGURES = [
   ['bankFees', 'Bank fees'],
   ['expensesTotal', 'Expenses total'],
   ['maxInstructorExposure', 'Max instructor pool (30%)'],
-  ['pendingInstructorPotential', 'Pending potential (not earned)'],
   ['eligibleInstructorLiability', 'Eligible liability (unpaid)'],
   ['approvedUnpaid', 'Approved but unpaid'],
   ['actualInstructorPayouts', 'Actual payouts made'],

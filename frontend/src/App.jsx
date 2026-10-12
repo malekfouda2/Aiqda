@@ -60,7 +60,6 @@ const AdminFinance = lazy(() => import('./pages/AdminFinance'));
 const AdminFinanceInstructor = lazy(() => import('./pages/AdminFinanceInstructor'));
 const AdminFinanceEarnings = lazy(() => import('./pages/AdminFinanceEarnings'));
 const AdminFinancePayouts = lazy(() => import('./pages/AdminFinancePayouts'));
-const AdminFinanceAllocations = lazy(() => import('./pages/AdminFinanceAllocations'));
 const AdminFinanceStatements = lazy(() => import('./pages/AdminFinanceStatements'));
 
 function RouteLoadingFallback() {
@@ -231,7 +230,6 @@ function App() {
             <Route path="finance/instructors/:id" element={renderLazyPage(AdminFinanceInstructor)} />
             <Route path="finance/earnings" element={renderLazyPage(AdminFinanceEarnings)} />
             <Route path="finance/payouts" element={renderLazyPage(AdminFinancePayouts)} />
-            <Route path="finance/allocations" element={renderLazyPage(AdminFinanceAllocations)} />
             <Route path="finance/statements" element={renderLazyPage(AdminFinanceStatements)} />
           </Route>
 

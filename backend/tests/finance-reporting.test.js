@@ -84,6 +84,8 @@ const setupEligibleScenario = async ({
     isQualified: true,
   });
   await evaluateEligibilityForUserCourse(learner.user._id, course._id);
+  // The win happened in the payment's (past) month, so its amount is final and approvable.
+  await InstructorEarning.updateMany({ user: learner.user._id }, { $set: { eligibilityAt: paidAt } });
 
   return { learner, instructor, course, payment };
 };

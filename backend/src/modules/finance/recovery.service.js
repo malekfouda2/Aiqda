@@ -2,6 +2,7 @@ import FinanceTransaction from './financeTransaction.model.js';
 import InstructorEarning from './instructorEarning.model.js';
 import { toMinor, FULL_BPS } from './finance.money.js';
 import { recordFinanceAudit } from './audit.service.js';
+import { syncMemberShares } from './shares.service.js';
 
 // Handle a refund or chargeback against a payment. Reverses unpaid earnings (void / proportional
 // reduction) and turns already-paid earnings into instructor recovery balances. Idempotent-ish:
@@ -18,7 +19,12 @@ export const handlePaymentReversal = async (payment, { reversedAmount = null, ki
   const proportion = parent.grossPaidMinor > 0
     ? Math.min(1, Math.max(0, reversedMinor / parent.grossPaidMinor))
     : 1;
-  const isFull = proportion >= 1;
+  // Refunds can arrive in several parts: what matters for unpaid earnings is how much of the
+  // payment is left after this one, not the size of this single reversal.
+  const previouslyReversedMinor = (parent.refundedMinor || 0) + (parent.chargebackMinor || 0);
+  const remainingBeforeMinor = Math.max(0, parent.grossPaidMinor - previouslyReversedMinor);
+  const isFull = proportion >= 1 || reversedMinor >= remainingBeforeMinor;
+  const proportionOfRemaining = remainingBeforeMinor > 0 ? Math.min(1, reversedMinor / remainingBeforeMinor) : 1;
 
   // Record the reversal as a child finance transaction.
   const reversalType = kind === 'chargeback'
@@ -62,7 +68,7 @@ export const handlePaymentReversal = async (payment, { reversedAmount = null, ki
       earning.eligibleMinor = 0;
       earning.approvedMinor = 0;
     } else {
-      const keepBps = FULL_BPS - Math.round(proportion * FULL_BPS);
+      const keepBps = FULL_BPS - Math.round(proportionOfRemaining * FULL_BPS);
       earning.maxPotentialMinor = Math.floor((earning.maxPotentialMinor * keepBps) / FULL_BPS);
       earning.eligibleMinor = Math.floor((earning.eligibleMinor * keepBps) / FULL_BPS);
       earning.approvedMinor = Math.floor((earning.approvedMinor * keepBps) / FULL_BPS);
@@ -79,6 +85,9 @@ export const handlePaymentReversal = async (payment, { reversedAmount = null, ki
     });
     results.push(earning);
   }
+
+  // The payment's pool shrank: re-balance the member's wins that are not yet approved for payout.
+  await syncMemberShares(parent.user);
 
   return { reversedMinor, proportion, affected: results.length };
 };

@@ -10,6 +10,9 @@ const statementChapterSchema = new mongoose.Schema({
   },
   courseTitleSnapshot: { type: String, default: '' },
   calculatedMinor: { type: Number, default: 0 },
+  // New members who completed 80% in this month, and money lost to an exhausted payment pool.
+  winsCount: { type: Number, default: 0 },
+  cappedMinor: { type: Number, default: 0 },
   finalMinor: { type: Number, default: 0 },
   enrolledCount: { type: Number, default: 0 },
   reachedCount: { type: Number, default: 0 },

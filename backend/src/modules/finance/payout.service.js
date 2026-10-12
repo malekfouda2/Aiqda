@@ -2,6 +2,8 @@ import PayoutBatch from './payoutBatch.model.js';
 import InstructorEarning from './instructorEarning.model.js';
 import { toMinor } from './finance.money.js';
 import { recordFinanceAudit } from './audit.service.js';
+import { syncMemberShares } from './shares.service.js';
+import { periodOf, hasPeriodEnded } from './finance.period.js';
 
 const ACTIVE_BATCH_STATUSES = ['draft', 'awaiting_approval', 'approved', 'processing_manually', 'partially_paid'];
 const PAYABLE_EARNING_STATUSES = ['approved_for_payout', 'partially_paid'];
@@ -25,13 +27,22 @@ const outstandingRecoveryMinor = async (instructorId) => {
 
 // Bulk earning actions for the earnings queue.
 export const bulkUpdateEarnings = async (earningIds, action, actor = null, reason = '') => {
-  const earnings = await InstructorEarning.find({ _id: { $in: earningIds } });
   const actorId = actor?.id || actor?._id || null;
   const touched = [];
+
+  if (action === 'approve') {
+    // Approving freezes the amount, so make sure it reflects the latest calculation first.
+    const members = await InstructorEarning.distinct('user', { _id: { $in: earningIds } });
+    for (const memberId of members) await syncMemberShares(memberId);
+  }
+  const earnings = await InstructorEarning.find({ _id: { $in: earningIds } });
 
   for (const earning of earnings) {
     const oldStatus = earning.status;
     if (action === 'approve' && earning.status === 'eligible') {
+      // An earning's amount is only final once its month has ended (the pool is split over the
+      // chapters the member was enrolled in by then), so it cannot be approved before that.
+      if (!hasPeriodEnded(periodOf(earning.eligibilityAt))) continue;
       earning.status = 'approved_for_payout';
       earning.approvedMinor = earning.eligibleMinor;
     } else if (action === 'hold' && ['eligible', 'approved_for_payout'].includes(earning.status)) {

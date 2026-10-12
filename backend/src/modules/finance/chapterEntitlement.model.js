@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
-// Immutable snapshot of one chapter (course) entitlement for one payment.
-// Captures allocation + completion basis at payment time so later edits never rewrite history.
+// Immutable snapshot of the chapter (course) a creator earning was won on, for one payment.
+// Captures the title and completion basis at that moment so later edits never rewrite history.
 const chapterEntitlementSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
