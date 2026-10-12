@@ -78,7 +78,7 @@ function InstructorCourses() {
   const [dragLesson, setDragLesson] = useState(null);
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [editingCourseId, setEditingCourseId] = useState(null);
-  const [editCourseForm, setEditCourseForm] = useState({ title: '', description: '', software: [] });
+  const [editCourseForm, setEditCourseForm] = useState({ title: '', description: '', software: [], packageIds: [] });
   const [editSoftwareInput, setEditSoftwareInput] = useState('');
   const [savingCourseEdit, setSavingCourseEdit] = useState(false);
   const [courseLessons, setCourseLessons] = useState({});
@@ -249,13 +249,18 @@ function InstructorCourses() {
 
   const openEditCourse = (course) => {
     setEditingCourseId(course._id);
-    setEditCourseForm({ title: course.title || '', description: course.description || '', software: [...(course.software || [])] });
+    setEditCourseForm({
+      title: course.title || '',
+      description: course.description || '',
+      software: [...(course.software || [])],
+      packageIds: (course.assignedPackages || []).map((pkg) => pkg._id),
+    });
     setEditSoftwareInput('');
   };
 
   const closeEditCourse = () => {
     setEditingCourseId(null);
-    setEditCourseForm({ title: '', description: '', software: [] });
+    setEditCourseForm({ title: '', description: '', software: [], packageIds: [] });
     setEditSoftwareInput('');
   };
 
@@ -295,10 +300,16 @@ function InstructorCourses() {
       if (editSoftwareInput.trim() && !software.some((s) => s.toLowerCase() === editSoftwareInput.trim().toLowerCase())) {
         software.push(editSoftwareInput.trim());
       }
+      const editedCourse = courses.find((course) => course._id === editingCourseId);
+      const currentTierIds = (editedCourse?.assignedPackages || []).map((pkg) => pkg._id);
+      const nextTierIds = editCourseForm.packageIds || [];
+      const tiersChanged = currentTierIds.length !== nextTierIds.length
+        || currentTierIds.some((id) => !nextTierIds.includes(id));
       await coursesAPI.update(editingCourseId, {
         title: editCourseForm.title.trim(),
         description: editCourseForm.description.trim(),
         software,
+        ...(tiersChanged ? { packageIds: nextTierIds } : {}),
       });
       showSuccess('Chapter updated successfully');
       closeEditCourse();
@@ -309,6 +320,50 @@ function InstructorCourses() {
       setSavingCourseEdit(false);
     }
   };
+
+  const toggleId = (ids, id) => (ids.includes(id) ? ids.filter((entry) => entry !== id) : [...ids, id]);
+
+  const renderTierPicker = (selectedIds, onToggle) => (
+    packages.length === 0 ? (
+      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
+        No active subscription tiers are available yet.
+      </div>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {packages.map((pkg) => {
+          const isSelected = selectedIds.includes(pkg._id);
+          // A tier already on the chapter stays editable even if the creator lost it.
+          if (!isAdmin && !assignedPackageIds.has(pkg._id) && !isSelected) {
+            return (
+              <span
+                key={pkg._id}
+                title="You are not assigned to this tier"
+                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed select-none"
+              >
+                <span aria-hidden="true">🔒</span>
+                {pkg.name}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={pkg._id}
+              type="button"
+              onClick={() => onToggle(pkg._id)}
+              aria-pressed={isSelected}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                isSelected
+                  ? 'border-primary-500 bg-primary-50 text-primary-600'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-primary-200 hover:text-primary-500'
+              }`}
+            >
+              {isSelected ? '✓ ' : ''}{pkg.name}
+            </button>
+          );
+        })}
+      </div>
+    )
+  );
 
   const togglePackageAssignment = (packageId) => {
     setCourseForm((current) => ({
@@ -678,44 +733,7 @@ function InstructorCourses() {
                       ? 'Select the tiers that should include this chapter.'
                       : 'Select from the subscription tiers an admin has assigned to you. Locked tiers are not available to you.'}
                   </p>
-                  {packages.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                      No active subscription tiers are available yet.
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {packages.map((pkg) => {
-                        const isSelected = courseForm.packageIds.includes(pkg._id);
-                        const isAssignable = isAdmin || assignedPackageIds.has(pkg._id);
-                        if (!isAssignable) {
-                          return (
-                            <span
-                              key={pkg._id}
-                              title="You are not assigned to this tier"
-                              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed select-none"
-                            >
-                              <span aria-hidden="true">🔒</span>
-                              {pkg.name}
-                            </span>
-                          );
-                        }
-                        return (
-                          <button
-                            key={pkg._id}
-                            type="button"
-                            onClick={() => togglePackageAssignment(pkg._id)}
-                            className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                              isSelected
-                                ? 'border-primary-500 bg-primary-50 text-primary-600'
-                                : 'border-gray-200 bg-white text-gray-600 hover:border-primary-200 hover:text-primary-500'
-                            }`}
-                          >
-                            {pkg.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {renderTierPicker(courseForm.packageIds, togglePackageAssignment)}
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
@@ -879,6 +897,18 @@ function InstructorCourses() {
                           className="input-field"
                           rows={3}
                         />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">Tiers</label>
+                        {renderTierPicker(
+                          editCourseForm.packageIds || [],
+                          (packageId) => setEditCourseForm((f) => ({ ...f, packageIds: toggleId(f.packageIds || [], packageId) }))
+                        )}
+                        {(editCourseForm.packageIds || []).length === 0 && (
+                          <p className="mt-2 text-xs text-amber-600">
+                            This chapter is not in any tier yet. It cannot be published until a tier is set.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-600 mb-1">Software used</label>

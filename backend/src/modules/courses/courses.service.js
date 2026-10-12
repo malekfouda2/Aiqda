@@ -144,6 +144,14 @@ const syncCoursePackageAssignments = async (courseId, packageIds) => {
   }
 };
 
+// A chapter that sits in no tier is missing from the package filter and cannot be
+// opened by any subscriber, so it must be filed under a tier before it goes live.
+const ensureCourseHasTier = async (course) => {
+  if (!(await SubscriptionPackage.exists({ courses: course._id }))) {
+    throw new Error('Assign this chapter to a subscription tier before publishing it.');
+  }
+};
+
 const buildAssignedPackagesMap = async (courseIds) => {
   if (!Array.isArray(courseIds) || courseIds.length === 0) {
     return new Map();
@@ -296,8 +304,18 @@ export const updateCourse = async (courseId, updates, userId, userRole) => {
   const hasPackageAssignments = Object.prototype.hasOwnProperty.call(updates, 'packageIds');
   const packageIds = hasPackageAssignments ? normalizePackageIds(updates.packageIds) : null;
   if (hasPackageAssignments) {
+    if (packageIds.length === 0 && course.isPublished) {
+      throw new Error('A published chapter must stay in at least one subscription tier.');
+    }
     await ensurePackageAssignmentsExist(packageIds);
-    await ensureInstructorCanAssignPackages(userId, userRole, packageIds);
+    // Tiers the chapter is already in may stay; only newly added ones need permission.
+    const currentPackageIds = (await SubscriptionPackage.find({ courses: course._id }).distinct('_id'))
+      .map((id) => id.toString());
+    await ensureInstructorCanAssignPackages(
+      userId,
+      userRole,
+      packageIds.filter((id) => !currentPackageIds.includes(id))
+    );
   }
 
   const sanitizedUpdates = sanitizeCourseUpdates(updates);
@@ -362,6 +380,10 @@ export const setCoursePublishState = async (courseId, isPublished) => {
   const course = await Course.findById(courseId);
   if (!course) {
     throw new Error('Course not found');
+  }
+
+  if (isPublished) {
+    await ensureCourseHasTier(course);
   }
 
   course.isPublished = Boolean(isPublished);

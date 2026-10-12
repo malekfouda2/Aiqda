@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyticsAPI, videoAPI, coursesAPI, lessonsAPI } from '../services/api';
+import { analyticsAPI, videoAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants, expandVariants } from '../utils/animations';
@@ -483,6 +483,8 @@ function AdminCourses() {
   const [videoInputs, setVideoInputs] = useState({});
   const [assigningVideo, setAssigningVideo] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [packages, setPackages] = useState([]);
+  const [savingTierCourseId, setSavingTierCourseId] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [lessonAnalyticsById, setLessonAnalyticsById] = useState({});
   const [lessonAnalyticsLoadingById, setLessonAnalyticsLoadingById] = useState({});
@@ -493,8 +495,12 @@ function AdminCourses() {
 
   const fetchData = useCallback(async ({ silent = false } = {}) => {
     try {
-      const response = await analyticsAPI.getAdminCoursesByInstructor();
+      const [response, packagesResponse] = await Promise.all([
+        analyticsAPI.getAdminCoursesByInstructor(),
+        subscriptionsAPI.getPackages(),
+      ]);
       setData(response.data);
+      setPackages(packagesResponse.data || []);
       setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -514,6 +520,28 @@ function AdminCourses() {
       showError(error.response?.data?.error || 'Failed to update chapter');
     }
   }, [fetchData, showSuccess, showError]);
+
+  const getCourseTierIds = (courseId) => packages
+    .filter((pkg) => (pkg.courses || []).some((course) => (course?._id || course) === courseId))
+    .map((pkg) => pkg._id);
+
+  const handleToggleCourseTier = async (courseId, packageId) => {
+    const currentTierIds = getCourseTierIds(courseId);
+    const packageIds = currentTierIds.includes(packageId)
+      ? currentTierIds.filter((id) => id !== packageId)
+      : [...currentTierIds, packageId];
+
+    setSavingTierCourseId(courseId);
+    try {
+      await coursesAPI.update(courseId, { packageIds });
+      showSuccess('Chapter tiers updated');
+      await fetchData({ silent: true });
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to update chapter tiers');
+    } finally {
+      setSavingTierCourseId(null);
+    }
+  };
 
   const handlePublishLesson = useCallback(async (lessonId, isPublished) => {
     try {
@@ -858,6 +886,35 @@ function AdminCourses() {
                                   <p className="mb-2 text-xs text-gray-400">
                                     {course.category} · Created {new Date(course.createdAt).toLocaleDateString()}
                                   </p>
+                                  <div className="mb-2 flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    <span className="text-xs font-medium text-gray-500">Tiers:</span>
+                                    {packages.map((pkg) => {
+                                      const isSelected = getCourseTierIds(course._id).includes(pkg._id);
+                                      return (
+                                        <button
+                                          key={pkg._id}
+                                          type="button"
+                                          aria-pressed={isSelected}
+                                          disabled={savingTierCourseId === course._id}
+                                          onClick={() => handleToggleCourseTier(course._id, pkg._id)}
+                                          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors disabled:opacity-60 ${
+                                            isSelected
+                                              ? 'border-primary-500 bg-primary-50 text-primary-600'
+                                              : 'border-gray-200 bg-white text-gray-500 hover:border-primary-200 hover:text-primary-500'
+                                          }`}
+                                        >
+                                          {isSelected ? '✓ ' : ''}{pkg.name}
+                                        </button>
+                                      );
+                                    })}
+                                    {getCourseTierIds(course._id).length === 0 && (
+                                      <span className="text-xs font-medium text-amber-600">
+                                        {course.isPublished
+                                          ? 'No tier — members cannot open this chapter. Pick one.'
+                                          : 'Pick a tier before publishing.'}
+                                      </span>
+                                    )}
+                                  </div>
                                   {(course.software || []).length > 0 && (
                                     <div className="mb-2 flex flex-wrap gap-1.5">
                                       {course.software.map((tag) => (

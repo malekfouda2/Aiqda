@@ -5,6 +5,7 @@ import request from 'supertest';
 import User from '../src/modules/users/user.model.js';
 import {
   authHeader,
+  createSubscriptionPackage,
   createUser,
   setupIntegrationSuite
 } from './helpers/integration.js';
@@ -141,6 +142,14 @@ test('a chapter page exposes its creator teaser to the member endpoint', async (
       level: 'beginner',
     });
   assert.equal(createRes.status, 201);
+
+  // A chapter must be filed under a tier before an admin can publish it.
+  const tier = await createSubscriptionPackage({ name: 'Teaser Tier' });
+  const tierRes = await request(suite.app)
+    .put(`/api/courses/${createRes.body._id}`)
+    .set(authHeader(admin.token))
+    .send({ packageIds: [tier._id.toString()] });
+  assert.equal(tierRes.status, 200);
 
   const publishRes = await request(suite.app)
     .patch(`/api/courses/${createRes.body._id}/publish`)
