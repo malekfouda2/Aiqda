@@ -5,6 +5,7 @@ import { coursesAPI, subscriptionsAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
+import { getPackageCourseIds } from '../utils/subscriptions';
 
 function Courses() {
   const { locale, isRTL } = useLocale();
@@ -36,10 +37,7 @@ function Courses() {
   const publishedCourseIds = new Set(courses.map((course) => course._id));
   const packageFilters = packages
     .map((pkg) => {
-      // Only chapters filed directly under this tier. Higher tiers also unlock the
-      // tiers they include, but those chapters belong under their own filter.
-      const includedCourseIds = (pkg.courses || [])
-        .map((course) => course?._id || course)
+      const includedCourseIds = getPackageCourseIds(pkg, packages)
         .filter((courseId) => publishedCourseIds.has(courseId));
 
       if (includedCourseIds.length === 0) {
