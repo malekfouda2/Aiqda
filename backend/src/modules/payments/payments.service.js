@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Payment from './payment.model.js';
 import User from '../users/user.model.js';
 import { Subscription } from '../subscriptions/subscription.model.js';
@@ -53,6 +54,10 @@ const DEFAULT_GRACE_PERIOD_DAYS = 7;
 const DEFAULT_RENEWAL_RETRY_DELAYS_HOURS = [12, 36, 72];
 const DEFAULT_BILLING_PROFILE_SETUP_AMOUNT = 1;
 const DEFAULT_REFUND_WINDOW_HOURS = 24;
+// Tap answers a charge request within TAP_REQUEST_TIMEOUT_MS; a payment that has
+// no charge id yet and is younger than this is still being created.
+const CHARGE_CREATION_IN_FLIGHT_MS = 2 * 60 * 1000;
+const SUPERSEDED_PAYMENT_REASON = 'Superseded by a newer checkout attempt.';
 const TAP_BNPL_SOURCE_IDS = {
   tabby: 'src_tabby.installement',
   tamara: 'src_tamara',
@@ -413,8 +418,12 @@ const buildRenewalCycleKey = (subscription) => {
   const anchor = subscription?.endDate instanceof Date
     ? subscription.endDate
     : new Date(subscription?.endDate || Date.now());
+  const cycleKey = `${subscription._id.toString()}:${anchor.toISOString()}`;
 
-  return `${subscription._id.toString()}:${anchor.toISOString()}`;
+  // The key is also Tap's idempotency reference. Every scheduled retry needs its
+  // own key, otherwise the retry only replays the charge that already failed.
+  const attempt = Number(subscription?.renewalFailureCount || 0);
+  return attempt > 0 ? `${cycleKey}:retry${attempt}` : cycleKey;
 };
 
 const isSuccessfulPaymentStatus = (status) => SUCCESSFUL_PAYMENT_STATUSES.includes(status);
@@ -1112,6 +1121,21 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
   const previousStatus = payment.status;
   const nextStatus = mapTapChargeStatus(charge.status);
 
+  if (payment.tapChargeId && charge.id && payment.tapChargeId !== charge.id) {
+    console.error(
+      `[payments] Ignored Tap charge ${charge.id} (${charge.status}) for payment ${payment._id}: it belongs to charge ${payment.tapChargeId}.`
+    );
+    return populatePaymentQuery(Payment.findById(payment._id));
+  }
+
+  // Webhooks and redirect syncs can arrive out of order. A settled payment must
+  // never be reopened or downgraded by an older snapshot of the same charge.
+  const isStaleSnapshot = (isSuccessfulPaymentStatus(previousStatus) && !isSuccessfulPaymentStatus(nextStatus))
+    || (FAILURE_STATUSES.includes(previousStatus) && nextStatus === 'initiated');
+  if (isStaleSnapshot) {
+    return populatePaymentQuery(Payment.findById(payment._id));
+  }
+
   payment.status = nextStatus;
   payment.provider = 'tap';
   payment.currency = charge.currency || payment.currency || getSubscriptionCurrency();
@@ -1186,39 +1210,89 @@ const applyTapChargeSnapshotToPayment = async (payment, charge, {
 };
 
 const findPaymentForTapCharge = async (charge, userId = null) => {
-  const queries = [];
+  const scope = userId ? { user: userId } : {};
 
   if (charge?.id) {
-    queries.push({ tapChargeId: charge.id });
-  }
-
-  const paymentIdFromMetadata = charge?.metadata?.udf1;
-  if (paymentIdFromMetadata) {
-    queries.push({ _id: paymentIdFromMetadata });
-  }
-
-  const transactionReference = String(charge?.reference?.transaction || '');
-  if (transactionReference.startsWith('payment_')) {
-    queries.push({ _id: transactionReference.replace(/^payment_/, '') });
-  }
-
-  const orderReference = String(charge?.reference?.order || '');
-  if (orderReference.startsWith('subscription_')) {
-    queries.push({ subscription: orderReference.replace(/^subscription_/, '') });
-  }
-  if (orderReference.startsWith('consultation_')) {
-    queries.push({ consultationBooking: orderReference.replace(/^consultation_/, '') });
-  }
-
-  for (const query of queries) {
-    const scopedQuery = userId ? { ...query, user: userId } : query;
-    const payment = await Payment.findOne(scopedQuery);
+    const payment = await Payment.findOne({ ...scope, tapChargeId: charge.id });
     if (payment) {
       return payment;
     }
   }
 
+  // The fallbacks only cover a charge whose id was never stored (for example the
+  // create call timed out). They must never return a payment that already belongs
+  // to a different Tap charge, or that charge's webhook would overwrite it.
+  const unboundScope = { ...scope, tapChargeId: null };
+
+  const paymentIds = [
+    charge?.metadata?.udf1,
+    String(charge?.reference?.transaction || '').startsWith('payment_')
+      ? String(charge.reference.transaction).replace(/^payment_/, '')
+      : null,
+  ].filter((value) => value && mongoose.isValidObjectId(value));
+
+  for (const paymentId of paymentIds) {
+    const payment = await Payment.findOne({ ...unboundScope, _id: paymentId });
+    if (payment) {
+      return payment;
+    }
+  }
+
+  const orderReference = String(charge?.reference?.order || '');
+  const orderQuery = orderReference.startsWith('subscription_')
+    ? { subscription: orderReference.replace(/^subscription_/, '') }
+    : orderReference.startsWith('consultation_')
+      ? { consultationBooking: orderReference.replace(/^consultation_/, '') }
+      : null;
+
+  if (orderQuery && mongoose.isValidObjectId(Object.values(orderQuery)[0])) {
+    return Payment.findOne({ ...unboundScope, ...orderQuery, status: 'initiated' }).sort({ createdAt: -1 });
+  }
+
   return null;
+};
+
+// A hosted checkout the customer walked away from (3DS, Tabby, Tamara) stays
+// INITIATED at Tap until it expires 30 minutes later. Ask Tap for the real state
+// instead of blocking every retry until the ABANDONED webhook finally arrives.
+const settleOrSupersedePendingTapPayment = async (payment, activationSource = 'tap_retry_sync') => {
+  if (!payment.tapChargeId) {
+    const ageMs = Date.now() - new Date(payment.createdAt).getTime();
+    if (ageMs < CHARGE_CREATION_IN_FLIGHT_MS) {
+      return { inFlight: true, settled: false };
+    }
+  } else {
+    try {
+      const charge = await retrieveTapCharge(payment.tapChargeId);
+      await applyTapChargeSnapshotToPayment(payment, charge, { activationSource });
+    } catch (error) {
+      console.error(`[payments] Could not re-check Tap charge ${payment.tapChargeId}:`, error.message);
+    }
+  }
+
+  const latest = await Payment.findById(payment._id).select('status');
+  if (latest && isSuccessfulPaymentStatus(latest.status)) {
+    return { inFlight: false, settled: true };
+  }
+
+  await Payment.updateOne(
+    { _id: payment._id, status: { $in: PENDING_PAYMENT_STATUSES } },
+    { $set: { status: 'cancelled', failureReason: SUPERSEDED_PAYMENT_REASON } }
+  );
+
+  return { inFlight: false, settled: false };
+};
+
+const buildSettledCheckoutResult = async (payment, extra = {}) => {
+  const settledPayment = await populatePaymentQuery(Payment.findById(payment._id));
+
+  return {
+    payment: settledPayment,
+    ...extra,
+    chargeId: settledPayment.tapChargeId || null,
+    chargeStatus: settledPayment.tapChargeStatus || null,
+    redirectUrl: null,
+  };
 };
 
 const buildTapChargePayload = ({
@@ -1503,7 +1577,14 @@ export const createTapSubscriptionCharge = async (userId, paymentData) => {
       throw new Error('A successful payment already exists for this subscription.');
     }
 
-    throw new Error('A payment is already in progress for this subscription.');
+    const pendingOutcome = await settleOrSupersedePendingTapPayment(existingPayment);
+    if (pendingOutcome.inFlight) {
+      throw new Error('A payment is already in progress for this subscription.');
+    }
+
+    if (pendingOutcome.settled) {
+      return buildSettledCheckoutResult(existingPayment);
+    }
   }
 
   const phoneDetails = wantsSavedPaymentMethod
@@ -1717,7 +1798,25 @@ export const createTapConsultationCharge = async (userId, paymentData) => {
     status: { $in: ['payment_pending', 'pending', 'confirmed'] },
   });
   if (existingOpenBooking) {
-    throw new Error('A consultation booking is already in progress for this session.');
+    const pendingPayment = existingOpenBooking.status === 'payment_pending'
+      ? await Payment.findOne({ consultationBooking: existingOpenBooking._id, status: 'initiated' })
+      : null;
+    const pendingOutcome = pendingPayment
+      ? await settleOrSupersedePendingTapPayment(pendingPayment, 'tap_retry_sync')
+      : null;
+
+    if (!pendingOutcome || pendingOutcome.inFlight) {
+      throw new Error('A consultation booking is already in progress for this session.');
+    }
+
+    if (pendingOutcome.settled) {
+      return buildSettledCheckoutResult(pendingPayment, { bookingId: existingOpenBooking._id.toString() });
+    }
+
+    await ConsultationBooking.updateOne(
+      { _id: existingOpenBooking._id, status: 'payment_pending' },
+      { $set: { status: 'payment_failed', paymentFailureReason: SUPERSEDED_PAYMENT_REASON } }
+    );
   }
 
   const phoneDetails = normalizePhoneInput(user, phoneCountryCode, phoneNumber);
@@ -2086,6 +2185,9 @@ export const processTapWebhook = async (chargePayload, hashString) => {
 
   const payment = await findPaymentForTapCharge(chargePayload);
   if (!payment) {
+    console.error(
+      `[payments] Tap webhook for charge ${chargePayload?.id} (${chargePayload?.status}) matched no payment record.`
+    );
     return null;
   }
 

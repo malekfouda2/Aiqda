@@ -155,7 +155,6 @@ function Subscription() {
   const { user, hasAcceptedCurrentPlatformNotice, refreshProfile } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
   const tapCardRef = useRef(null);
-  const applePayRef = useRef(null);
 
   const [packages, setPackages] = useState([]);
   const [activeSubscription, setActiveSubscription] = useState(null);
@@ -172,7 +171,6 @@ function Subscription() {
   const [tapConfigError, setTapConfigError] = useState('');
   const [tapConfigLoading, setTapConfigLoading] = useState(false);
   const [tapSdkState, setTapSdkState] = useState({ ready: false, valid: false, error: '' });
-  const [applePayState, setApplePayState] = useState({ ready: false, error: '' });
   const [phoneCountryCode, setPhoneCountryCode] = useState(user?.phone?.countryCode || '966');
   const [phoneNumber, setPhoneNumber] = useState(user?.phone?.number || '');
   const [paymentSyncing, setPaymentSyncing] = useState(false);
@@ -599,7 +597,6 @@ function Subscription() {
 
     setSelectedCheckoutMethod(normalizedMethod);
     setApplePayArmed(false);
-    setApplePayState({ ready: false, error: '' });
     void trackAnalyticsEvent('checkout_method_selected', {
       metadata: {
         checkoutMethod: normalizedMethod,
@@ -878,22 +875,6 @@ function Subscription() {
       setTapConfigLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!applePayArmed || !applePayState.ready || submittingPayment) {
-      return;
-    }
-
-    try {
-      applePayRef.current?.start();
-    } catch (error) {
-      setApplePayArmed(false);
-      showError(
-        getFriendlyBillingMessage(error.message, isRTL)
-          || (isRTL ? 'تعذر فتح Apple Pay الآن.' : 'We could not open Apple Pay right now.')
-      );
-    }
-  }, [applePayArmed, applePayState.ready, isRTL, showError, submittingPayment]);
 
   if (loading) {
     return (
@@ -1388,22 +1369,21 @@ function Subscription() {
                           : 'If you are using a supported Apple device and browser, you can use Apple Pay to save the payment method for future renewals.'}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleBeginCheckout('apple_pay')}
-                      disabled={submittingPayment || tapConfigLoading}
-                      className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {applePayArmed
-                        ? (isRTL ? 'جارٍ تجهيز Apple Pay...' : 'Preparing Apple Pay...')
-                        : (isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay')}
-                    </button>
+                    {!applePayArmed && (
+                      <button
+                        type="button"
+                        onClick={() => handleBeginCheckout('apple_pay')}
+                        disabled={submittingPayment || tapConfigLoading}
+                        className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay'}
+                      </button>
+                    )}
                   </div>
 
                   {applePayArmed && (
                     <div className="mt-4">
                       <TapApplePayCheckout
-                        ref={applePayRef}
                         config={{
                           ...tapConfig.applePay,
                           publicKey: tapConfig.publicKey,
@@ -1412,14 +1392,10 @@ function Subscription() {
                         currency={checkoutCurrency}
                         locale={isRTL ? 'ar' : 'en'}
                         customer={tapCustomer}
-                        onReadyStateChange={setApplePayState}
+                        disabled={submittingPayment}
                         onTokenReady={handleApplePayTokenReady}
                       />
                     </div>
-                  )}
-
-                  {applePayState.error && (
-                    <p className="mt-3 text-sm text-red-600">{applePayState.error}</p>
                   )}
                 </div>
               ) : (
@@ -1495,7 +1471,6 @@ function Subscription() {
                 setCheckoutPurpose('subscription');
                 setShowCheckoutDisclaimer(false);
                 setApplePayArmed(false);
-                setApplePayState({ ready: false, error: '' });
               }}
               className="btn-secondary"
               disabled={submittingPayment}

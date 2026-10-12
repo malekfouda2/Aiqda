@@ -43,6 +43,7 @@ const contentSecurityPolicyDirectives = {
     'https://player.vimeo.com',
     'https://tap-sdks.b-cdn.net',
     'https://*.tap.company',
+    'https://applepay.cdn-apple.com',
     'https://www.googletagmanager.com',
   ],
   imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
@@ -50,6 +51,7 @@ const contentSecurityPolicyDirectives = {
   scriptSrc: [
     "'self'",
     'https://tap-sdks.b-cdn.net',
+    'https://applepay.cdn-apple.com',
     'https://www.googletagmanager.com',
     'https://www.google-analytics.com',
     'https://connect.facebook.net',

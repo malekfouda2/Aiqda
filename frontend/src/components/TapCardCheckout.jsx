@@ -1,40 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-
-const scriptPromises = new Map();
-
-const loadScript = (url) => {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('Tap Card SDK can only load in the browser.'));
-  }
-
-  if (window.CardSDK) {
-    return Promise.resolve(window.CardSDK);
-  }
-
-  if (scriptPromises.has(url)) {
-    return scriptPromises.get(url);
-  }
-
-  const promise = new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-tap-card-sdk="${url}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.CardSDK), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Failed to load Tap Card SDK.')), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = url;
-    script.async = true;
-    script.dataset.tapCardSdk = url;
-    script.onload = () => resolve(window.CardSDK);
-    script.onerror = () => reject(new Error('Failed to load Tap Card SDK.'));
-    document.head.appendChild(script);
-  });
-
-  scriptPromises.set(url, promise);
-  return promise;
-};
+import { forwardRef, useEffect, useEffectEvent, useImperativeHandle, useRef, useState } from 'react';
+import { extractTapToken, loadTapSdk, SDK_READY_TIMEOUT_MS, TOKENIZE_TIMEOUT_MS } from '../utils/tapSdk';
 
 const getErrorMessage = (errorLike, locale = 'en') => {
   const isArabic = locale === 'ar';
@@ -46,6 +11,11 @@ const getErrorMessage = (errorLike, locale = 'en') => {
   }
 
   if (typeof errorLike === 'string') {
+    if (/timed out/i.test(errorLike)) {
+      return isArabic
+        ? 'انتهت مهلة تجهيز البطاقة. أعد تحميل النموذج ثم حاول مرة أخرى.'
+        : 'The secure card form timed out. Reload the form and try again.';
+    }
     if (/failed to load|did not initialize|unknown error/i.test(errorLike)) {
       return isArabic
         ? 'تعذر تحميل نموذج الدفع الآمن. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
@@ -95,22 +65,45 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
   locale = 'en',
   direction = 'ltr',
   customer,
+  disabled = false,
   onSdkStateChange,
 }, ref) {
   const containerIdRef = useRef(`tap-card-${Math.random().toString(36).slice(2, 10)}`);
   const unmountRef = useRef(null);
   const tokenizePromiseRef = useRef(null);
+  const readyRef = useRef(false);
+  const validRef = useRef(false);
+  const failRef = useRef(null);
   const [loadError, setLoadError] = useState('');
+  const [retryRequired, setRetryRequired] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const notifyState = useEffectEvent((state) => onSdkStateChange?.(state));
 
   useEffect(() => {
     let disposed = false;
+    let terminal = false;
+    let readyTimer;
 
     const teardownCard = () => {
       if (typeof unmountRef.current === 'function') {
-        unmountRef.current();
+        try { unmountRef.current(); } catch { /* The SDK may already have removed its frame. */ }
         unmountRef.current = null;
       }
     };
+
+    const fail = (error) => {
+      if (disposed || terminal) return;
+      terminal = true;
+      clearTimeout(readyTimer);
+      readyRef.current = false;
+      validRef.current = false;
+      const message = getErrorMessage(error, locale);
+      setLoadError(message);
+      setRetryRequired(true);
+      rejectPendingTokenization(message);
+      notifyState({ ready: false, valid: false, error: message });
+    };
+    failRef.current = fail;
 
     const rejectPendingTokenization = (message) => {
       if (tokenizePromiseRef.current) {
@@ -125,14 +118,17 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
           ? 'الدفع الإلكتروني غير متاح حاليًا.'
           : 'Electronic checkout is not available right now.';
         setLoadError(message);
-        onSdkStateChange?.({ ready: false, valid: false, error: message });
+        notifyState({ ready: false, valid: false, error: message });
         return;
       }
 
       try {
         setLoadError('');
-        onSdkStateChange?.({ ready: false, valid: false, error: '' });
-        await loadScript(sdkUrl);
+        setRetryRequired(false);
+        readyRef.current = false;
+        validRef.current = false;
+        notifyState({ ready: false, valid: false, error: '' });
+        await loadTapSdk(sdkUrl, () => window.CardSDK?.renderTapCard && window.CardSDK?.tokenize && window.CardSDK);
         if (disposed) {
           return;
         }
@@ -180,6 +176,7 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
             : {}),
         };
 
+        readyTimer = setTimeout(() => fail('Card SDK readiness timed out.'), SDK_READY_TIMEOUT_MS);
         const renderResult = renderTapCard(containerIdRef.current, {
           publicKey,
           ...(merchantId ? { merchant: { id: merchantId } } : {}),
@@ -207,36 +204,43 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
             direction: cardDirection,
           },
           onReady: () => {
-            if (!disposed) {
-              onSdkStateChange?.({ ready: true, valid: false, error: '' });
+            if (!disposed && !terminal) {
+              clearTimeout(readyTimer);
+              readyRef.current = true;
+              setLoadError('');
+              notifyState({ ready: true, valid: validRef.current, error: '' });
             }
           },
           onValidInput: () => {
-            if (!disposed) {
-              onSdkStateChange?.({ ready: true, valid: true, error: '' });
+            if (!disposed && !terminal) {
+              validRef.current = true;
+              setLoadError('');
+              notifyState({ ready: readyRef.current, valid: true, error: '' });
             }
           },
           onInvalidInput: () => {
-            if (!disposed) {
-              onSdkStateChange?.({ ready: true, valid: false, error: '' });
+            if (!disposed && !terminal) {
+              validRef.current = false;
+              setLoadError('');
+              rejectPendingTokenization(locale === 'ar' ? 'يرجى التحقق من بيانات البطاقة.' : 'Please check the card details.');
+              notifyState({ ready: readyRef.current, valid: false, error: '' });
             }
           },
           onError: (data) => {
-            if (disposed) {
+            if (disposed || terminal) {
               return;
             }
 
-            const message = getErrorMessage(data, locale);
-            setLoadError(message);
-            rejectPendingTokenization(message);
-            onSdkStateChange?.({ ready: true, valid: false, error: message });
+            fail(data);
           },
           onSuccess: (data) => {
-            if (disposed || !tokenizePromiseRef.current) {
+            if (disposed || terminal || !tokenizePromiseRef.current) {
               return;
             }
 
-            tokenizePromiseRef.current.resolve(data);
+            const tokenId = extractTapToken(data);
+            if (!tokenId) { fail('Payment token was not returned.'); return; }
+            tokenizePromiseRef.current.resolve({ ...data, id: tokenId });
             tokenizePromiseRef.current = null;
           },
         });
@@ -245,12 +249,7 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
           unmountRef.current = renderResult.unmount;
         }
       } catch (error) {
-        const message = getErrorMessage(error, locale);
-        if (!disposed) {
-          setLoadError(message);
-          rejectPendingTokenization(message);
-          onSdkStateChange?.({ ready: false, valid: false, error: message });
-        }
+        fail(error);
       }
     };
 
@@ -258,10 +257,15 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
 
     return () => {
       disposed = true;
+      clearTimeout(readyTimer);
+      readyRef.current = false;
+      validRef.current = false;
+      failRef.current = null;
       teardownCard();
       rejectPendingTokenization('Tap card checkout was interrupted.');
     };
   }, [
+    attempt,
     amount,
     currency,
     customer?.email,
@@ -274,14 +278,13 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
     direction,
     locale,
     merchantId,
-    onSdkStateChange,
     publicKey,
     sdkUrl,
   ]);
 
   useImperativeHandle(ref, () => ({
     tokenize: async () => {
-      if (!window.CardSDK?.tokenize) {
+      if (disabled || !readyRef.current || !window.CardSDK?.tokenize) {
         throw new Error(
           locale === 'ar'
             ? 'نموذج الدفع الآمن لا يزال قيد التحميل.'
@@ -289,13 +292,13 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
         );
       }
 
-      // Drop any stale pending tokenization so a previous attempt can never
-      // leave this one unresolved.
+      if (!validRef.current) {
+        throw new Error(locale === 'ar' ? 'يرجى التحقق من بيانات البطاقة.' : 'Please check the card details.');
+      }
+
+      // The SDK has no attempt identifier: never overlap tokenization requests.
       if (tokenizePromiseRef.current) {
-        tokenizePromiseRef.current.reject(
-          new Error(locale === 'ar' ? 'تمت مقاطعة إدخال الدفع.' : 'Payment entry was interrupted.')
-        );
-        tokenizePromiseRef.current = null;
+        throw new Error(locale === 'ar' ? 'جارٍ تجهيز البطاقة بالفعل.' : 'Card tokenization is already in progress.');
       }
 
       return new Promise((resolve, reject) => {
@@ -306,16 +309,9 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
           if (settled) {
             return;
           }
-          settled = true;
-          tokenizePromiseRef.current = null;
-          reject(
-            new Error(
-              locale === 'ar'
-                ? 'انتهت مهلة تجهيز الدفع. يرجى المحاولة مرة أخرى.'
-                : 'Payment processing timed out. Please try again.'
-            )
-          );
-        }, 45000);
+          // Retire this SDK instance so late success cannot settle a later attempt.
+          failRef.current?.('Card tokenization timed out.');
+        }, TOKENIZE_TIMEOUT_MS);
 
         tokenizePromiseRef.current = {
           resolve: (value) => {
@@ -335,20 +331,26 @@ const TapCardCheckout = forwardRef(function TapCardCheckout({
             reject(error);
           },
         };
-        window.CardSDK.tokenize();
+        try {
+          Promise.resolve(window.CardSDK.tokenize()).catch((error) => failRef.current?.(error));
+        } catch (error) {
+          failRef.current?.(error);
+        }
       });
     },
-  }), [locale]);
+  }), [disabled, locale]);
 
   return (
     <div className="space-y-3">
       <div
         id={containerIdRef.current}
         className="min-h-[200px] rounded-2xl border border-gray-200 bg-white p-3"
+        inert={disabled || retryRequired}
       />
       {loadError && (
-        <p className="text-sm text-red-600">{loadError}</p>
+        <p role="alert" className="text-sm text-red-600">{loadError}</p>
       )}
+      {retryRequired && <button type="button" disabled={disabled} className="btn-secondary" onClick={() => setAttempt((value) => value + 1)}>{locale === 'ar' ? 'إعادة تحميل نموذج البطاقة' : 'Reload card form'}</button>}
     </div>
   );
 });

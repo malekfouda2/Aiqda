@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 const TAP_API_BASE_URL = 'https://api.tap.company/v2';
 const DEFAULT_TAP_CARD_SDK_URL = 'https://tap-sdks.b-cdn.net/card/1.0.2/index.js';
 const DEFAULT_TAP_APPLE_PAY_SDK_URL = 'https://tap-sdks.b-cdn.net/apple-pay/build-1.2.0/main.js';
@@ -5,10 +7,24 @@ const DEFAULT_TAP_APPLE_PAY_CSS_URL = 'https://tap-sdks.b-cdn.net/apple-pay/buil
 
 const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'JOD', 'KWD', 'OMR']);
 
-// Tap API calls must never hang the checkout request indefinitely. Without a
-// timeout a stalled Tap response leaves the payment stuck and freezes the
-// client checkout modal that is awaiting our reply.
-const TAP_REQUEST_TIMEOUT_MS = Number(process.env.TAP_REQUEST_TIMEOUT_MS) || 30000;
+const DEFAULT_TAP_REQUEST_TIMEOUT_MS = 30000;
+
+const getTapRequestTimeoutMs = () => {
+  const configured = Number(process.env.TAP_REQUEST_TIMEOUT_MS);
+  return Number.isInteger(configured) && configured > 0 && configured <= 2147483647
+    ? configured
+    : DEFAULT_TAP_REQUEST_TIMEOUT_MS;
+};
+
+export class TapRequestError extends Error {
+  constructor(message, { code, statusCode = null, uncertainOutcome = false }) {
+    super(message);
+    this.name = 'TapRequestError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.uncertainOutcome = uncertainOutcome;
+  }
+}
 
 export const normalizeCurrency = (value) => (
   typeof value === 'string' && value.trim()
@@ -48,53 +64,101 @@ const extractTapErrorMessage = (payload, fallbackMessage) => {
   if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
     const descriptions = payload.errors
       .map((entry) => entry?.description)
-      .filter(Boolean);
+      .filter((description) => typeof description === 'string' && description.trim());
 
     if (descriptions.length > 0) {
-      return descriptions.join(' ');
+      return descriptions.join(' ').slice(0, 500);
     }
   }
 
-  if (payload?.response?.message) {
-    return payload.response.message;
+  if (typeof payload?.response?.message === 'string' && payload.response.message.trim()) {
+    return payload.response.message.slice(0, 500);
   }
 
-  if (payload?.message) {
-    return payload.message;
+  if (typeof payload?.message === 'string' && payload.message.trim()) {
+    return payload.message.slice(0, 500);
   }
 
   return fallbackMessage;
 };
 
 const tapRequest = async (path, { method = 'GET', body } = {}) => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TAP_REQUEST_TIMEOUT_MS);
-
-  let response;
+  let requestBody;
   try {
-    response = await fetch(`${TAP_API_BASE_URL}${path}`, {
+    requestBody = body === undefined ? undefined : JSON.stringify(body);
+  } catch {
+    throw new TapRequestError('Tap request payload is invalid.', { code: 'TAP_INVALID_REQUEST' });
+  }
+
+  const isPaymentMutation = method === 'POST' && ['/charges', '/refunds'].includes(path);
+  const controller = new AbortController();
+  let statusCode = null;
+  let timer;
+  const deadline = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new TapRequestError('Tap request timed out.', {
+        code: 'TAP_REQUEST_TIMEOUT',
+        statusCode,
+        uncertainOutcome: isPaymentMutation,
+      }));
+      controller.abort();
+    }, getTapRequestTimeoutMs());
+  });
+
+  const request = async () => {
+    const response = await fetch(`${TAP_API_BASE_URL}${path}`, {
       method,
       headers: buildTapHeaders(body !== undefined),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: requestBody,
       signal: controller.signal,
     });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error('Tap request timed out. Please try again.');
+    statusCode = response.status;
+    const rawText = await response.text();
+    let payload;
+    try {
+      payload = JSON.parse(rawText);
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error('Invalid response shape');
+      }
+    } catch {
+      throw new TapRequestError('Tap returned an invalid response.', {
+        code: 'TAP_INVALID_RESPONSE',
+        statusCode,
+        uncertainOutcome: isPaymentMutation,
+      });
     }
-    throw error;
+
+    if (!response.ok) {
+      const isClientError = statusCode >= 400 && statusCode < 500;
+      throw new TapRequestError(
+        isClientError ? extractTapErrorMessage(payload, 'Tap request failed.') : 'Tap request failed.',
+        {
+          code: 'TAP_HTTP_ERROR',
+          statusCode,
+          uncertainOutcome: isPaymentMutation && (statusCode >= 500 || statusCode === 408),
+        }
+      );
+    }
+
+    return payload;
+  };
+
+  try {
+    // Bound both headers and body, even when the transport ignores cancellation.
+    return await Promise.race([request(), deadline]);
+  } catch (error) {
+    if (error instanceof TapRequestError) {
+      throw error;
+    }
+    const timedOut = controller.signal.aborted || error?.name === 'AbortError';
+    throw new TapRequestError(timedOut ? 'Tap request timed out.' : 'Tap network request failed.', {
+      code: timedOut ? 'TAP_REQUEST_TIMEOUT' : 'TAP_NETWORK_ERROR',
+      statusCode,
+      uncertainOutcome: isPaymentMutation,
+    });
   } finally {
     clearTimeout(timer);
   }
-
-  const rawText = await response.text();
-  const payload = rawText ? JSON.parse(rawText) : {};
-
-  if (!response.ok) {
-    throw new Error(extractTapErrorMessage(payload, 'Tap request failed.'));
-  }
-
-  return payload;
 };
 
 export const getTapSecretKey = () => process.env.TAP_SECRET_KEY || '';
@@ -232,34 +296,22 @@ export const calculateTapChargeHashString = (charge = {}) => {
 
 export const verifyTapChargeHashString = (charge = {}, receivedHashString = '') => {
   const secretKey = getTapSecretKey();
-  if (!secretKey || !receivedHashString) {
+  if (
+    !secretKey
+    || typeof receivedHashString !== 'string'
+    || !/^[a-f\d]{64}$/i.test(receivedHashString)
+  ) {
     return false;
   }
 
-  const toBeHashedString = calculateTapChargeHashString(charge);
-  const encoder = new TextEncoder();
-
-  const key = encoder.encode(secretKey);
-  const data = encoder.encode(toBeHashedString);
-
-  return crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  ).then(async (cryptoKey) => {
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, data);
-    const computedHash = Array.from(new Uint8Array(signature))
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('');
-
-    return computedHash === String(receivedHashString).toLowerCase();
-  });
+  const computedHash = createHmac('sha256', secretKey)
+    .update(calculateTapChargeHashString(charge))
+    .digest();
+  return timingSafeEqual(computedHash, Buffer.from(receivedHashString, 'hex'));
 };
 
 export const mapTapChargeStatus = (status) => {
-  switch (String(status || '').toUpperCase()) {
+  switch (String(status || '').trim().toUpperCase()) {
     case 'CAPTURED':
       return 'captured';
     case 'INITIATED':
@@ -273,8 +325,9 @@ export const mapTapChargeStatus = (status) => {
     case 'DECLINED':
     case 'RESTRICTED':
     case 'TIMEDOUT':
+      return 'failed';
     case 'UNKNOWN':
     default:
-      return 'failed';
+      return 'initiated';
   }
 };

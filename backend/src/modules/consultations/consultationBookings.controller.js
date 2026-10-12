@@ -61,6 +61,7 @@ export const createCheckout = async (req, res) => {
     });
     res.status(201).json(result);
   } catch (error) {
+    console.error(`[payments] Consultation checkout failed for user ${req.user?.id || 'n/a'}: ${error.message}`);
     res.status(400).json({ error: error.message });
   }
 };

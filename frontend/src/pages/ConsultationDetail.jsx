@@ -134,7 +134,6 @@ function ConsultationDetail() {
   const { user } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
   const tapCardRef = useRef(null);
-  const applePayRef = useRef(null);
 
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +145,6 @@ function ConsultationDetail() {
   const [tapConfigError, setTapConfigError] = useState('');
   const [tapConfigLoading, setTapConfigLoading] = useState(false);
   const [tapSdkState, setTapSdkState] = useState({ ready: false, valid: false, error: '' });
-  const [applePayState, setApplePayState] = useState({ ready: false, error: '' });
   const [selectedCheckoutMethod, setSelectedCheckoutMethod] = useState('card');
   const [applePayArmed, setApplePayArmed] = useState(false);
   const [phoneCountryCode, setPhoneCountryCode] = useState(user?.phone?.countryCode || '966');
@@ -270,22 +268,6 @@ function ConsultationDetail() {
     };
   }, [consultation, fallbackTapConfigError, isRTL]);
 
-  useEffect(() => {
-    if (!applePayArmed || !applePayState.ready || submittingPayment) {
-      return;
-    }
-
-    try {
-      applePayRef.current?.start();
-    } catch (error) {
-      setApplePayArmed(false);
-      showError(
-        getFriendlyCheckoutMessage(error.message, isRTL)
-          || (isRTL ? 'تعذر فتح Apple Pay الآن.' : 'We could not open Apple Pay right now.')
-      );
-    }
-  }, [applePayArmed, applePayState.ready, isRTL, showError, submittingPayment]);
-
   const fetchConsultation = async () => {
     setLoading(true);
     try {
@@ -381,7 +363,6 @@ function ConsultationDetail() {
 
     setSelectedCheckoutMethod(normalizedMethod);
     setApplePayArmed(false);
-    setApplePayState({ ready: false, error: '' });
     setShowCheckoutDisclaimer(true);
   };
 
@@ -777,22 +758,21 @@ function ConsultationDetail() {
                                         : 'If you are using a supported Apple device and browser, you can complete this booking with Apple Pay.'}
                                     </p>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleBeginCheckout('apple_pay')}
-                                    disabled={submittingPayment || tapConfigLoading}
-                                    className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {applePayArmed
-                                      ? (isRTL ? 'جارٍ تجهيز Apple Pay...' : 'Preparing Apple Pay...')
-                                      : (isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay')}
-                                  </button>
+                                  {!applePayArmed && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBeginCheckout('apple_pay')}
+                                      disabled={submittingPayment || tapConfigLoading}
+                                      className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {isRTL ? 'المتابعة عبر Apple Pay' : 'Continue With Apple Pay'}
+                                    </button>
+                                  )}
                                 </div>
 
                                 {applePayArmed && (
                                   <div className="mt-4">
                                     <TapApplePayCheckout
-                                      ref={applePayRef}
                                       config={{
                                         ...tapConfig.applePay,
                                         publicKey: tapConfig.publicKey,
@@ -801,14 +781,10 @@ function ConsultationDetail() {
                                       currency={consultation.currency || tapConfig.currency || checkoutCurrency}
                                       locale={isRTL ? 'ar' : 'en'}
                                       customer={tapCustomer}
-                                      onReadyStateChange={setApplePayState}
+                                      disabled={submittingPayment}
                                       onTokenReady={handleApplePayTokenReady}
                                     />
                                   </div>
-                                )}
-
-                                {applePayState.error && (
-                                  <p className="mt-3 text-sm text-red-600">{applePayState.error}</p>
                                 )}
                               </div>
                             ) : (

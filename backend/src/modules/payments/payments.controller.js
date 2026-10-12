@@ -1,5 +1,10 @@
 import * as paymentsService from './payments.service.js';
 
+// Checkout failures are returned to the client; log them too so they can be traced in production.
+const logPaymentError = (action, req, error) => {
+  console.error(`[payments] ${action} failed for user ${req.user?.id || 'n/a'}: ${error.message}`);
+};
+
 const getRequestOrigin = (req) => {
   const originHeader = req.get('origin');
   if (originHeader) {
@@ -41,6 +46,7 @@ export const createTapSubscriptionCharge = async (req, res) => {
     });
     res.status(201).json(result);
   } catch (error) {
+    logPaymentError('Subscription charge', req, error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -57,6 +63,7 @@ export const createTapBillingProfileSetupCharge = async (req, res) => {
     });
     res.status(201).json(result);
   } catch (error) {
+    logPaymentError('Billing profile setup charge', req, error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -66,6 +73,7 @@ export const syncTapChargeForUser = async (req, res) => {
     const payment = await paymentsService.syncTapChargeForUser(req.user.id, req.params.chargeId);
     res.json(payment);
   } catch (error) {
+    logPaymentError('Tap charge sync', req, error);
     const statusCode = error.message === 'Payment not found' ? 404 : 400;
     res.status(statusCode).json({ error: error.message });
   }
@@ -76,6 +84,7 @@ export const processTapWebhook = async (req, res) => {
     await paymentsService.processTapWebhook(req.body, req.headers.hashstring || req.headers.hash || '');
     res.json({ received: true });
   } catch (error) {
+    logPaymentError('Tap webhook', req, error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -127,6 +136,7 @@ export const refundPayment = async (req, res) => {
     });
     res.json(payment);
   } catch (error) {
+    logPaymentError('Refund', req, error);
     const statusCode = error.message === 'Payment not found' ? 404 : 400;
     res.status(statusCode).json({ error: error.message });
   }
