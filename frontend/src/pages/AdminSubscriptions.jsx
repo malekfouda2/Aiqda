@@ -137,7 +137,17 @@ function AdminSubscriptions() {
       };
 
       if (editingPackage) {
-        await subscriptionsAPI.updatePackage(editingPackage._id, data);
+        // Send only what this edit changed. The form's chapter list was loaded when
+        // the page opened; saving it whole would undo tiers set elsewhere since then.
+        const originalCourseIds = (editingPackage.courses || []).map((c) => (typeof c === 'object' ? c._id : c));
+        const { courses: selectedCourseIds, ...packageFields } = data;
+        await subscriptionsAPI.updatePackage(editingPackage._id, {
+          ...packageFields,
+          courseChanges: {
+            add: selectedCourseIds.filter((id) => !originalCourseIds.includes(id)),
+            remove: originalCourseIds.filter((id) => !selectedCourseIds.includes(id)),
+          },
+        });
         showSuccess('Package updated successfully');
       } else {
         await subscriptionsAPI.createPackage(data);

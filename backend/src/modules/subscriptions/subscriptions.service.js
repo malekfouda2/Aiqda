@@ -1,6 +1,7 @@
 import { Subscription, SubscriptionPackage } from './subscription.model.js';
 import User from '../users/user.model.js';
 import Payment from '../payments/payment.model.js';
+import Course from '../courses/course.model.js';
 import { refundSuccessfulPayment } from '../payments/payments.service.js';
 import { getSubscriptionCurrency, normalizeCurrency } from '../payments/tap.service.js';
 import { sendEmail } from '../../utils/email.js';
@@ -534,13 +535,65 @@ export const updatePackage = async (packageId, updates) => {
     throw new Error('Package not found');
   }
 
-  const payload = buildPackagePayload(updates, existingPackage);
+  // courseChanges carries only the chapters this edit added or removed, so a form
+  // opened earlier cannot overwrite tiers that were set on chapters since then.
+  const hasCourseChanges = updates.courseChanges && typeof updates.courseChanges === 'object';
+  const toIds = (value) => (Array.isArray(value) ? value : []).map((id) => id?.toString?.() || '').filter(Boolean);
+  const currentCourseIds = toIds(existingPackage.courses);
+  const addedCourseIds = hasCourseChanges ? toIds(updates.courseChanges.add) : [];
+  const removedCourseIds = hasCourseChanges
+    ? toIds(updates.courseChanges.remove)
+    : (Array.isArray(updates.courses)
+      ? currentCourseIds.filter((id) => !toIds(updates.courses).includes(id))
+      : []);
+
+  if (removedCourseIds.length > 0) {
+    const stillTiered = toIds(await SubscriptionPackage.find({
+      _id: { $ne: existingPackage._id },
+      courses: { $in: removedCourseIds },
+    }).distinct('courses'));
+    const orphaned = await Course.find({
+      _id: { $in: removedCourseIds.filter((id) => !stillTiered.includes(id)) },
+      isPublished: true,
+    }).select('title').lean();
+
+    if (orphaned.length > 0) {
+      throw new Error(
+        `Published chapters must stay in at least one tier: ${orphaned.map((course) => course.title).join(', ')}.`
+      );
+    }
+  }
+
+  const payload = buildPackagePayload(
+    hasCourseChanges ? { ...updates, courses: undefined } : updates,
+    existingPackage
+  );
   if (payload.includedPackages.includes(packageId.toString())) {
     throw new Error('A package cannot include itself.');
   }
 
+  if (hasCourseChanges) {
+    delete payload.courses;
+  }
+
   Object.assign(existingPackage, payload);
   await existingPackage.save();
+
+  if (hasCourseChanges) {
+    if (removedCourseIds.length > 0) {
+      await SubscriptionPackage.updateOne(
+        { _id: existingPackage._id },
+        { $pull: { courses: { $in: removedCourseIds } } }
+      );
+    }
+    if (addedCourseIds.length > 0) {
+      await SubscriptionPackage.updateOne(
+        { _id: existingPackage._id },
+        { $addToSet: { courses: { $each: addedCourseIds } } }
+      );
+    }
+  }
+
   return getPackageById(existingPackage._id);
 };
 

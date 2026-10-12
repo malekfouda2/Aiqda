@@ -5,6 +5,7 @@ import request from 'supertest';
 import { SubscriptionPackage } from '../src/modules/subscriptions/subscription.model.js';
 import {
   authHeader,
+  createCourse,
   createSubscriptionPackage,
   createUser,
   setupIntegrationSuite
@@ -147,4 +148,33 @@ test('chapters get no tier by default and cannot be published until one is chose
   const cleared = await setTiers([]);
   assert.equal(cleared.status, 400);
   assert.match(cleared.body.error, /must stay in at least one subscription tier/);
+});
+
+test('editing a package from a stale form keeps chapters that were tiered meanwhile', async () => {
+  const admin = await createUser({ role: 'admin' });
+  const existingChapter = await createCourse({ title: 'Already In Tier', isPublished: false });
+  const laterChapter = await createCourse({ title: 'Tiered Meanwhile' });
+  const formChapter = await createCourse({ title: 'Added In Form', isPublished: false });
+  const tier = await createSubscriptionPackage({ name: 'Stale Form Tier' });
+  await SubscriptionPackage.updateOne({ _id: tier._id }, { $set: { courses: [existingChapter._id] } });
+
+  // The admin opens the package form here, then a chapter gets this tier elsewhere.
+  await SubscriptionPackage.updateOne({ _id: tier._id }, { $addToSet: { courses: laterChapter._id } });
+
+  const save = (courseChanges) => request(suite.app)
+    .put(`/api/subscriptions/packages/${tier._id}`)
+    .set(authHeader(admin.token))
+    .send({ name: 'Stale Form Tier Renamed', courseChanges });
+
+  const saved = await save({ add: [formChapter._id.toString()], remove: [existingChapter._id.toString()] });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.name, 'Stale Form Tier Renamed');
+  assert.deepEqual(
+    saved.body.courses.map((course) => course.title).sort(),
+    ['Added In Form', 'Tiered Meanwhile']
+  );
+
+  const orphaning = await save({ add: [], remove: [laterChapter._id.toString()] });
+  assert.equal(orphaning.status, 400);
+  assert.match(orphaning.body.error, /Published chapters must stay in at least one tier: Tiered Meanwhile/);
 });
