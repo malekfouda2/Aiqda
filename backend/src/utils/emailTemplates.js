@@ -551,3 +551,22 @@ export const buildCreatorStatementFinalizedEmail = ({ fullName, periodLabel, tot
   ctaLabel: 'View My Statement',
   ctaUrl: `${getPublicBaseUrl()}/creator`,
 });
+
+export const buildCreatorPayoutSentEmail = ({ fullName, amountLabel, methodLabel, reference, remainingLabel }) => buildEmailTemplate({
+  subject: `Your Aiqda Payout of ${amountLabel} Has Been Sent`,
+  greeting: `Hello ${fullName},`,
+  headline: 'Your Payout Has Been Sent',
+  bodyLines: [
+    `We have sent you a payout of ${amountLabel}.`,
+    remainingLabel
+      ? `This is a partial payment. ${remainingLabel} of this payout is still to come.`
+      : 'This payout is now paid in full.',
+  ],
+  listItems: [
+    `Paid by: ${methodLabel}`,
+    ...(reference ? [`Transfer reference: ${reference}`] : []),
+  ],
+  ctaLabel: 'View My Statements',
+  ctaUrl: `${getPublicBaseUrl()}/creator`,
+  footerLines: ['Bank transfers can take a few working days to arrive.'],
+});

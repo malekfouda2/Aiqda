@@ -142,3 +142,44 @@ test('refunds in several parts reduce an approved earning by the right total', a
   assert.equal(voided.status, 'voided');
   assert.equal(voided.approvedMinor, 0);
 });
+
+test('recording a payment emails the creator, and a mail failure never undoes the payment', async () => {
+  const { buildCreatorPayoutSentEmail } = await import('../src/utils/emailTemplates.js');
+  const partial = buildCreatorPayoutSentEmail({
+    fullName: 'Layla', amountLabel: '100.00 SAR', methodLabel: 'Bank transfer', reference: 'TRX-1', remainingLabel: '49.70 SAR',
+  });
+  assert.equal(partial.subject, 'Your Aiqda Payout of 100.00 SAR Has Been Sent');
+  assert.match(partial.text, /partial payment\. 49\.70 SAR of this payout is still to come/);
+  assert.match(partial.text, /Transfer reference: TRX-1/);
+  const full = buildCreatorPayoutSentEmail({ fullName: 'Layla', amountLabel: '149.70 SAR', methodLabel: 'Cash', reference: '', remainingLabel: '' });
+  assert.match(full.text, /paid in full/);
+  assert.doesNotMatch(full.text, /Transfer reference/);
+
+  const { ins, course } = await setupEligible();
+  const earning = await InstructorEarning.findOne({ course: course._id });
+  await bulkUpdateEarnings([earning._id], 'approve');
+  const batch = await createBatch(ins.user._id, [earning._id]);
+  await approveBatch(batch._id);
+
+  // Break outgoing mail for this settlement (production with no sender configured):
+  // the payment must still be recorded.
+  const saved = { NODE_ENV: process.env.NODE_ENV, EMAIL_FROM: process.env.EMAIL_FROM, SMTP_USER: process.env.SMTP_USER };
+  process.env.NODE_ENV = 'production';
+  delete process.env.EMAIL_FROM;
+  delete process.env.SMTP_USER;
+  const logged = [];
+  const originalError = console.error;
+  console.error = (...args) => logged.push(args.join(' '));
+  let settled;
+  try {
+    settled = await settleBatch(batch._id, { paidAmount: null, settlementReference: 'TRX-2' });
+  } finally {
+    console.error = originalError;
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+  assert.ok(logged.some((line) => line.includes('Failed to send creator payout email')), logged.join(' | '));
+  assert.equal(settled.status, 'paid');
+  assert.equal((await InstructorEarning.findById(earning._id)).status, 'paid');
+});

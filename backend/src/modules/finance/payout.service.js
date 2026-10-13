@@ -6,6 +6,13 @@ import { syncMemberShares } from './shares.service.js';
 import { periodOf, hasPeriodEnded } from './finance.period.js';
 import { fromMinor } from './finance.money.js';
 import { notify } from '../notifications/notify.js';
+import User from '../users/user.model.js';
+import { sendEmail } from '../../utils/email.js';
+import { buildCreatorPayoutSentEmail } from '../../utils/emailTemplates.js';
+
+const SETTLEMENT_METHOD_LABELS = {
+  bank_transfer: 'Bank transfer', cash: 'Cash', wallet: 'Wallet', other: 'Other',
+};
 
 const ACTIVE_BATCH_STATUSES = ['draft', 'awaiting_approval', 'approved', 'processing_manually', 'partially_paid'];
 const PAYABLE_EARNING_STATUSES = ['approved_for_payout', 'partially_paid'];
@@ -227,6 +234,27 @@ export const settleBatch = async (batchId, {
     link: '/creator',
     metadata: { batchId: batch._id },
   });
+
+  // The email must never fail a settlement that is already recorded.
+  try {
+    const creator = await User.findById(batch.instructor).select('name email').lean();
+    if (creator?.email) {
+      const template = buildCreatorPayoutSentEmail({
+        fullName: creator.name || 'Creator',
+        amountLabel,
+        methodLabel: SETTLEMENT_METHOD_LABELS[settlementMethod] || 'Bank transfer',
+        reference: settlementReference,
+        remainingLabel: batch.totalRemainingMinor > 0
+          ? `${fromMinor(batch.totalRemainingMinor).toFixed(2)} ${batch.currency || 'SAR'}`
+          : '',
+      });
+      await sendEmail({
+        to: creator.email, subject: template.subject, text: template.text, html: template.html,
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send creator payout email:', error?.message || error);
+  }
   return batch;
 };
 
