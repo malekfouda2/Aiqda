@@ -182,6 +182,9 @@ export const financeAPI = {
   finalizeStatement: (instructorId, period, expectedTotal) => api.post(`/finance/statements/${instructorId}/${period}/finalize`, { expectedTotal }),
   reopenStatement: (instructorId, period) => api.post(`/finance/statements/${instructorId}/${period}/reopen`),
   getMyStatements: () => api.get('/finance/my-statements'),
+  getTodo: () => api.get('/finance/todo'),
+  finalizeAllStatements: (period, expectedTotal) => api.post('/finance/statements/finalize-all', { period, expectedTotal }),
+  getStatementChapterMembers: (instructorId, period, courseId) => api.get(`/finance/statements/${instructorId}/${period}/chapters/${courseId}/members`),
 };
 
 export const contactMessagesAPI = {

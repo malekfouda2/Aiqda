@@ -1,6 +1,7 @@
 import { generateEarningsForPayment } from './earnings.service.js';
 import { evaluateEligibilityForUserCourse } from './eligibility.service.js';
 import { handlePaymentReversal } from './recovery.service.js';
+import { syncMemberShares } from './shares.service.js';
 
 // Safe wrappers: finance side-effects must never break the core payment / progress flow.
 // Bindings are referenced lazily (inside the async body, not as init-time arguments) to avoid
@@ -22,3 +23,8 @@ export const onCourseProgressChanged = (userId, courseId) =>
 
 export const onPaymentReversed = (payment, options) =>
   runSafe('handleReversal', () => handlePaymentReversal(payment, options));
+
+// A member's payment is split over the chapters they are enrolled in, so enrolling in another
+// chapter changes the share of their wins that are not final yet.
+export const onEnrollmentChanged = (userId) =>
+  runSafe('syncMemberShares', () => syncMemberShares(userId));

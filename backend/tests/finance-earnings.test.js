@@ -335,3 +335,26 @@ test('legacy pending earnings created at payment time are removed and never bloc
   assert.equal(earnings[0].status, 'eligible');
   assert.equal(earnings[0].eligibleMinor, 14970);
 });
+
+test('enrolling in another chapter through the app re-splits the month immediately, on every screen', async () => {
+  const { default: request } = await import('supertest');
+  const { authHeader } = await import('./helpers/integration.js');
+  const { default: app } = await import('../src/app.js');
+  const { getOverview, queryEarnings } = await import('../src/modules/finance/financeReport.service.js');
+  const scenario = await setupScenario({ courseCount: 2 });
+  const { learner, courses } = scenario;
+  await pay(scenario, { amount: 1000 });
+  await enroll(learner, courses[0]);
+  await complete(learner, courses[0], 8);
+  assert.equal((await earningFor(learner, courses[0])).eligibleMinor, 30000);
+
+  const enrolled = await request(app).post(`/api/courses/${courses[1]._id}/enroll`).set(authHeader(learner.token));
+  assert.equal(enrolled.status, 200, JSON.stringify(enrolled.body));
+  assert.equal((await earningFor(learner, courses[0])).eligibleMinor, 15000);
+
+  // A stored amount that drifted is corrected before any report reads it.
+  await InstructorEarning.updateMany({}, { $set: { eligibleMinor: 99999 } });
+  assert.equal((await queryEarnings({}))[0].eligible, 150);
+  await InstructorEarning.updateMany({}, { $set: { eligibleMinor: 99999 } });
+  assert.equal((await getOverview()).eligibleInstructorLiability, 150);
+});

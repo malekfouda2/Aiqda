@@ -418,6 +418,17 @@ function RevenueStatements({ statements, formatNumber, formatDate, isRTL }) {
                 <div className="rounded-2xl bg-primary-50 px-4 py-2 text-right">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'الإيراد المعتمد' : 'Finalized revenue'}</p>
                   <p className="mt-1 text-lg font-semibold text-primary-700">{formatMoney(statement.total, isRTL)}</p>
+                  {statement.payment?.state === 'paid' && (
+                    <p className="mt-1 text-xs font-medium text-emerald-600">
+                      {isRTL ? 'تم الدفع في' : 'Paid on'} {formatDate(new Date(statement.payment.paidAt), { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                  {statement.payment?.state === 'partially_paid' && (
+                    <p className="mt-1 text-xs font-medium text-sky-600">{isRTL ? 'تم دفع جزء من المبلغ' : 'Partly paid'}</p>
+                  )}
+                  {['pending', 'approved'].includes(statement.payment?.state) && (
+                    <p className="mt-1 text-xs font-medium text-amber-600">{isRTL ? 'الدفع قيد الانتظار' : 'Payment pending'}</p>
+                  )}
                 </div>
               </div>
 

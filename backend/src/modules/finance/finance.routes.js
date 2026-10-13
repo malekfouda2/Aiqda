@@ -33,7 +33,10 @@ router.patch('/payout-batches/:id/approve', requireFinance(FINANCE_ACTIONS.APPRO
 router.patch('/payout-batches/:id/settle', requireFinance(FINANCE_ACTIONS.MARK_PAYOUTS_PAID), controller.settlePayoutBatch);
 router.patch('/payout-batches/:id/cancel', requireFinance(FINANCE_ACTIONS.CREATE_PAYOUT_BATCHES), controller.cancelPayoutBatch);
 
+router.get('/todo', requireFinance(FINANCE_ACTIONS.VIEW_DASHBOARD), controller.getTodo);
 router.get('/statements', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.getStatements);
+router.post('/statements/finalize-all', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.finalizeAllStatements);
+router.get('/statements/:instructorId/:period/chapters/:courseId/members', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.getStatementChapterWins);
 router.get('/statements/:instructorId/:period', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.getStatement);
 router.put('/statements/:instructorId/:period', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.saveStatement);
 router.post('/statements/:instructorId/:period/finalize', requireFinance(FINANCE_ACTIONS.MANAGE_STATEMENTS), controller.finalizeStatement);

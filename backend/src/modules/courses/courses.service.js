@@ -1,3 +1,4 @@
+import { onEnrollmentChanged } from '../finance/financeHooks.js';
 import Course from './course.model.js';
 import Lesson from '../lessons/lesson.model.js';
 import User from '../users/user.model.js';
@@ -533,6 +534,8 @@ export const enrollStudent = async (courseId, studentId, userRole = null) => {
     },
     { upsert: true, new: true }
   );
+
+  await onEnrollmentChanged(studentId);
 
   await notify.user(course.instructor, {
     type: 'chapter.new_enrollment',

@@ -460,3 +460,88 @@ test('end to end through the real endpoints: watching a second earns nothing, fi
   const analytics = await request(suite.app).get('/api/analytics/instructor').set(authHeader(creator.token));
   assert.doesNotMatch(JSON.stringify(analytics.body), /revenue/i);
 });
+
+test('guided flow: to-do list, finalize all, member drill-down and payment status through to paid', async () => {
+  const scenario = await setupCreator();
+  const { admin, creator, course } = scenario;
+  const quiet = await createUser({ role: 'instructor', name: 'Quiet Creator' });
+  await createCourse({ instructorId: quiet.user._id, isPublished: true, title: 'Empty Chapter' });
+  await addMember(scenario, { completed: 5, eligibleOn: lastMonthDate(), name: 'Drill Member' });
+  await addMember(scenario, { completed: 4, eligibleOn: lastMonthDate(), name: 'Second Member' });
+  const get = (url) => request(suite.app).get(url).set(authHeader(admin.token));
+  const post = (url, body = {}) => request(suite.app).post(url).set(authHeader(admin.token)).send(body);
+
+  let todo = (await get('/api/finance/todo')).body;
+  assert.deepEqual(todo.statementsToFinalize.map((item) => [item.period, item.creators]), [[LAST_PERIOD, 1]]);
+  assert.equal(todo.earningsToApprove.count, 2);
+  assert.equal(todo.earningsToApprove.total, 299.4);
+
+  // Member-level detail is for admins only.
+  const members = await get(`${statementUrl(creator, LAST_PERIOD)}/chapters/${course._id}/members`);
+  assert.equal(members.status, 200);
+  assert.deepEqual(members.body.map((row) => [row.member, row.amount, row.enrolledChapters, row.status]).sort(), [
+    ['Drill Member', 149.7, 1, 'eligible'], ['Second Member', 149.7, 1, 'eligible'],
+  ]);
+  const forbidden = await request(suite.app)
+    .get(`${statementUrl(creator, LAST_PERIOD)}/chapters/${course._id}/members`).set(authHeader(creator.token));
+  assert.equal(forbidden.status, 403);
+
+  // Finalize the whole month: a stale total is refused, creators with an empty month are skipped.
+  const stale = await post('/api/finance/statements/finalize-all', { period: LAST_PERIOD, expectedTotal: 1 });
+  assert.equal(stale.status, 400);
+  const tooEarly = await post('/api/finance/statements/finalize-all', { period: CURRENT_PERIOD, expectedTotal: 0 });
+  assert.equal(tooEarly.status, 400);
+  const all = await post('/api/finance/statements/finalize-all', { period: LAST_PERIOD, expectedTotal: 299.4 });
+  assert.equal(all.status, 200, JSON.stringify(all.body));
+  assert.deepEqual(
+    { finalized: all.body.finalized, skippedEmpty: all.body.skippedEmpty, failed: all.body.failed, total: all.body.total },
+    { finalized: 1, skippedEmpty: 1, failed: [], total: 299.4 },
+  );
+  assert.equal(await Notification.countDocuments({ recipient: quiet.user._id }), 0);
+  assert.equal(await Notification.countDocuments({ recipient: creator.user._id, type: 'creator_statement_finalized' }), 1);
+
+  todo = (await get('/api/finance/todo')).body;
+  assert.deepEqual(todo.statementsToFinalize, []);
+  let mine = (await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token))).body;
+  assert.deepEqual(mine[0].payment, { state: 'pending', paidAt: null });
+
+  // Step 2: approve the earnings and create the payout.
+  const earningIds = (await InstructorEarning.find({ instructor: creator.user._id })).map((e) => e._id.toString());
+  await request(suite.app).patch('/api/finance/earnings/bulk').set(authHeader(admin.token)).send({ earningIds, action: 'approve' });
+  todo = (await get('/api/finance/todo')).body;
+  assert.equal(todo.earningsToApprove.count, 0);
+  assert.deepEqual(todo.earningsToBatch, { count: 2, total: 299.4 });
+  const batch = await post('/api/finance/payout-batches', { instructor: creator.user._id.toString(), earningIds });
+  assert.equal(batch.status, 201);
+  todo = (await get('/api/finance/todo')).body;
+  assert.equal(todo.earningsToBatch.count, 0);
+  assert.deepEqual(todo.batchesToApprove, { count: 1, total: 299.4 });
+
+  // Step 3: approve, pay part, then the rest.
+  await request(suite.app).patch(`/api/finance/payout-batches/${batch.body._id}/approve`).set(authHeader(admin.token));
+  assert.deepEqual((await get('/api/finance/todo')).body.batchesToPay, { count: 1, total: 299.4 });
+  await request(suite.app).patch(`/api/finance/payout-batches/${batch.body._id}/settle`).set(authHeader(admin.token))
+    .send({ paidAmount: 100, settlementReference: 'TRX-9' });
+  mine = (await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token))).body;
+  assert.equal(mine[0].payment.state, 'partially_paid');
+  await request(suite.app).patch(`/api/finance/payout-batches/${batch.body._id}/settle`).set(authHeader(admin.token))
+    .send({ paidAmount: 199.4, settlementReference: 'TRX-10' });
+
+  mine = (await request(suite.app).get('/api/finance/my-statements').set(authHeader(creator.token))).body;
+  assert.equal(mine[0].payment.state, 'paid');
+  assert.ok(mine[0].payment.paidAt);
+  assert.deepEqual(Object.keys(mine[0].payment).sort(), ['paidAt', 'state']);
+  const adminView = (await get(statementUrl(creator, LAST_PERIOD))).body;
+  assert.deepEqual({ state: adminView.payment.state, due: adminView.payment.due, paid: adminView.payment.paid }, { state: 'paid', due: 299.4, paid: 299.4 });
+  const payoutNotes = await Notification.find({ recipient: creator.user._id, type: 'creator_payout_sent' }).lean();
+  assert.equal(payoutNotes.length, 2);
+  assert.match(payoutNotes[1].message, /199\.40 SAR \(reference TRX-10\)/);
+
+  todo = (await get('/api/finance/todo')).body;
+  assert.deepEqual(
+    [todo.statementsToFinalize.length, todo.statementsNeedingReview.length, todo.earningsToApprove.count, todo.earningsToBatch.count, todo.batchesToApprove.count, todo.batchesToPay.count],
+    [0, 0, 0, 0, 0, 0],
+  );
+  const batches = (await get('/api/finance/payout-batches')).body;
+  assert.deepEqual([batches[0].earningsCount, batches[0].periods], [2, [LAST_PERIOD]]);
+});

@@ -34,10 +34,7 @@ function DashboardSidebar({ type }) {
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
-    { to: '/admin/finance', icon: '💰', label: 'Finance', end: true },
-    { to: '/admin/finance/statements', icon: '📑', label: 'Statements' },
-    { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
-    { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
+    { to: '/admin/finance', icon: '💰', label: 'Finance' },
   ];
 
   const reviewerLinks = [
@@ -149,10 +146,7 @@ function DashboardMobileNav({ type }) {
     { to: '/admin/studio-applications', icon: '🎬', label: 'Studio Apps' },
     { to: '/admin/consultations', icon: '🎯', label: t('common.consultations') },
     { to: '/admin/consultation-bookings', icon: '📅', label: 'Consult Bookings' },
-    { to: '/admin/finance', icon: '💰', label: 'Finance', end: true },
-    { to: '/admin/finance/statements', icon: '📑', label: 'Statements' },
-    { to: '/admin/finance/earnings', icon: '🧾', label: 'Earnings' },
-    { to: '/admin/finance/payouts', icon: '🏦', label: 'Payouts' },
+    { to: '/admin/finance', icon: '💰', label: 'Finance' },
   ];
   const reviewerLinks = [
     { to: '/admin/creator-applications', icon: '🎓', label: 'Creator Applications', end: true },

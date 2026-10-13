@@ -114,3 +114,14 @@ export const syncMemberShares = async (userId) => {
   }
   return { updated };
 };
+
+// Bring every win whose amount can still move up to date. Run before any screen or report reads
+// stored amounts, so the overview, the earnings queue and the statements always agree.
+export const syncOpenShares = async () => {
+  const members = await InstructorEarning.distinct('user', {
+    status: { $in: ADJUSTABLE_STATUSES },
+    shareBasisLocked: { $ne: true },
+  });
+  for (const memberId of members) await syncMemberShares(memberId);
+  return { members: members.length };
+};

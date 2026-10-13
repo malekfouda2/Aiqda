@@ -4,6 +4,8 @@ import { toMinor } from './finance.money.js';
 import { recordFinanceAudit } from './audit.service.js';
 import { syncMemberShares } from './shares.service.js';
 import { periodOf, hasPeriodEnded } from './finance.period.js';
+import { fromMinor } from './finance.money.js';
+import { notify } from '../notifications/notify.js';
 
 const ACTIVE_BATCH_STATUSES = ['draft', 'awaiting_approval', 'approved', 'processing_manually', 'partially_paid'];
 const PAYABLE_EARNING_STATUSES = ['approved_for_payout', 'partially_paid'];
@@ -214,6 +216,17 @@ export const settleBatch = async (batchId, {
     targetId: batch._id,
     newState: { paidMinor: payNowMinor, status: batch.status },
   });
+
+  const amountLabel = `${fromMinor(payNowMinor).toFixed(2)} ${batch.currency || 'SAR'}`;
+  await notify.user(batch.instructor, {
+    type: 'creator_payout_sent',
+    title: 'Payout sent',
+    titleAr: 'تم إرسال دفعتك',
+    message: `We have sent you a payout of ${amountLabel}${settlementReference ? ` (reference ${settlementReference})` : ''}.`,
+    messageAr: `أرسلنا لك دفعة بقيمة ${amountLabel}${settlementReference ? ` (المرجع ${settlementReference})` : ''}.`,
+    link: '/creator',
+    metadata: { batchId: batch._id },
+  });
   return batch;
 };
 
@@ -242,8 +255,16 @@ export const cancelBatch = async (batchId, actor = null) => {
 export const listBatches = async (instructorId = null) => {
   const query = {};
   if (instructorId) query.instructor = instructorId;
-  return PayoutBatch.find(query)
+  const batches = await PayoutBatch.find(query)
     .populate('instructor', 'name email')
+    .populate('earnings', 'eligibilityAt')
     .sort({ createdAt: -1 })
     .lean();
+  // Which statement months each batch pays for, so the admin can match it to the statements.
+  return batches.map((batch) => ({
+    ...batch,
+    earningsCount: batch.earnings.length,
+    periods: [...new Set(batch.earnings.filter((e) => e.eligibilityAt).map((e) => periodOf(e.eligibilityAt)))].sort(),
+    earnings: batch.earnings.map((e) => e._id),
+  }));
 };

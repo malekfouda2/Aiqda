@@ -6,12 +6,15 @@ import { LessonProgress } from '../analytics/progress.model.js';
 import InstructorEarning from './instructorEarning.model.js';
 import ChapterEntitlement from './chapterEntitlement.model.js';
 import CreatorStatement from './creatorStatement.model.js';
+import PayoutBatch from './payoutBatch.model.js';
 import {
   toMinor, fromMinor, FULL_BPS, COMPLETION_THRESHOLD_BPS,
 } from './finance.money.js';
 import { recordFinanceAudit } from './audit.service.js';
-import { syncMemberShares } from './shares.service.js';
-import { parsePeriod, periodBounds, hasPeriodEnded } from './finance.period.js';
+import { syncMemberShares, syncOpenShares, WIN_STATUSES } from './shares.service.js';
+import {
+  parsePeriod, periodBounds, periodOf, hasPeriodEnded,
+} from './finance.period.js';
 import { notify } from '../notifications/notify.js';
 import { sendEmail } from '../../utils/email.js';
 import { buildCreatorStatementFinalizedEmail } from '../../utils/emailTemplates.js';
@@ -150,6 +153,44 @@ const computeHeldMinor = async (instructorId, period) => {
   return rows[0]?.heldMinor || 0;
 };
 
+// Where the actual payout of a creator's month stands. Payouts are recorded separately (earnings
+// queue and payout batches), so this is derived from the month's earnings, never stored.
+const computePaymentStatus = async (instructorId, period) => {
+  const { start, end } = periodBounds(period);
+  const earnings = await InstructorEarning.find({
+    instructor: instructorId,
+    eligibilityAt: { $gte: start, $lt: end },
+    status: { $nin: EXCLUDED_EARNING_STATUSES },
+  }).select('status eligibleMinor approvedMinor paidMinor payoutBatches').lean();
+
+  const dueMinor = earnings.reduce((acc, e) => acc + Math.max(e.eligibleMinor || 0, e.approvedMinor || 0), 0);
+  const paidMinor = earnings.reduce((acc, e) => acc + (e.paidMinor || 0), 0);
+  let state = 'nothing_due';
+  if (dueMinor > 0) {
+    if (paidMinor >= dueMinor) state = 'paid';
+    else if (paidMinor > 0) state = 'partially_paid';
+    else if (earnings.some((e) => e.status === 'approved_for_payout')) state = 'approved';
+    else state = 'pending';
+  }
+
+  let paidAt = null;
+  if (paidMinor > 0) {
+    const batch = await PayoutBatch.findOne({
+      _id: { $in: earnings.flatMap((e) => e.payoutBatches || []) },
+      settlementAt: { $ne: null },
+    }).sort({ settlementAt: -1 }).select('settlementAt').lean();
+    paidAt = batch?.settlementAt || null;
+  }
+  return { state, dueMinor, paidMinor, paidAt };
+};
+
+const serializePayment = (payment) => ({
+  state: payment.state,
+  due: fromMinor(payment.dueMinor),
+  paid: fromMinor(payment.paidMinor),
+  paidAt: payment.paidAt,
+});
+
 const applyOverrides = (chapters, overrides = []) => {
   const overrideByCourse = new Map(overrides.map((entry) => [toId(entry.course), entry.finalMinor]));
   return chapters.map((chapter) => ({
@@ -201,6 +242,8 @@ const buildAdminView = async (instructor, period, doc) => {
     calculationChanged,
     currentCalculatedTotal: fromMinor(liveCalculatedMinor),
     heldTotal: fromMinor(await computeHeldMinor(instructor._id, period)),
+    hasEdits: Boolean(doc?.overrides?.length || doc?.note),
+    payment: serializePayment(await computePaymentStatus(instructor._id, period)),
     chapters: chapters.map(serializeChapter),
     calculatedTotal: fromMinor(sumMinor(chapters, 'calculatedMinor')),
     finalTotal: fromMinor(sumMinor(chapters, 'finalMinor')),
@@ -437,8 +480,16 @@ export const listPublishedForInstructor = async (instructorId) => {
     .sort({ period: -1 })
     .lean();
 
+  const payments = new Map();
+  for (const doc of docs) {
+    const payment = await computePaymentStatus(instructorId, doc.period);
+    // Creators only learn whether and when they were paid, not the internal payout figures.
+    payments.set(doc.period, { state: payment.state, paidAt: payment.paidAt });
+  }
+
   return docs.map((doc) => ({
     period: doc.period,
+    payment: payments.get(doc.period),
     periodLabel: periodLabel(doc.period),
     periodLabelAr: periodLabel(doc.period, true),
     currency: doc.currency || 'SAR',
@@ -455,4 +506,167 @@ export const listPublishedForInstructor = async (instructorId) => {
       notYet: chapter.notYetCount,
     })),
   }));
+};
+
+// Admin-only drill-down: the member completions behind one chapter's amount in one month.
+export const listChapterWins = async (instructorId, period, courseId) => {
+  await findInstructor(instructorId);
+  if (!mongoose.isValidObjectId(courseId)) throw new Error('Chapter not found.');
+  const { start, end } = periodBounds(period);
+  const members = await InstructorEarning.distinct('user', {
+    instructor: instructorId, course: courseId, eligibilityAt: { $gte: start, $lt: end },
+  });
+  for (const memberId of members) await syncMemberShares(memberId);
+
+  const earnings = await InstructorEarning.find({
+    instructor: instructorId,
+    course: courseId,
+    eligibilityAt: { $gte: start, $lt: end },
+    status: { $nin: ['pending_completion'] },
+  })
+    .populate('user', 'name email')
+    .populate('financeTransaction', 'grossPaidMinor refundedMinor chargebackMinor paidAt')
+    .sort({ eligibilityAt: 1 })
+    .lean();
+
+  return earnings.map((earning) => ({
+    id: earning._id,
+    member: earning.user?.name || 'Deleted member',
+    email: earning.user?.email || '',
+    reachedAt: earning.eligibilityAt,
+    paymentAmount: fromMinor(earning.financeTransaction?.grossPaidMinor || 0),
+    paymentRefunded: fromMinor((earning.financeTransaction?.refundedMinor || 0) + (earning.financeTransaction?.chargebackMinor || 0)),
+    paymentDate: earning.financeTransaction?.paidAt || null,
+    enrolledChapters: earning.enrolledChaptersSnapshot || 1,
+    share: fromMinor(earning.maxPotentialMinor),
+    amount: fromMinor(['voided', 'reversed'].includes(earning.status) ? 0 : earning.eligibleMinor),
+    paid: fromMinor(earning.paidMinor),
+    status: earning.status,
+    counted: !EXCLUDED_EARNING_STATUSES.includes(earning.status),
+  }));
+};
+
+// Finalize every creator of a month that has something to report: revenue, or edits the admin
+// saved. Creators with an empty month are skipped so nobody is emailed a zero statement in bulk.
+// `expectedTotal` is the combined total the admin confirmed; if it no longer matches, nothing is finalized.
+export const finalizeAllStatements = async (period, actor = null, { expectedTotal = null } = {}) => {
+  if (!hasPeriodEnded(period)) {
+    throw new Error('A statement can only be finalized after its month has ended.');
+  }
+  const { statements } = await listStatements(period);
+  const candidates = statements.filter((statement) => (
+    statement.status !== 'finalized' && (statement.finalTotal > 0 || statement.calculatedTotal > 0 || statement.hasEdits)
+  ));
+  const combinedMinor = candidates.reduce((acc, statement) => acc + toMinor(statement.finalTotal), 0);
+  if (expectedTotal != null && toMinor(expectedTotal) !== combinedMinor) {
+    throw new Error('The figures for this month changed since you opened it. Review it again before finalizing.');
+  }
+
+  const finalized = [];
+  const failed = [];
+  for (const statement of candidates) {
+    try {
+      await finalizeStatement(statement.instructorId, period, actor, { expectedTotal: statement.finalTotal });
+      finalized.push(statement.instructorId);
+    } catch (error) {
+      failed.push({ instructorId: statement.instructorId, name: statement.name, error: error.message });
+    }
+  }
+  return {
+    finalized: finalized.length,
+    failed,
+    skippedEmpty: statements.filter((statement) => statement.status !== 'finalized').length - candidates.length,
+    total: fromMinor(combinedMinor),
+  };
+};
+
+// What is waiting for the admin across the whole finance flow, in the order the work is done:
+// finalize statements, approve earnings, approve and pay payout batches.
+export const getFinanceTodo = async () => {
+  await syncOpenShares();
+  const now = new Date();
+  const currentPeriodStart = periodBounds(periodOf(now)).start;
+
+  // 1. Ended months where a creator has revenue but no finalized statement, or a reopened one.
+  const wins = await InstructorEarning.aggregate([
+    {
+      $match: {
+        eligibilityAt: { $ne: null, $lt: currentPeriodStart },
+        status: { $in: WIN_STATUSES.filter((status) => status !== 'on_hold') },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          instructor: '$instructor',
+          period: { $dateToString: { format: '%Y-%m', date: '$eligibilityAt', timezone: '+03:00' } },
+        },
+      },
+    },
+  ]);
+  const statementDocs = await CreatorStatement.find({}).select('instructor period status published').lean();
+  const finalizedKeys = new Set(
+    statementDocs.filter((doc) => doc.status === 'finalized').map((doc) => `${toId(doc.instructor)}:${doc.period}`),
+  );
+  const waitingByPeriod = new Map();
+  const addWaiting = (period, instructorId) => {
+    if (!waitingByPeriod.has(period)) waitingByPeriod.set(period, new Set());
+    waitingByPeriod.get(period).add(instructorId);
+  };
+  for (const row of wins) {
+    const key = `${toId(row._id.instructor)}:${row._id.period}`;
+    if (!finalizedKeys.has(key)) addWaiting(row._id.period, toId(row._id.instructor));
+  }
+  for (const doc of statementDocs) {
+    if (doc.status === 'draft' && doc.published && hasPeriodEnded(doc.period, now)) {
+      addWaiting(doc.period, toId(doc.instructor));
+    }
+  }
+  const statementsToFinalize = [...waitingByPeriod.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, creators]) => ({ period, periodLabel: periodLabel(period), creators: creators.size }));
+
+  // 2. Finalized statements whose calculation moved afterwards (refund, chargeback, hold).
+  const statementsNeedingReview = [];
+  const recentFinalized = statementDocs
+    .filter((doc) => doc.status === 'finalized')
+    .sort((a, b) => b.period.localeCompare(a.period))
+    .slice(0, 60);
+  for (const doc of recentFinalized) {
+    const full = await CreatorStatement.findById(doc._id).lean();
+    const live = await computeChapters(doc.instructor, doc.period);
+    if (sumMinor(live, 'calculatedMinor') !== sumMinor(full.published.chapters, 'calculatedMinor')) {
+      const instructor = await User.findById(doc.instructor).select('name').lean();
+      statementsNeedingReview.push({
+        period: doc.period, periodLabel: periodLabel(doc.period), instructorId: toId(doc.instructor), name: instructor?.name || '',
+      });
+    }
+  }
+
+  // 3. Earnings of ended months that can be approved for payout.
+  const [approvable] = await InstructorEarning.aggregate([
+    { $match: { status: 'eligible', eligibilityAt: { $ne: null, $lt: currentPeriodStart } } },
+    { $group: { _id: null, count: { $sum: 1 }, totalMinor: { $sum: '$eligibleMinor' } } },
+  ]);
+
+  // 4. Approved earnings not yet in a payout batch, and batches waiting for approval or payment.
+  const activeBatches = await PayoutBatch.find({
+    status: { $in: ['draft', 'awaiting_approval', 'approved', 'processing_manually', 'partially_paid'] },
+  }).select('status totalRemainingMinor earnings').lean();
+  const batchedEarningIds = activeBatches.flatMap((batch) => batch.earnings || []);
+  const [unbatched] = await InstructorEarning.aggregate([
+    { $match: { status: 'approved_for_payout', _id: { $nin: batchedEarningIds } } },
+    { $group: { _id: null, count: { $sum: 1 }, totalMinor: { $sum: { $subtract: ['$approvedMinor', '$paidMinor'] } } } },
+  ]);
+  const toApprove = activeBatches.filter((batch) => ['draft', 'awaiting_approval'].includes(batch.status));
+  const toPay = activeBatches.filter((batch) => ['approved', 'processing_manually', 'partially_paid'].includes(batch.status));
+
+  return {
+    statementsToFinalize,
+    statementsNeedingReview,
+    earningsToApprove: { count: approvable?.count || 0, total: fromMinor(approvable?.totalMinor || 0) },
+    earningsToBatch: { count: unbatched?.count || 0, total: fromMinor(unbatched?.totalMinor || 0) },
+    batchesToApprove: { count: toApprove.length, total: fromMinor(toApprove.reduce((acc, b) => acc + (b.totalRemainingMinor || 0), 0)) },
+    batchesToPay: { count: toPay.length, total: fromMinor(toPay.reduce((acc, b) => acc + (b.totalRemainingMinor || 0), 0)) },
+  };
 };

@@ -3,6 +3,9 @@ import InstructorEarning from './instructorEarning.model.js';
 import User from '../users/user.model.js';
 import { fromMinor, applyBps, INSTRUCTOR_POOL_BPS, PLATFORM_BPS } from './finance.money.js';
 import { getSettingsDoc, getExpensesTotalMinor } from './financeSettings.service.js';
+import PayoutBatch from './payoutBatch.model.js';
+import { periodBounds, periodOf, hasPeriodEnded } from './finance.period.js';
+import { syncOpenShares } from './shares.service.js';
 
 const dateMatch = (from, to, field = 'createdAt') => {
   const clause = {};
@@ -15,6 +18,7 @@ const sumField = (rows, field) => rows.reduce((acc, r) => acc + (r[field] || 0),
 
 // High-level financial overview. All returned amounts are decimal SAR.
 export const getOverview = async ({ from = null, to = null } = {}) => {
+  await syncOpenShares();
   const txnMatch = { parentTransaction: null, ...dateMatch(from, to, 'paidAt') };
   const rootTxns = await FinanceTransaction.find(txnMatch).lean();
   const reversalTxns = await FinanceTransaction.find({
@@ -90,6 +94,7 @@ const summarizeEarnings = (rows) => ({
 });
 
 export const getRevenueByInstructor = async () => {
+  await syncOpenShares();
   const earnings = await InstructorEarning.find().lean();
   const byInstructor = new Map();
   for (const e of earnings) {
@@ -109,6 +114,7 @@ export const getRevenueByInstructor = async () => {
 };
 
 export const getInstructorProfile = async (instructorId) => {
+  await syncOpenShares();
   const earnings = await InstructorEarning.find({ instructor: instructorId })
     .populate('user', 'name email')
     .populate('course', 'title')
@@ -126,6 +132,7 @@ export const getInstructorProfile = async (instructorId) => {
       learner: e.user?.name || '',
       course: e.course?.title || '',
       paidAt: e.financeTransaction?.paidAt || e.createdAt,
+      amount: fromMinor(['voided', 'reversed'].includes(e.status) ? 0 : Math.max(e.eligibleMinor || 0, e.approvedMinor || 0)),
       maxPotential: fromMinor(e.maxPotentialMinor),
       allocationBps: e.allocationBpsSnapshot,
       completion: e.totalRequired > 0 ? Math.round((e.completedRequired / e.totalRequired) * 100) : 0,
@@ -140,6 +147,7 @@ export const getInstructorProfile = async (instructorId) => {
 
 // Earnings queue with filters.
 export const queryEarnings = async (filters = {}) => {
+  await syncOpenShares();
   const query = {};
   if (filters.instructor) query.instructor = filters.instructor;
   if (filters.course) query.course = filters.course;
@@ -148,6 +156,15 @@ export const queryEarnings = async (filters = {}) => {
   if (filters.paid === 'paid') query.paidMinor = { $gt: 0 };
   if (filters.paid === 'unpaid') query.paidMinor = { $lte: 0 };
   Object.assign(query, dateMatch(filters.from, filters.to, 'createdAt'));
+  if (filters.period) {
+    const { start, end } = periodBounds(filters.period);
+    query.eligibilityAt = { $gte: start, $lt: end };
+  }
+  // The earnings an admin can act on next: completed months, not yet approved.
+  if (filters.ready === 'true') {
+    query.status = 'eligible';
+    query.eligibilityAt = { $ne: null, $lt: periodBounds(periodOf(new Date())).start };
+  }
 
   let rows = await InstructorEarning.find(query)
     .populate('user', 'name email')
@@ -160,8 +177,20 @@ export const queryEarnings = async (filters = {}) => {
   if (filters.minAmount) rows = rows.filter((e) => fromMinor(e.maxPotentialMinor) >= Number(filters.minAmount));
   if (filters.maxAmount) rows = rows.filter((e) => fromMinor(e.maxPotentialMinor) <= Number(filters.maxAmount));
 
+  const activeBatches = await PayoutBatch.find({
+    earnings: { $in: rows.map((e) => e._id) },
+    status: { $in: ['draft', 'awaiting_approval', 'approved', 'processing_manually', 'partially_paid'] },
+  }).select('earnings').lean();
+  const batched = new Set(activeBatches.flatMap((batch) => batch.earnings.map((id) => id.toString())));
+
   return rows.map((e) => ({
     id: e._id,
+    period: e.eligibilityAt ? periodOf(e.eligibilityAt) : null,
+    reachedAt: e.eligibilityAt,
+    // The amount is final once the month of the completion has ended.
+    monthEnded: e.eligibilityAt ? hasPeriodEnded(periodOf(e.eligibilityAt)) : false,
+    inPayoutBatch: batched.has(e._id.toString()),
+    holdReason: e.holdReason || '',
     instructorId: e.instructor?._id || e.instructor,
     instructor: e.instructor?.name || '',
     learner: e.user?.name || '',

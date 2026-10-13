@@ -137,3 +137,19 @@ export const finalizeStatement = handle(async (req, res) => {
 export const reopenStatement = handle(async (req, res) => {
   res.json(await statement.reopenStatement(req.params.instructorId, req.params.period, req.user));
 });
+
+export const finalizeAllStatements = handle(async (req, res) => {
+  res.json(await statement.finalizeAllStatements(
+    req.body?.period,
+    req.user,
+    { expectedTotal: req.body?.expectedTotal ?? null },
+  ));
+});
+
+export const getStatementChapterWins = handle(async (req, res) => {
+  res.json(await statement.listChapterWins(req.params.instructorId, req.params.period, req.params.courseId));
+});
+
+export const getTodo = handle(async (req, res) => {
+  res.json(await statement.getFinanceTodo());
+});
