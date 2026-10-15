@@ -797,3 +797,30 @@ export const getVimeoAccountInfo = async (options = {}) => {
   setCachedVimeoAccountInfo(accountInfo);
   return accountInfo;
 };
+
+const vimeoThumbnailCache = new Map();
+const VIMEO_THUMBNAIL_TTL_MS = 6 * 60 * 60 * 1000;
+
+// Best-effort poster image for social link previews (og:image). Never throws:
+// returns null when Vimeo is not configured, slow, or the video is missing.
+export const getVimeoThumbnail = async (vimeoVideoId, { timeoutMs = 2500 } = {}) => {
+  const cleanId = String(vimeoVideoId || '').replace(/[^0-9]/g, '');
+  if (!cleanId || !getVimeoAccessToken()) return null;
+
+  const cached = vimeoThumbnailCache.get(cleanId);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+
+  try {
+    const data = await vimeoFetch(`/videos/${cleanId}?fields=pictures.sizes`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const sizes = data.pictures?.sizes || [];
+    const url = sizes.find((s) => s.width >= 1200)?.link
+      || sizes[sizes.length - 1]?.link
+      || null;
+    vimeoThumbnailCache.set(cleanId, { url, expiresAt: Date.now() + VIMEO_THUMBNAIL_TTL_MS });
+    return url;
+  } catch {
+    return null;
+  }
+};

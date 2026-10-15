@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { analyticsAPI, coursesAPI, lessonsAPI, subscriptionsAPI } from '../services/api';
 import useAuthStore from '../store/authStore';
 import useUIStore from '../store/uiStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
-import { getLocalizedField } from '../i18n/translations';
+import ShareButtons from '../components/ShareButtons';
+import { BRAND_NAMES, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import { getCourseJourney, getEntityId, getLessonProgressState } from '../utils/courseNavigation';
 
@@ -14,6 +15,7 @@ function CourseDetail() {
   const { locale, isRTL } = useLocale();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const { showSuccess, showError } = useUIStore();
   const [course, setCourse] = useState(null);
@@ -27,6 +29,12 @@ function CourseDetail() {
   useEffect(() => {
     fetchData();
   }, [id, user?._id]);
+
+  // Shared teaser links point at #creator-teaser; jump there once the chapter renders.
+  useEffect(() => {
+    if (loading || location.hash !== '#creator-teaser') return;
+    document.getElementById('creator-teaser')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, location.hash]);
 
   const courseJourney = useMemo(() => (
     getCourseJourney({
@@ -395,7 +403,8 @@ function CourseDetail() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="card mb-8"
+              className="card mb-8 scroll-mt-24"
+              id="creator-teaser"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="icon-box icon-box-primary w-10 h-10 text-lg">
@@ -416,6 +425,19 @@ function CourseDetail() {
                 vimeoVideoId={course.instructor.teaserVimeoVideoId}
                 embedUrl={course.instructor.teaserVimeoEmbedUrl}
               />
+              <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  {isRTL ? 'شارك هذا الفيديو' : 'Share this teaser'}
+                </p>
+                <ShareButtons
+                  url={`${window.location.origin}/chapters/${id}#creator-teaser`}
+                  title={getLocalizedField(course, 'title', locale)}
+                  text={isRTL
+                    ? `شاهد مقدمة ${course.instructor.name} لفصل "${getLocalizedField(course, 'title', locale)}" على ${BRAND_NAMES.ar}`
+                    : `Watch ${course.instructor.name}'s intro to "${getLocalizedField(course, 'title', locale)}" on Aiqda`}
+                  campaign="chapter_teaser"
+                />
+              </div>
             </motion.div>
           )}
 

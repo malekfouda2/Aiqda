@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -29,6 +30,7 @@ import whatsappSettingsRoutes from './modules/whatsapp-settings/whatsappSettings
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import searchRoutes from './modules/search/search.routes.js';
 import financeRoutes from './modules/finance/finance.routes.js';
+import { getShareMetaForPath, injectShareMeta, isShareablePath } from './utils/shareMeta.js';
 
 const app = express();
 
@@ -174,9 +176,28 @@ app.get('/api/health', (req, res) => {
 
 const frontendDist = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDist));
-app.get('/{*path}', (req, res, next) => {
+const frontendIndexPath = path.join(frontendDist, 'index.html');
+app.get('/{*path}', async (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
-  res.sendFile(path.join(frontendDist, 'index.html'));
+
+  // Shared creator/chapter links get Open Graph tags so social apps render a
+  // rich preview (title, description, teaser poster) instead of a bare URL.
+  if (isShareablePath(req.path)) {
+    try {
+      const meta = await getShareMetaForPath(req.path);
+      if (meta) {
+        const html = await fs.readFile(frontendIndexPath, 'utf8');
+        const origin = `${req.protocol}://${req.get('host')}`;
+        return res
+          .type('html')
+          .send(injectShareMeta(html, meta, { origin, url: `${origin}${req.path}` }));
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') console.error('Share meta render failed:', error.message);
+    }
+  }
+
+  res.sendFile(frontendIndexPath);
 });
 
 app.use((err, req, res, next) => {

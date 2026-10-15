@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { analyticsAPI, financeAPI } from '../services/api';
+import { analyticsAPI, financeAPI, usersAPI } from '../services/api';
+import useAuthStore from '../store/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import InfoTooltip from '../components/InfoTooltip';
+import ShareButtons from '../components/ShareButtons';
+import { BRAND_NAMES, getLocalizedField } from '../i18n/translations';
 import {
   pageVariants,
   fadeInUp,
@@ -11,6 +14,98 @@ import {
   cardVariants,
 } from '../utils/animations';
 import { useLocale } from '../i18n/useLocale';
+
+// Lets a creator share their teaser: by default the public creator page
+// (teaser + all their chapters), or a single chapter page scrolled to the teaser.
+function TeaserShareCard({ creatorId, isRTL, locale }) {
+  const [profile, setProfile] = useState(null);
+  const [target, setTarget] = useState('profile');
+
+  useEffect(() => {
+    if (!creatorId) return undefined;
+    let active = true;
+    usersAPI.getCreatorPublic(creatorId)
+      .then((response) => { if (active) setProfile(response.data); })
+      .catch(() => { if (active) setProfile(null); });
+    return () => { active = false; };
+  }, [creatorId]);
+
+  if (!profile) return null;
+
+  const { creator, chapters = [] } = profile;
+  const brand = isRTL ? BRAND_NAMES.ar : BRAND_NAMES.en;
+  const selectedChapter = chapters.find((chapter) => chapter._id === target);
+  const shareUrl = selectedChapter
+    ? `${window.location.origin}/chapters/${selectedChapter._id}#creator-teaser`
+    : `${window.location.origin}/creators/${creator._id}`;
+  const chapterTitle = selectedChapter ? getLocalizedField(selectedChapter, 'title', locale) : '';
+  const shareText = selectedChapter
+    ? (isRTL ? `شاهد مقدمتي لفصل "${chapterTitle}" على ${brand}` : `Watch my intro to "${chapterTitle}" on ${brand}`)
+    : (isRTL ? `تعرّف عليّ وشاهد فيديو التعريف الخاص بي على ${brand}` : `Meet me and watch my intro video on ${brand}`);
+
+  return (
+    <motion.section variants={fadeInUp} className="rounded-[28px] border border-slate-100 bg-white p-6 shadow-[0_20px_70px_-55px_rgba(15,23,42,0.35)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">{isRTL ? 'شارك فيديو التعريف' : 'Share Your Teaser'}</p>
+          <h3 className="mt-1 text-lg font-semibold text-slate-900">
+            {isRTL ? 'ادعُ جمهورك لمشاهدة مقدمتك' : 'Bring your audience to your intro video'}
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            {isRTL
+              ? 'يفتح الرابط صفحتك العامة مع فيديو التعريف وفصولك، مع معاينة غنية عند مشاركته.'
+              : 'The link opens your public page with your teaser and chapters, and shows a rich preview when shared.'}
+          </p>
+        </div>
+        {creator.teaserVimeoVideoId && (
+          <Link
+            to={selectedChapter ? `/chapters/${selectedChapter._id}#creator-teaser` : `/creators/${creator._id}`}
+            className="text-sm font-medium text-primary-600 hover:underline"
+          >
+            {isRTL ? 'معاينة الصفحة ←' : 'Preview page →'}
+          </Link>
+        )}
+      </div>
+
+      {creator.teaserVimeoVideoId ? (
+        <div className="mt-5 space-y-4">
+          {chapters.length > 0 && (
+            <label className="block max-w-md">
+              <span className="text-xs font-medium text-slate-500">{isRTL ? 'ماذا تريد أن تشارك؟' : 'What do you want to share?'}</span>
+              <select
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                className="input-field mt-1 w-full"
+              >
+                <option value="profile">{isRTL ? 'صفحتي العامة (كل الفصول)' : 'My creator page (all chapters)'}</option>
+                {chapters.map((chapter) => (
+                  <option key={chapter._id} value={chapter._id}>
+                    {(isRTL ? 'الفصل: ' : 'Chapter: ') + getLocalizedField(chapter, 'title', locale)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600 break-all" dir="ltr">
+            {shareUrl}
+          </div>
+          <ShareButtons
+            url={shareUrl}
+            title={selectedChapter ? chapterTitle : creator.name}
+            text={shareText}
+            campaign={selectedChapter ? 'chapter_teaser' : 'creator_teaser'}
+          />
+        </div>
+      ) : (
+        <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-500">
+          {isRTL
+            ? 'لم تتم إضافة فيديو التعريف الخاص بك بعد. تواصل مع الإدارة لإضافته، وبعدها ستظهر روابط المشاركة هنا.'
+            : "Your teaser video hasn't been added yet. Ask an admin to add it, and your share links will appear here."}
+        </p>
+      )}
+    </motion.section>
+  );
+}
 
 const clampPercentage = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
@@ -472,7 +567,8 @@ function RevenueStatements({ statements, formatNumber, formatDate, isRTL }) {
 }
 
 function InstructorDashboard() {
-  const { isRTL, formatDate, formatNumber } = useLocale();
+  const { isRTL, locale, formatDate, formatNumber } = useLocale();
+  const { user } = useAuthStore();
   const [analytics, setAnalytics] = useState(null);
   const [statements, setStatements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -622,6 +718,8 @@ function InstructorDashboard() {
           />
         </div>
       </motion.section>
+
+      <TeaserShareCard creatorId={user?._id} isRTL={isRTL} locale={locale} />
 
       <motion.section variants={fadeInUp} className="rounded-[28px] border border-slate-100 bg-white p-6 shadow-[0_20px_70px_-55px_rgba(15,23,42,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-3">

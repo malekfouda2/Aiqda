@@ -4,13 +4,16 @@ import { motion } from 'framer-motion';
 import { usersAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VimeoPlayer from '../components/VimeoPlayer';
-import { getLocalizedField } from '../i18n/translations';
+import ShareButtons from '../components/ShareButtons';
+import useAuthStore from '../store/authStore';
+import { BRAND_NAMES, getLocalizedField } from '../i18n/translations';
 import { useLocale } from '../i18n/useLocale';
 import { pageVariants, fadeInUp, staggerContainer, cardVariants } from '../utils/animations';
 
 function CreatorProfile() {
   const { locale, isRTL } = useLocale();
   const { id } = useParams();
+  const { user } = useAuthStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -75,9 +78,48 @@ function CreatorProfile() {
             embedUrl={creator.teaserVimeoEmbedUrl}
           />
         )}
+
+        {/* Visitors from a shared teaser link land here: give them a next step. */}
+        <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/70 to-cyan-50/70 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-gray-900">
+              {isRTL ? `تعلّم مع ${creator.name}` : `Learn with ${creator.name}`}
+            </p>
+            <p className="text-sm text-gray-500">
+              {user
+                ? (isRTL ? 'اختر فصلًا من الأسفل وابدأ رحلتك.' : 'Pick a chapter below and start your journey.')
+                : (isRTL
+                  ? `أنشئ حسابك على ${BRAND_NAMES.ar} للوصول إلى فصول ${creator.name} كاملة.`
+                  : `Create your ${BRAND_NAMES.en} account to unlock ${creator.name}'s full chapters.`)}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!user && (
+              <Link to="/register" className="btn-primary px-5 py-2.5 text-sm">
+                {isRTL ? 'انضم الآن' : 'Join now'}
+              </Link>
+            )}
+            <a href="#creator-chapters" className="btn-secondary px-5 py-2.5 text-sm">
+              {isRTL ? 'استعرض الفصول' : 'See chapters'}
+            </a>
+          </div>
+        </div>
+
+        {creator.teaserVimeoVideoId && (
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-gray-700">{isRTL ? 'شارك هذا الفيديو' : 'Share this teaser'}</p>
+            <ShareButtons
+              url={`${window.location.origin}/creators/${creator._id}`}
+              title={creator.name}
+              text={isRTL
+                ? `تعرّف على ${creator.name} على ${BRAND_NAMES.ar}`
+                : `Meet ${creator.name} on ${BRAND_NAMES.en}`}
+            />
+          </div>
+        )}
       </motion.div>
 
-      <motion.h2 variants={fadeInUp} className="text-xl font-semibold text-gray-900 mb-4">
+      <motion.h2 id="creator-chapters" variants={fadeInUp} className="text-xl font-semibold text-gray-900 mb-4 scroll-mt-24">
         {isRTL ? 'فصول هذا الصانع' : 'Chapters by this creator'}
       </motion.h2>
 
