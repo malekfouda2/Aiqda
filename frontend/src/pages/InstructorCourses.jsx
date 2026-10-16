@@ -744,7 +744,7 @@ function InstructorCourses() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">Description
-                      <InfoTooltip text="A short summary of what members will learn in this chapter. Shown on the chapter page." />
+                      <InfoTooltip text="A short summary of what members will develop in this chapter. Shown on the chapter page." />
                     </label>
                     <textarea value={courseForm.description} onChange={(e) => setCourseForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={3} required />
                   </div>
@@ -989,7 +989,7 @@ function InstructorCourses() {
                                       Description <span className="text-gray-400 font-normal">(optional)</span>
                                       <InfoTooltip text="A short summary of what this content covers. Shown under the content title. Optional — you can add or edit it later." />
                                     </label>
-                                    <textarea placeholder="What will members learn in this lesson?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
+                                    <textarea placeholder="What will members develop in this content?" value={lessonForm.description} onChange={(e) => setLessonForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={2} />
                                   </div>
                                 </div>
 

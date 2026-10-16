@@ -280,7 +280,7 @@ function ContactUs() {
                     <span>{isRTL ? '←' : '→'}</span>
                   </Link>
                   <Link to="/about" className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3 text-gray-700 hover:border-primary-200 hover:text-primary-600 transition-colors">
-                    <span>{isRTL ? `اعرف المزيد عن ${brandName}` : `Learn More About ${brandName}`}</span>
+                    <span>{isRTL ? `اعرف المزيد عن ${brandName}` : `Discover More About ${brandName}`}</span>
                     <span>{isRTL ? '←' : '→'}</span>
                   </Link>
                 </div>
