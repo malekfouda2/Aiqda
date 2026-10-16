@@ -83,7 +83,7 @@ function CreatorProfile() {
         <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/70 to-cyan-50/70 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-gray-900">
-              {isRTL ? `تعلّم مع ${creator.name}` : `Learn with ${creator.name}`}
+              {isRTL ? `تطوّر مع ${creator.name}` : `Develop with ${creator.name}`}
             </p>
             <p className="text-sm text-gray-500">
               {user
